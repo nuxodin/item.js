@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Test</title>
+    <script type="module" src="../item.js"></script>
+<body>
+<h1>Test</h1>
+<p>This is a test.</p>
+
+<script type=module>
+
+import { Item } from "../item.js";
+
+const x = new Item()
+x.data = 'Test';
+console.log( x.data === 'Test' )
+
+
+const y = new Item()
+y.data = {a:1, b:2};
+console.log( y.data.a.data )
+
+
+
+</script>
