@@ -1,4 +1,5 @@
 
+
 export class Item {
     constructor(parent, key){
         this.$parent = parent;
@@ -8,9 +9,9 @@ export class Item {
     set data(value){
         if (value !== Object(value)) {
             this.$data = value;
-        } else {
+        } else { // todo: better check if iterable
             if (this.$data == null) this.$data = {};
-            for (var key in value) {
+            for (const key in value) {
                 this.$data[key] = new this.constructor(this, key);
                 this.$data[key].data = value[key];
             }
@@ -19,8 +20,8 @@ export class Item {
     get data(){
         return this.$data;
     }
-
 }
+
 
 
 /*
