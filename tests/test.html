@@ -2,9 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
     <title>Test</title>
     <script type="module" src="../item.js"></script>
 <body>
+
 <h1>Test</h1>
 <p>This is a test.</p>
 
@@ -12,15 +14,29 @@
 
 import { Item } from "../item.js";
 
-const x = new Item()
-x.data = 'Test';
-console.log( x.data === 'Test' )
+const x = new Item();
+x.value = 'Test';
+console.log( x.value === 'Test' );
 
 
 const y = new Item()
-y.data = {a:1, b:2};
-console.log( y.data.a.data )
+y.value = {a:1, b:2};
+console.log( 'json:', JSON.stringify(y) );
+console.log( 'y.item(\'a\').value', y.item('a').value );
+console.log( 'y.item(\'c\').value', y.item('c').value );
+
+y.addEventListener('changein', (e) => {
+    console.log('change', e.detail)
+})
+y.item('c').value = 3;
+console.log( 'y.item(\'c\').value', y.item('c').value );
 
 
+import {localStorageInstance} from "../item.js";
+
+localStorageInstance.item('random').value = Math.random();
+localStorageInstance.item('random').addEventListener('change', (e) => {
+    console.log('change', e)
+})
 
 </script>
