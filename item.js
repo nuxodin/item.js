@@ -1,59 +1,72 @@
 
 
 export class Item extends EventTarget {
-    constructor(parent, key, value){
+
+    #value;
+    #parent;
+    #key;
+    #base;
+
+    constructor(value, parent, key){
         super();
-        this.parent = parent;
-        this.key = key;
-        this.base = parent === null ? this : parent;
-        this.$data = value;
+        this.#value = value;
+        this.#parent = parent;
+        this.#key = key;
+        this.#base = parent === null ? this : parent;
     }
-    get value(){
-        return this.$data;
-    }
+    get key(){ return this.#key }
+    get parent(){ return this.#parent }
+
+    //get silent(){ return this.#value; }
+    //set silent(value){ this.#value = value; }
+
+    get value(){ return this.#value; }
     set value(value){
         if (value !== Object(value)) {
-            if (this.$data !== value) {
+            if (this.#value !== value) {
 
                 const eventOptions = {detail: {
                     item: this,
-                    oldValue: this.$data,
+                    oldValue: this.#value,
                     newValue: value,
                 }};
                 this.dispatchEvent(new CustomEvent('change', eventOptions));
                 this.dispatchEventBubble(new CustomEvent('changein', eventOptions));
 
-                this.$data = value;
+                this.#value = value;
             }
         } else {
-            this.$data ??= {};
+            //this.#value ??= {};
             for (const key in value) {
-                //this.$data[key] = new this.constructor(this, key, value[key]);
+                //this.#value[key] = new this.constructor(value[key], this, key);
                 this.item(key).value = value[key];
             }
         }
     }
     item(key){
-        this.$data ??= {};
-        this.$data[key] ??= new this.constructor(this, key);
-        return this.$data[key];
+        this.#value ??= {};
+        this.#value[key] ??= new this.constructor(undefined, this, key);
+        return this.#value[key];
     }
 
     dispatchEventBubble(event){
         super.dispatchEvent(event);
-        if (this.parent != null) {
-            this.parent.dispatchEvent(event);
+        if (this.#parent != null) {
+            this.#parent.dispatchEvent(event);
         }
     }
-    toJSON() { return this.$data }
-    valueOf() { return this.$data }
+    toJSON() { return this.#value }
+    valueOf() { return this.#value }
     //then() { return this.value }
-    //toString() { return String(this.$data) }
+    //toString() { return String(this.#value) }
 }
 
 
 // localStorageItem example
 class localStorageItem extends Item {
+
+    #key;
+
     constructor(parent, key, value){
         if (parent == null) {
             addEventListener('storage', e => {
@@ -63,10 +76,10 @@ class localStorageItem extends Item {
         super(parent, key, value);
     }
     get value(){
-        return localStorage.getItem(this.key);
+        return localStorage.getItem(this.#key);
     }
     set value(value){
-        localStorage.setItem(this.key, value);
+        localStorage.setItem(this.#key, value);
     }
 }
 export const localStorageInstance = new localStorageItem(null);
@@ -77,33 +90,36 @@ export const localStorageInstance = new localStorageItem(null);
 
 /*
 export class BaseItem {
-    constructor(data){
-        $this.$data(data);
+
+    #value;
+
+    constructor(value){
+        this.value(value);
     }
-    set data(value){
-        this.$data = value;
+    set value(value){
+        this.#value = value;
     }
-    get data(){
-        return this.$data;
+    get value(){
+        return this.#value;
     }
 }
 
 
 export class Item extends BaseItem {
-    constructor(data, parent, key){
-        super(data);
-        this.parent = parent;
-        this.key = key;
-        this.base = parent === null ? this : parent;
+    constructor(value, parent, key){
+        super(value);
+        this.#parent = parent;
+        this.#key = key;
+        this.#base = parent === null ? this : parent;
     }
-    set data(value){
+    set value(value){
         if (value !== Object(value)) {
-            this.$data = value;
+            this.#value = value;
         } else {
-            if (this.$data == null) this.$data = {};
+            if (this.#value == null) this.#value = {};
             for (var key in value) {
-                this.$data[key] = new this.constructor(this, key);
-                this.$data[key].$data = value[key];
+                this.#value[key] = new this.constructor(this, key);
+                this.#value[key].#value = value[key];
             }
         }
     }
@@ -111,17 +127,17 @@ export class Item extends BaseItem {
 
 export class PathItem extends Item {
     static separator = '/';
-    constructor(data, parent, key){
-        super(data, parent, key);
+    constructor(value, parent, key){
+        super(value, parent, key);
     }
     get path() {
-        return this.parent.path + PathItem.separator + this.key;
+        return this.#parent.path + PathItem.separator + this.#key;
     }
 }
 
 export class EventedItem extends PathItem {
-    constructor(data, parent, key){
-        super(data, parent, key);
+    constructor(value, parent, key){
+        super(value, parent, key);
     }
     on(event, callback){
         if (this.$events == null) this.$events = {};
@@ -145,18 +161,18 @@ export class EventedItem extends PathItem {
 
 // items that can be syncted by a master
 export class SlaveItem extends EventedItem {
-    constructor(data, parent, key){
-        super(data, parent, key);
+    constructor(value, parent, key){
+        super(value, parent, key);
         this.pending = false;
         this.promiseChain = [];
     }
-    set data(value){
-        super.$data = value;
+    set value(value){
+        super.#value = value;
         this.emit('change', this);
     }
-    get data(){
+    get value(){
         this.emit('get', this);
-        return super.$data;
+        return super.#value;
     }
 }
 
@@ -165,10 +181,10 @@ export class SlaveItem extends EventedItem {
 export function proxify(item){
     var proxy = new Proxy(item, {
         get: function(target, property, receiver){
-            return target.$data[property];
+            return target.#value[property];
         },
         set: function(target, property, value, receiver){
-            target.$data[property] = value;
+            target.#value[property] = value;
             return true;
         }
     });
