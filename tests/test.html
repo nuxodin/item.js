@@ -12,31 +12,28 @@
 
 <script type=module>
 
-import { Item } from "../item.js";
+import {Item, localStorageInstance, restApi} from "../item.js";
 
-const x = new Item();
-x.value = 'Test';
-console.log( x.value === 'Test' );
-
-
-const y = new Item()
-y.value = {a:1, b:2};
-console.log( 'json:', JSON.stringify(y) );
-console.log( 'y.item(\'a\').value', y.item('a').value );
-console.log( 'y.item(\'c\').value', y.item('c').value );
-
-y.addEventListener('changein', (e) => {
-    console.log('change', e.detail)
-})
-y.item('c').value = 3;
-console.log( 'y.item(\'c\').value', y.item('c').value );
-
-
-import {localStorageInstance} from "../item.js";
-
+localStorageInstance.item('random').addEventListener('set', (e) => {
+    console.log('change localStorageItem', e.detail);
+});
+console.log(
+    localStorageInstance.item('random').value
+)
 localStorageInstance.item('random').value = Math.random();
-localStorageInstance.item('random').addEventListener('change', (e) => {
-    console.log('change', e)
-})
+
+
+
+
+const api = restApi('https://restcountries.com/v3.1');
+
+api.item('currency').item('chf').value.then(chf => {
+    console.log(chf)
+    setTimeout(() => {
+        api.item('currency').item('chf').value.then(chf => console.log(chf) );
+    }, 100);
+});
+
+
 
 </script>

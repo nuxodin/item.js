@@ -1,193 +1,182 @@
 
-
 export class Item extends EventTarget {
 
     #value;
     #parent;
     #key;
-    #base;
+    //#base;
 
     constructor(value, parent, key){
+        if (parent != null) {
+            if (!(parent instanceof Item)) throw new Error('parent must be an instance of Item') ;
+            if (!(typeof key === 'string')) throw new Error('key must be a string');
+        }
         super();
-        this.#value = value;
+        this.value = value;
         this.#parent = parent;
         this.#key = key;
-        this.#base = parent === null ? this : parent;
+        //this.#base = parent === null ? this : parent;
     }
     get key(){ return this.#key }
     get parent(){ return this.#parent }
 
-    //get silent(){ return this.#value; }
-    //set silent(value){ this.#value = value; }
+    get value(){
 
-    get value(){ return this.#value; }
+        const eventOptions = {detail: { item: this }};
+        this.dispatchEvent(new CustomEvent('get', eventOptions));
+        this.dispatchEventBubble(new CustomEvent('getIn', eventOptions));
+
+        if (this.constructor.isPrimitive(this.#value)) {
+            return this.#value;
+        } else {
+            const v = {};
+            for (const key in this.#value) {
+                v[key] = this.#value[key].value;
+            }
+            return v;
+        }
+
+    }
     set value(value){
-        if (value !== Object(value)) {
+
+        if (value instanceof Item) value = value.value;
+
+        //const isPrimitive = value !== Object(value) || 'toJSON' in value;
+
+        if (this.constructor.isPrimitive(value)) {
             if (this.#value !== value) {
 
-                const eventOptions = {detail: {
-                    item: this,
-                    oldValue: this.#value,
-                    newValue: value,
-                }};
-                this.dispatchEvent(new CustomEvent('change', eventOptions));
-                this.dispatchEventBubble(new CustomEvent('changein', eventOptions));
+                const eventOptions = {detail: { item: this, oldValue: this.#value, newValue: value }};
+                this.dispatchEvent(new CustomEvent('set', eventOptions));
+                this.dispatchEventBubble(new CustomEvent('setIn', eventOptions));
 
                 this.#value = value;
             }
         } else {
-            //this.#value ??= {};
-            for (const key in value) {
-                //this.#value[key] = new this.constructor(value[key], this, key);
+            for (const key of Object.keys(value)) {
                 this.item(key).value = value[key];
             }
         }
     }
     item(key){
-        this.#value ??= {};
+        //this.#value ??= {};
+        if (this.constructor.isPrimitive(this.#value)) this.#value = {};
         this.#value[key] ??= new this.constructor(undefined, this, key);
         return this.#value[key];
     }
 
     dispatchEventBubble(event){
-        super.dispatchEvent(event);
-        if (this.#parent != null) {
-            this.#parent.dispatchEvent(event);
-        }
+        this.dispatchEvent(event);
+        this.parent && this.parent.dispatchEventBubble(event);
     }
-    toJSON() { return this.#value }
-    valueOf() { return this.#value }
-    //then() { return this.value }
-    //toString() { return String(this.#value) }
+
+    toJSON() { return this.value }
+    valueOf() { return this.value }
+    then() { return this.value }
+    toString() { return String(this.value) }
+
+    // todo: i think is object would be better
+    // should it be at the instance level?
+    static isPrimitive(value){
+        return value !== Object(value) || 'toJSON' in value || value instanceof Promise;
+        // better like this? return value == null || primitives[typeof value] || 'toJSON' in value;
+    }
+
+
+
+    // path
+    static pathSeparator = '/';
+    // todo? should path look like "/a/b/c" or "a/b/c"?
+    // what if the key contains a slash?
+    get path() {
+        if (this.#parent == null) return '';
+        return this.#parent.path + this.constructor.pathSeparator + this.key;
+    }
+    get pathLevel() {
+        if (this.#parent == null) return 0;
+        return this.#parent.pathLevel + 1;
+    }
+
+
+}
+
+const proxyHandler = {
+    get: function(target, property, receiver){
+        if (typeof property === 'symbol') return Reflect.get(target, property, receiver);
+        if (property === '$item') return target;
+        const item = target.item(property);
+
+        // todo: accessing item.value here is not good, it will trigger a get event (E.g. fetch data)
+        if (item.constructor.isPrimitive(item.value)) {
+            return item.value;
+        } else {
+            return proxify(item);
+        }
+    },
+    set: function(target, property, value, receiver){
+        target.item(property).value = value;
+        return true;
+    }
+};
+export function proxify(item){
+    const proxy = new Proxy(item, proxyHandler);
+    return proxy;
 }
 
 
-// localStorageItem example
+// localStorageItem
+
 class localStorageItem extends Item {
 
-    #key;
-
-    constructor(parent, key, value){
+    constructor(value, parent, key){
+        super(value, parent, key);
         if (parent == null) {
             addEventListener('storage', e => {
                 this.item(e.key).value = e.newValue;
             });
-        }
-        super(parent, key, value);
-    }
-    get value(){
-        return localStorage.getItem(this.#key);
-    }
-    set value(value){
-        localStorage.setItem(this.#key, value);
-    }
-}
-export const localStorageInstance = new localStorageItem(null);
-
-
-
-
-
-/*
-export class BaseItem {
-
-    #value;
-
-    constructor(value){
-        this.value(value);
-    }
-    set value(value){
-        this.#value = value;
-    }
-    get value(){
-        return this.#value;
-    }
-}
-
-
-export class Item extends BaseItem {
-    constructor(value, parent, key){
-        super(value);
-        this.#parent = parent;
-        this.#key = key;
-        this.#base = parent === null ? this : parent;
-    }
-    set value(value){
-        if (value !== Object(value)) {
-            this.#value = value;
         } else {
-            if (this.#value == null) this.#value = {};
-            for (var key in value) {
-                this.#value[key] = new this.constructor(this, key);
-                this.#value[key].#value = value[key];
-            }
+            this.addEventListener('set', e => {
+                localStorage.setItem(this.key, e.detail.newValue);
+            });
+            this.addEventListener('get', e => {
+                this.value = localStorage.getItem(this.key);
+            });
         }
     }
 }
-
-export class PathItem extends Item {
-    static separator = '/';
-    constructor(value, parent, key){
-        super(value, parent, key);
-    }
-    get path() {
-        return this.#parent.path + PathItem.separator + this.#key;
-    }
-}
-
-export class EventedItem extends PathItem {
-    constructor(value, parent, key){
-        super(value, parent, key);
-    }
-    on(event, callback){
-        if (this.$events == null) this.$events = {};
-        if (this.$events[event] == null) this.$events[event] = [];
-        this.$events[event].push(callback);
-    }
-    off(event, callback){
-        if (this.$events == null) return;
-        if (this.$events[event] == null) return;
-        var index = this.$events[event].indexOf(callback);
-        if (index > -1) this.$events[event].splice(index, 1);
-    }
-    emit(event, ...args){
-        if (this.$events == null) return;
-        if (this.$events[event] == null) return;
-        for (var i = 0; i < this.$events[event].length; i++) {
-            this.$events[event][i].apply(this, args);
-        }
-    }
-}
-
-// items that can be syncted by a master
-export class SlaveItem extends EventedItem {
-    constructor(value, parent, key){
-        super(value, parent, key);
-        this.pending = false;
-        this.promiseChain = [];
-    }
-    set value(value){
-        super.#value = value;
-        this.emit('change', this);
-    }
-    get value(){
-        this.emit('get', this);
-        return super.#value;
-    }
-}
+export const localStorageInstance = new localStorageItem();
 
 
 
-export function proxify(item){
-    var proxy = new Proxy(item, {
-        get: function(target, property, receiver){
-            return target.#value[property];
-        },
-        set: function(target, property, value, receiver){
-            target.#value[property] = value;
-            return true;
-        }
+// restApi
+export function restApi(url, options){
+    const item = new Item();
+    item.addEventListener('setIn', e => {
+        // throw new Error('not implemented');
+        // item.getPromise = null; // bad, get is called inside set
+        console.log('setIn', e.detail.item.path);
     });
-    return proxy;
+    item.addEventListener('getIn', e => {
+        const item = e.detail.item;
+
+        if (item.getPromise) return; // already fetched or fetching
+
+        const headers = new Headers();
+        //headers.append('Content-Type', 'text/json');
+        if (options?.auth) {
+            const {username, password} = options.auth;
+            headers.append('Authorization', 'Basic' + base64.encode(username + ":" + password));
+        }
+
+        const promise = fetch(url + item.path, {headers}).then(response => {
+            const value = response.json();
+            item.value = value; // no more a promise, trigger setter to update?
+            return value;
+        });
+
+
+        item.value = promise;
+        item.getPromise = promise;
+    });
+    return item;
 }
-*/

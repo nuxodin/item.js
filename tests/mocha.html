@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Tests</title>
+    <meta name="viewport" content="width=device-width" />
+    <link rel="stylesheet" href="https://unpkg.com/mocha/mocha.css" />
+
+<body>
+    <div id="mocha"></div>
+
+    <script src="https://unpkg.com/chai/chai.js"></script>
+    <script src="https://unpkg.com/mocha/mocha.js"></script>
+
+    <script class="mocha-init">
+        mocha.setup('bdd');
+        mocha.checkLeaks();
+    </script>
+
+    <script type=module>
+    import {Item, proxify} from '../item.js';
+
+    describe('primitive value', () => {
+        it('access item.value', () => {
+            let item = new Item(22);
+            chai.expect(item.value).to.equal(22);
+        });
+        it('toString', () => {
+            let item = new Item(22);
+            chai.expect(item+'').to.equal('22');
+        });
+        it('valueOf', () => {
+            let item = new Item(22);
+            chai.expect(item+0).to.equal(22);
+        });
+        it('JSON.stringify', () => {
+            let item = new Item(22);
+            chai.expect(JSON.stringify(item)).to.equal('22');
+        });
+        it('.parent is undefined', () => {
+            let item = new Item(22);
+            chai.expect(item.parent).to.equal(undefined);
+        });
+        it('.key is undefined', () => {
+            let item = new Item(22);
+            chai.expect(item.key).to.equal(undefined);
+        });
+        it('change value', () => {
+            let item = new Item(22);
+            item.value = null;
+            chai.expect(item.value).to.equal(null);
+        });
+        it('assigning a other Item assigns its value', () => {
+            let item1 = new Item(22);
+            let item2 = new Item(2);
+            item1.value = item2;
+            chai.expect(item1.value).to.equal(2);
+        });
+        it('date is primitive', () => {
+            let date = new Date();
+            let item = new Item(date);
+            chai.expect(item.value).to.equal(date);
+        });
+    });
+
+    describe('object', () => {
+        let item = new Item({a:1, b:{b1:2, b2:3}});
+        let b = item.item('b');
+        let b2 = b.item('b2');
+
+        it('access value should return object', () => {
+            chai.expect(b.value).to.deep.equal({b1:2, b2:3});
+        });
+        it('as JSON object', () => {
+            chai.expect(JSON.stringify(b)).to.equal('{"b1":2,"b2":3}');
+        });
+        it('access value of nested item', () => {
+            chai.expect(b2.value).to.equal(3);
+        });
+        it('add a new property', () => {
+            b.item('c').value = 4;
+            chai.expect(b.item('c').value).to.equal(4);
+        });
+        it('path of item', () => {
+            chai.expect(b2.path).to.equal('/b/b2');
+        });
+        it('pathLevel of item', () => {
+            chai.expect(b2.pathLevel).to.equal(2);
+        });
+
+    });
+
+    describe('events', () => {
+        it('event.details.oldValue', done => {
+            let item = new Item(1);
+            item.addEventListener('set', e => {
+                chai.expect(e.detail.oldValue).to.equal(1);
+                done();
+            });
+            item.value = 2;
+        });
+        it('event.details.newValue', done => {
+            let item = new Item(1);
+            item.addEventListener('set', e => {
+                chai.expect(e.detail.newValue).to.equal(2);
+                done();
+            });
+            item.value = 2;
+        });
+        it('event.details.item', done => {
+            let item = new Item(1);
+            item.addEventListener('set', e => {
+                chai.expect(e.detail.item).to.equal(item);
+                done();
+            });
+            item.value = 2;
+        });
+        it('change deep property', done => {
+            let item = new Item({a:1, b:2});
+            item.addEventListener('setIn', e => {
+                chai.expect(e.detail.item.key).to.equal('a');
+                done();
+            });
+            item.item('a').value = 2;
+        });
+
+    })
+
+
+    describe('proxify', () => {
+        it('set and get deep item', () => {
+            let item = proxify(new Item({a:1, b:{b1:2}}));
+            item.b.b1 = 3;
+            chai.expect(item.b.b1).to.equal(3);
+        });
+        /*
+        it('try to proxify a non object should throw', () => {
+            let item = proxify(new Item(1));
+        });
+        */
+
+    })
+
+
+    </script>
+    <script class="mocha-exec" type=module>
+      mocha.run();
+    </script>
+</body>
+
+</html>
