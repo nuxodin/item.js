@@ -19,54 +19,59 @@
     </script>
 
     <script type=module>
-    import {Item, proxify} from '../item.js';
+    import {item, proxify} from '../item.js';
 
     describe('primitive value', () => {
         it('access item.value', () => {
-            let item = new Item(22);
-            chai.expect(item.value).to.equal(22);
+            let i = item(22);
+            chai.expect(i.value).to.equal(22);
         });
         it('toString', () => {
-            let item = new Item(22);
-            chai.expect(item+'').to.equal('22');
+            let i = item(22);
+            chai.expect(i+'').to.equal('22');
         });
         it('valueOf', () => {
-            let item = new Item(22);
-            chai.expect(item+0).to.equal(22);
+            let i = item(22);
+            chai.expect(i+0).to.equal(22);
         });
         it('JSON.stringify', () => {
-            let item = new Item(22);
-            chai.expect(JSON.stringify(item)).to.equal('22');
+            let i = item(22);
+            chai.expect(JSON.stringify(i)).to.equal('22');
+        });
+        it('await item (thenable)', async () => {
+            let i = item(22);
+            let value = await i;
+            chai.expect(value).to.equal(22);
         });
         it('.parent is undefined', () => {
-            let item = new Item(22);
-            chai.expect(item.parent).to.equal(undefined);
+            let i = item(22);
+            chai.expect(i.parent).to.equal(undefined);
         });
         it('.key is undefined', () => {
-            let item = new Item(22);
-            chai.expect(item.key).to.equal(undefined);
+            let i = item(22);
+            chai.expect(i.key).to.equal(undefined);
         });
         it('change value', () => {
-            let item = new Item(22);
-            item.value = null;
-            chai.expect(item.value).to.equal(null);
+            let i = item(22);
+            i.value = null;
+            chai.expect(i.value).to.equal(null);
         });
         it('assigning a other Item assigns its value', () => {
-            let item1 = new Item(22);
-            let item2 = new Item(2);
+            let item1 = item(22);
+            let item2 = item(2);
             item1.value = item2;
             chai.expect(item1.value).to.equal(2);
         });
         it('date is primitive', () => {
             let date = new Date();
-            let item = new Item(date);
-            chai.expect(item.value).to.equal(date);
+            let i = item(date);
+            chai.expect(i.value).to.equal(date);
         });
     });
 
     describe('object', () => {
-        let item = new Item({a:1, b:{b1:2, b2:3}});
-        let b = item.item('b');
+        let i = item({a:1, b:{b1:2, b2:3}});
+        let b = i.item('b');
         let b2 = b.item('b2');
 
         it('access value should return object', () => {
@@ -93,50 +98,57 @@
 
     describe('events', () => {
         it('event.details.oldValue', done => {
-            let item = new Item(1);
-            item.addEventListener('set', e => {
+            let i = item(1);
+            i.addEventListener('set', e => {
                 chai.expect(e.detail.oldValue).to.equal(1);
                 done();
             });
-            item.value = 2;
+            i.value = 2;
         });
         it('event.details.newValue', done => {
-            let item = new Item(1);
-            item.addEventListener('set', e => {
+            let i = item(1);
+            i.addEventListener('set', e => {
                 chai.expect(e.detail.newValue).to.equal(2);
                 done();
             });
-            item.value = 2;
+            i.value = 2;
         });
         it('event.details.item', done => {
-            let item = new Item(1);
-            item.addEventListener('set', e => {
-                chai.expect(e.detail.item).to.equal(item);
+            let i = item(1);
+            i.addEventListener('set', e => {
+                chai.expect(e.detail.item).to.equal(i);
                 done();
             });
-            item.value = 2;
+            i.value = 2;
         });
         it('change deep property', done => {
-            let item = new Item({a:1, b:2});
-            item.addEventListener('setIn', e => {
+            let i = item({a:1, b:2});
+            i.addEventListener('setIn', e => {
                 chai.expect(e.detail.item.key).to.equal('a');
                 done();
             });
-            item.item('a').value = 2;
+            i.item('a').value = 2;
         });
-
+        it('adding object triggers item changes of its items, adding the object does not trigger, is it a good behavoir?', done => {
+            let i = item();
+            i.addEventListener('setIn', e => {
+                chai.expect(e.detail.item.key).to.equal('a1');
+                done();
+            });
+            i.item('a').value = {a1:1};
+        });
     })
 
 
     describe('proxify', () => {
         it('set and get deep item', () => {
-            let item = proxify(new Item({a:1, b:{b1:2}}));
-            item.b.b1 = 3;
-            chai.expect(item.b.b1).to.equal(3);
+            let i = proxify(item({a:1, b:{b1:2}}));
+            i.b.b1 = 3;
+            chai.expect(i.b.b1).to.equal(3);
         });
         /*
         it('try to proxify a non object should throw', () => {
-            let item = proxify(new Item(1));
+            let i = proxify(item(1));
         });
         */
 

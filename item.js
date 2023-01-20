@@ -30,18 +30,14 @@ export class Item extends EventTarget {
             return this.#value;
         } else {
             const v = {};
-            for (const key in this.#value) {
-                v[key] = this.#value[key].value;
-            }
+            for (const key in this.#value) v[key] = this.#value[key].value;
             return v;
+            // return Object.fromEntries(Object.entries(this.#value).map(([key, {value}]) => [key, value])); // better?
         }
-
     }
     set value(value){
 
         if (value instanceof Item) value = value.value;
-
-        //const isPrimitive = value !== Object(value) || 'toJSON' in value;
 
         if (this.constructor.isPrimitive(value)) {
             if (this.#value !== value) {
@@ -60,7 +56,7 @@ export class Item extends EventTarget {
     }
     item(key){
         //this.#value ??= {};
-        if (this.constructor.isPrimitive(this.#value)) this.#value = {};
+        if (this.constructor.isPrimitive(this.#value)) this.#value = Object.create(null);
         this.#value[key] ??= new this.constructor(undefined, this, key);
         return this.#value[key];
     }
@@ -72,7 +68,7 @@ export class Item extends EventTarget {
 
     toJSON() { return this.value }
     valueOf() { return this.value }
-    then() { return this.value }
+    then(fn) { fn(this.value); }
     toString() { return String(this.value) }
 
     // todo: i think is object would be better
@@ -96,9 +92,9 @@ export class Item extends EventTarget {
         if (this.#parent == null) return 0;
         return this.#parent.pathLevel + 1;
     }
-
-
 }
+
+export const item = (...args) => new Item(...args);
 
 const proxyHandler = {
     get: function(target, property, receiver){
@@ -127,7 +123,6 @@ export function proxify(item){
 // localStorageItem
 
 class localStorageItem extends Item {
-
     constructor(value, parent, key){
         super(value, parent, key);
         if (parent == null) {
@@ -138,7 +133,7 @@ class localStorageItem extends Item {
             this.addEventListener('set', e => {
                 localStorage.setItem(this.key, e.detail.newValue);
             });
-            this.addEventListener('get', e => {
+            this.addEventListener('get', () => {
                 this.value = localStorage.getItem(this.key);
             });
         }
@@ -150,19 +145,18 @@ export const localStorageInstance = new localStorageItem();
 
 // restApi
 export function restApi(url, options){
-    const item = new Item();
-    item.addEventListener('setIn', e => {
+    const root = item();
+    root.addEventListener('setIn', e => {
         // throw new Error('not implemented');
         // item.getPromise = null; // bad, get is called inside set
         console.log('setIn', e.detail.item.path);
     });
-    item.addEventListener('getIn', e => {
+    root.addEventListener('getIn', e => {
         const item = e.detail.item;
 
         if (item.getPromise) return; // already fetched or fetching
 
         const headers = new Headers();
-        //headers.append('Content-Type', 'text/json');
         if (options?.auth) {
             const {username, password} = options.auth;
             headers.append('Authorization', 'Basic' + base64.encode(username + ":" + password));
@@ -178,5 +172,5 @@ export function restApi(url, options){
         item.value = promise;
         item.getPromise = promise;
     });
-    return item;
+    return root;
 }

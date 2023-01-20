@@ -12,7 +12,7 @@
 
 <script type=module>
 
-import {Item, localStorageInstance, restApi} from "../item.js";
+import {localStorageInstance, restApi} from "../item.js";
 
 localStorageInstance.item('random').addEventListener('set', (e) => {
     console.log('change localStorageItem', e.detail);
@@ -33,7 +33,6 @@ api.item('currency').item('chf').value.then(chf => {
         api.item('currency').item('chf').value.then(chf => console.log(chf) );
     }, 100);
 });
-
 
 
 </script>
