@@ -74,6 +74,9 @@
         let b = i.item('b');
         let b2 = b.item('b2');
 
+        it('parent of item', () => {
+            chai.expect(b2.parent).to.equal(b);
+        });
         it('access value should return object', () => {
             chai.expect(b.value).to.deep.equal({b1:2, b2:3});
         });
@@ -88,10 +91,19 @@
             chai.expect(b.item('c').value).to.equal(4);
         });
         it('path of item', () => {
-            chai.expect(b2.path).to.equal('/b/b2');
+            chai.expect(b2.path).to.equal('b/b2');
         });
         it('pathLevel of item', () => {
             chai.expect(b2.pathLevel).to.equal(2);
+        });
+        it('pathArray', () => {
+            chai.expect(b2.pathArray).to.deep.equal(['b', 'b2']);
+        });
+        it('pathArray of root', () => {
+            chai.expect(i.pathArray).to.deep.equal([]);
+        });
+        it('walkPathArray', () => {
+            chai.expect(i.walkPathArray(['b', 'b2']).value).to.equal(3);
         });
 
     });

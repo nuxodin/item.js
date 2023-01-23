@@ -86,8 +86,17 @@ export class Item extends EventTarget {
     // what if the key contains a slash?
     get path() {
         if (this.#parent == null) return '';
-        return this.#parent.path + this.constructor.pathSeparator + this.key;
+        return this.pathArray.join(this.constructor.pathSeparator);
     }
+    get pathArray() {
+        if (this.#parent == null) return [];
+        return [...this.#parent.pathArray, this.key];
+    }
+    walkPathArray(pathArray) {
+        if (pathArray.length === 0) return this;
+        return this.item(pathArray[0]).walkPathArray(pathArray.slice(1));
+    }
+
     get pathLevel() {
         if (this.#parent == null) return 0;
         return this.#parent.pathLevel + 1;
@@ -95,6 +104,38 @@ export class Item extends EventTarget {
 }
 
 export const item = (...args) => new Item(...args);
+
+
+
+// todo: signalize
+// const effects = [];
+// const disposes = new WeakMap;
+// const dispatch = effects => {
+//   for (const effect of new Set(effects)) effect();
+// };
+
+// let batches = effects;
+
+// export function signalize(){
+//     const item = new Item();
+//     item.effects = [];
+
+//     item.addEventListener('getIn', e => {
+//         const {item} = e.detail;
+//         const {length} = effects;
+//         if (length) item.effects.push(effects[length - 1]);
+//     });
+
+//     item.addEventListener('setIn', e => { // after setIn?
+//         const {item} = e.detail;
+//         if (item.effects.length) {
+//             if (batches === effects) dispatch(item.effects.splice(0));
+//             else batches.push(...item.effects.splice(0));
+//         }
+//     });
+// }
+
+
 
 const proxyHandler = {
     get: function(target, property, receiver){
@@ -142,6 +183,44 @@ class localStorageItem extends Item {
 export const localStorageInstance = new localStorageItem();
 
 
+// BroadcastChannel
+export function broadcastChannelItem(channelName, {init=null}={}) {
+    const channel = new BroadcastChannel(channelName);
+    const root = item();
+    root.addEventListener('setIn', e => {
+        const {item, newValue} = e.detail;
+        channel.postMessage({path: item.pathArray, newValue});
+    });
+
+    channel.postMessage({getInitial: true});
+
+    // now wait for the response and if it doesn't come, set the initial value
+    setTimeout(async () => {
+        if (init && root.value == null) {
+            const value = await init(); // request initial value
+            if (root.value == null) root.value = value; // if it's still null, set it
+        }
+    }, 1000);
+
+    channel.onmessage = e => {
+
+        if (e.data.getInitial) {
+            channel.postMessage({setInitial: root.value});
+            return;
+        }
+        if (e.data.setInitial) {
+            root.value = e.data.setInitial;
+            return;
+        }
+
+        const {path, newValue} = e.data;
+
+        root.walkPathArray(path).value = newValue;
+
+    };
+    return root;
+}
+
 
 // restApi
 export function restApi(url, options){
@@ -162,9 +241,9 @@ export function restApi(url, options){
             headers.append('Authorization', 'Basic' + base64.encode(username + ":" + password));
         }
 
-        const promise = fetch(url + item.path, {headers}).then(response => {
+        const promise = fetch(url + '/' + item.path, {headers}).then(response => {
             const value = response.json();
-            item.value = value; // no more a promise, trigger setter to update?
+            item.value = value; // no more a promise, trigger setter to update
             return value;
         });
 
@@ -174,3 +253,36 @@ export function restApi(url, options){
     });
     return root;
 }
+
+
+/* *
+export function denoFs(rootPath) {
+    const root = item();
+
+    const watcher = Deno.watchFs(rootPath);
+
+    for await (const event of watcher) {
+        // Example event: { kind: "create", paths: [ "/home/alice/deno/foo.txt" ] }
+        // get the path within the root
+        for (const path of event.paths) {
+            // get the path relative to the root
+            const relativePath = path.substring(rootPath.length + 1);
+            const pathArray = relativePath.split('/');
+            root.walkPathArray(pathArray).value = null; // trigger get, todo
+        }
+    }
+
+    root.addEventListener('setIn', e => {
+        const {item, newValue} = e.detail;
+        Deno.writeTextFile(rootPath + '/' + item.path, newValue);
+    });
+
+    root.addEventListener('getIn', e => {
+        const {item} = e.detail;
+        const value = Deno.readTextFile(rootPath + '/' + item.path); //  promise
+        item.value = value;
+    });
+
+    return root;
+}
+/* */
