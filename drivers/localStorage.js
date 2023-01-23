@@ -1,21 +1,18 @@
 import {Item} from '../item.js';
 
-let cached = null;
+let root = null; // cached
 export function localStorageItem(){
-    if (!cached) {
-        const root = new Item();
+    if (!root) {
+        root = new Item();
         addEventListener('storage', e => {
             root.item(e.key).value = e.newValue;
         });
         root.addEventListener('setIn', ({detail}) => {
-            const item = detail.item;
-            localStorage.setItem(item.key, detail.newValue);
+            localStorage.setItem(detail.item.key, detail.newValue);
         });
         root.addEventListener('getIn', ({detail}) => {
-            const item = detail.item;
-            item.value = localStorage.getItem(item.key);
+            detail.item.value = localStorage.getItem(detail.item.key);
         });
-        cached = root;
     }
-    return cached;
+    return root;
 }

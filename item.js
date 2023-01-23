@@ -18,11 +18,20 @@ export class Item extends EventTarget {
     get key(){ return this.#key }
     get parent(){ return this.#parent }
 
+    #setterForbiden = false;
+
     get value(){
 
+        this.#setterForbiden = true;
         const eventOptions = {detail: { item: this }};
         this.dispatchEvent(new CustomEvent('get', eventOptions));
         this.dispatchEventBubble(new CustomEvent('getIn', eventOptions));
+
+        if ('setValue' in eventOptions.detail) {
+            this.#value = eventOptions.detail.setValue;
+            this.#value;
+        }
+        this.#setterForbiden = false;
 
         if (this.constructor.isPrimitive(this.#value)) {
             return this.#value;
@@ -32,16 +41,19 @@ export class Item extends EventTarget {
     }
     set value(value){
 
+        if (this.#setterForbiden) throw new Error('cannot set value while getting it');
         if (value instanceof Item) value = value.value;
 
         if (this.constructor.isPrimitive(value)) {
             if (this.#value !== value) {
 
-                const eventOptions = {detail: { item: this, oldValue: this.#value, newValue: value }};
+                const oldValue = this.#value;
+                const eventOptions = {detail: { item: this, oldValue, newValue: value }};
                 this.dispatchEvent(new CustomEvent('set', eventOptions));
                 this.dispatchEventBubble(new CustomEvent('setIn', eventOptions));
 
                 this.#value = value;
+
             }
         } else {
             for (const key of Object.keys(value)) {
@@ -50,7 +62,6 @@ export class Item extends EventTarget {
         }
     }
     item(key){
-        //this.#value ??= {};
         if (this.constructor.isPrimitive(this.#value)) this.#value = Object.create(null);
         this.#value[key] ??= new this.constructor(undefined, this, key);
         return this.#value[key];
@@ -133,41 +144,6 @@ export const item = (...args) => new Item(...args);
 //     });
 // }
 
-export function attacheJsonSchema(root, schema){
-
-    root.addEventListener('setIn', e => {
-        const {item, newValue} = e.detail;
-
-        if (schema.type === 'object') {
-            if (typeof newValue !== 'object') throw new Error('value must be an object');
-            for (const [key, value] of Object.entries(newValue)) {
-                if (!schema.properties[key]) throw new Error(`property ${key} is not allowed`);
-                attacheJsonSchema(item.item(key), schema.properties[key]);
-            }
-        } else if (schema.type === 'array') {
-            if (!Array.isArray(newValue)) throw new Error('value must be an array');
-            for (const [index, value] of newValue.entries()) {
-                attacheJsonSchema(item.item(index), schema.items);
-            }
-        } else if (schema.type === 'string') {
-            if (typeof newValue !== 'string') throw new Error('value must be a string');
-        } else if (schema.type === 'number') {
-            if (typeof newValue !== 'number') throw new Error('value must be a number');
-        } else if (schema.type === 'boolean') {
-            if (typeof newValue !== 'boolean') throw new Error('value must be a boolean');
-        } else if (schema.type === 'null') {
-            if (newValue !== null) throw new Error('value must be null');
-        } else if (schema.type === 'any') {
-            // nothing
-        } else {
-            throw new Error('unknown type');
-        }
-
-
-    });
-
-
-}
 
 
 const proxyHandler = {
@@ -180,11 +156,11 @@ const proxyHandler = {
         if (item.constructor.isPrimitive(item.value)) {
             return item.value;
         } else {
-            return proxify(item);
+            return proxify(item); // todo: cache it?
         }
     },
     set: function(target, property, value, receiver){
-        //target.item(property).value = value;
+        target.item(property).value = value;
         return true;
     }
 };

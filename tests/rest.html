@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Test</title>
+<body>
+
+<h1>Test</h1>
+
+
+<script type=module>
+
+import {restApi} from "../drivers/rest.js";
+
+// rest api
+/*
+const api = restApi('https://restcountries.com/v3.1');
+api.item('currency').item('chf').value.then(chf => {
+    console.log(chf)
+    setTimeout(() => {
+        api.item('currency').item('chf').value.then(chf => console.log(chf) );
+    }, 100);
+});
+
+//api.item('currency').item('chf').value = 22;
+*/
+
+
+const api = restApi('https://reqres.in/api', {map: result => {
+    return Object.fromEntries(result.data.map(item => [item.id, item]));
+}});
+
+api.item('user').value.then(data => {
+    console.log(api.item('user'), data)
+});
+
+const user2 = api.item('user').item('2');
+
+user2.value.then(data => {
+    console.log(data)
+});
+
+user2.value = {
+    name: 'morpheus',
+    job: 'zion resident'
+};
+
+api.item('user').item('23').value.then(data => {
+    console.log(data)
+});
+
+
+</script>
