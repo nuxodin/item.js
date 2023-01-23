@@ -90,20 +90,20 @@
             b.item('c').value = 4;
             chai.expect(b.item('c').value).to.equal(4);
         });
-        it('path of item', () => {
-            chai.expect(b2.path).to.equal('b/b2');
+        it('path', () => {
+            chai.expect(b2.path).to.deep.equal([i,b,b2]);
         });
-        it('pathLevel of item', () => {
-            chai.expect(b2.pathLevel).to.equal(2);
+        it('pathKeys', () => {
+            chai.expect(b2.pathKeys).to.deep.equal(['b', 'b2']);
         });
-        it('pathArray', () => {
-            chai.expect(b2.pathArray).to.deep.equal(['b', 'b2']);
+        it('path as string of item', () => {
+            chai.expect(b2.pathString).to.equal('b/b2');
         });
-        it('pathArray of root', () => {
-            chai.expect(i.pathArray).to.deep.equal([]);
+        it('pathKeys of root', () => {
+            chai.expect(i.pathKeys).to.deep.equal([]);
         });
-        it('walkPathArray', () => {
-            chai.expect(i.walkPathArray(['b', 'b2']).value).to.equal(3);
+        it('walkPathKeys', () => {
+            chai.expect(i.walkPathKeys(['b', 'b2']).value).to.equal(3);
         });
 
     });

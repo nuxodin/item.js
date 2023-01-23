@@ -4,7 +4,6 @@ export class Item extends EventTarget {
     #value;
     #parent;
     #key;
-    //#base;
 
     constructor(value, parent, key){
         if (parent != null) {
@@ -15,7 +14,6 @@ export class Item extends EventTarget {
         this.value = value;
         this.#parent = parent;
         this.#key = key;
-        //this.#base = parent === null ? this : parent;
     }
     get key(){ return this.#key }
     get parent(){ return this.#parent }
@@ -29,10 +27,7 @@ export class Item extends EventTarget {
         if (this.constructor.isPrimitive(this.#value)) {
             return this.#value;
         } else {
-            const v = {};
-            for (const key in this.#value) v[key] = this.#value[key].value;
-            return v;
-            // return Object.fromEntries(Object.entries(this.#value).map(([key, {value}]) => [key, value])); // better?
+            return Object.fromEntries(Object.entries(this.#value).map(([key, {value}]) => [key, value]));
         }
     }
     set value(value){
@@ -79,28 +74,31 @@ export class Item extends EventTarget {
     }
 
 
-
     // path
+    get path() {
+        if (this.#parent == null) return [this];
+        return [...this.#parent.path, this];
+    }
+    get pathKeys() {
+        return this.path.slice(1).map(item => item.key);
+    }
+    walkPathKeys(keys) {
+        if (keys.length === 0) return this;
+        return this.item(keys[0]).walkPathKeys(keys.slice(1));
+    }
+
     static pathSeparator = '/';
     // todo? should path look like "/a/b/c" or "a/b/c"?
     // what if the key contains a slash?
-    get path() {
+    get pathString() {
         if (this.#parent == null) return '';
-        return this.pathArray.join(this.constructor.pathSeparator);
+        return this.pathKeys.join(this.constructor.pathSeparator);
     }
-    get pathArray() {
-        if (this.#parent == null) return [];
-        return [...this.#parent.pathArray, this.key];
-    }
-    walkPathArray(pathArray) {
-        if (pathArray.length === 0) return this;
-        return this.item(pathArray[0]).walkPathArray(pathArray.slice(1));
-    }
+    // get pathLevel() {
+    //     if (this.#parent == null) return 0;
+    //     return this.#parent.pathLevel + 1;
+    // }
 
-    get pathLevel() {
-        if (this.#parent == null) return 0;
-        return this.#parent.pathLevel + 1;
-    }
 }
 
 export const item = (...args) => new Item(...args);
@@ -135,6 +133,41 @@ export const item = (...args) => new Item(...args);
 //     });
 // }
 
+export function attacheJsonSchema(root, schema){
+
+    root.addEventListener('setIn', e => {
+        const {item, newValue} = e.detail;
+
+        if (schema.type === 'object') {
+            if (typeof newValue !== 'object') throw new Error('value must be an object');
+            for (const [key, value] of Object.entries(newValue)) {
+                if (!schema.properties[key]) throw new Error(`property ${key} is not allowed`);
+                attacheJsonSchema(item.item(key), schema.properties[key]);
+            }
+        } else if (schema.type === 'array') {
+            if (!Array.isArray(newValue)) throw new Error('value must be an array');
+            for (const [index, value] of newValue.entries()) {
+                attacheJsonSchema(item.item(index), schema.items);
+            }
+        } else if (schema.type === 'string') {
+            if (typeof newValue !== 'string') throw new Error('value must be a string');
+        } else if (schema.type === 'number') {
+            if (typeof newValue !== 'number') throw new Error('value must be a number');
+        } else if (schema.type === 'boolean') {
+            if (typeof newValue !== 'boolean') throw new Error('value must be a boolean');
+        } else if (schema.type === 'null') {
+            if (newValue !== null) throw new Error('value must be null');
+        } else if (schema.type === 'any') {
+            // nothing
+        } else {
+            throw new Error('unknown type');
+        }
+
+
+    });
+
+
+}
 
 
 const proxyHandler = {
@@ -151,7 +184,7 @@ const proxyHandler = {
         }
     },
     set: function(target, property, value, receiver){
-        target.item(property).value = value;
+        //target.item(property).value = value;
         return true;
     }
 };
@@ -161,98 +194,8 @@ export function proxify(item){
 }
 
 
-// localStorageItem
-
-class localStorageItem extends Item {
-    constructor(value, parent, key){
-        super(value, parent, key);
-        if (parent == null) {
-            addEventListener('storage', e => {
-                this.item(e.key).value = e.newValue;
-            });
-        } else {
-            this.addEventListener('set', e => {
-                localStorage.setItem(this.key, e.detail.newValue);
-            });
-            this.addEventListener('get', () => {
-                this.value = localStorage.getItem(this.key);
-            });
-        }
-    }
-}
-export const localStorageInstance = new localStorageItem();
 
 
-// BroadcastChannel
-export function broadcastChannelItem(channelName, {init=null}={}) {
-    const channel = new BroadcastChannel(channelName);
-    const root = item();
-    root.addEventListener('setIn', e => {
-        const {item, newValue} = e.detail;
-        channel.postMessage({path: item.pathArray, newValue});
-    });
-
-    channel.postMessage({getInitial: true});
-
-    // now wait for the response and if it doesn't come, set the initial value
-    setTimeout(async () => {
-        if (init && root.value == null) {
-            const value = await init(); // request initial value
-            if (root.value == null) root.value = value; // if it's still null, set it
-        }
-    }, 1000);
-
-    channel.onmessage = e => {
-
-        if (e.data.getInitial) {
-            channel.postMessage({setInitial: root.value});
-            return;
-        }
-        if (e.data.setInitial) {
-            root.value = e.data.setInitial;
-            return;
-        }
-
-        const {path, newValue} = e.data;
-
-        root.walkPathArray(path).value = newValue;
-
-    };
-    return root;
-}
-
-
-// restApi
-export function restApi(url, options){
-    const root = item();
-    root.addEventListener('setIn', e => {
-        // throw new Error('not implemented');
-        // item.getPromise = null; // bad, get is called inside set
-        console.log('setIn', e.detail.item.path);
-    });
-    root.addEventListener('getIn', e => {
-        const item = e.detail.item;
-
-        if (item.getPromise) return; // already fetched or fetching
-
-        const headers = new Headers();
-        if (options?.auth) {
-            const {username, password} = options.auth;
-            headers.append('Authorization', 'Basic' + base64.encode(username + ":" + password));
-        }
-
-        const promise = fetch(url + '/' + item.path, {headers}).then(response => {
-            const value = response.json();
-            item.value = value; // no more a promise, trigger setter to update
-            return value;
-        });
-
-
-        item.value = promise;
-        item.getPromise = promise;
-    });
-    return root;
-}
 
 
 /* *

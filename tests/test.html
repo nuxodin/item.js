@@ -9,25 +9,12 @@
 
 <h1>Test</h1>
 
-<label>
-    synced using broadcast channel:<br>
-    <input type="text" value="test" id="bcItemInput" oninput="bcItem.item('input').value = this.value">
-</label>
-
 
 <script type=module>
 
 // local storage
 
-import {localStorageInstance, restApi, broadcastChannelItem} from "../item.js";
-
-localStorageInstance.item('random').addEventListener('set', (e) => {
-    console.log('change localStorageItem', e.detail);
-});
-console.log(
-    localStorageInstance.item('random').value
-)
-localStorageInstance.item('random').value = Math.random();
+import {restApi, attacheJsonSchema} from "../item.js";
 
 
 
@@ -42,10 +29,31 @@ api.item('currency').item('chf').value.then(chf => {
 });
 
 
-// broadcast channel
-window.bcItem = broadcastChannelItem('testx');
-bcItem.item('input').addEventListener('set', (e) => {
-    bcItemInput.value = e.detail.newValue;
+
+const item = item('test');
+attacheJsonSchema(item, {
+    type: 'number',
+    minimum: 0,
+    maximum: 100,
+    multipleOf: 2,
+    default: 0,
+    examples: [0, 2, 4, 6, 8, 10],
+    enum: [0, 2, 4, 6, 8, 10],
+    title: 'test',
+    description: 'test',
+    readOnly: false,
+    writeOnly: false,
+    nullable: false,
+    deprecated: false,
+    required: true,
+    format: 'int32',
+    pattern: '^[0-9]+$',
+    minLength: 1,
+    maxLength: 2,
+    minItems: 1,
+    maxItems: 2,
 });
+
+item.value = 'test';
 
 </script>
