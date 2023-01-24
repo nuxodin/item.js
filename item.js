@@ -110,6 +110,19 @@ export class Item extends EventTarget {
     //     return this.#parent.pathLevel + 1;
     // }
 
+
+
+    // promise
+    // setPromise(promise){
+    //     this.#value = promise;
+    //     promise.then(value => {
+    //         if (this.#value !== promise) return; // if the promise has been replaced
+    //         const eventOptions = {detail: { item: this, oldValue, newValue: value }};
+    //         this.dispatchEvent(new CustomEvent('set', eventOptions));
+    //         this.dispatchEventBubble(new CustomEvent('setIn', eventOptions));
+    //     });
+    // }
+
 }
 
 export const item = (...args) => new Item(...args);
