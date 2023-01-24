@@ -34,13 +34,14 @@ export function restApi(url, options){
         const {promise} = item.getRequest;
 
         promise.then(value => { // cache the promise for 1 seconds
-            item.value = options?.map?.(value) || value;
             setTimeout(() => {
                 item.getRequest = null;
             }, 1000);
         });
         e.detail.setValue = promise; // silintly set the value, no event
     });
+
+
 
 
     function itemRequest(item, method, body){
@@ -66,6 +67,8 @@ export function restApi(url, options){
         });
         return {controller,promise};
     }
+
+
 
     return root;
 }

@@ -117,32 +117,6 @@ export const item = (...args) => new Item(...args);
 
 
 // todo: signalize
-// const effects = [];
-// const disposes = new WeakMap;
-// const dispatch = effects => {
-//   for (const effect of new Set(effects)) effect();
-// };
-
-// let batches = effects;
-
-// export function signalize(){
-//     const item = new Item();
-//     item.effects = [];
-
-//     item.addEventListener('getIn', e => {
-//         const {item} = e.detail;
-//         const {length} = effects;
-//         if (length) item.effects.push(effects[length - 1]);
-//     });
-
-//     item.addEventListener('setIn', e => { // after setIn?
-//         const {item} = e.detail;
-//         if (item.effects.length) {
-//             if (batches === effects) dispatch(item.effects.splice(0));
-//             else batches.push(...item.effects.splice(0));
-//         }
-//     });
-// }
 
 
 
