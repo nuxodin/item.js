@@ -1,5 +1,5 @@
 
-export class Item extends EventTarget {
+class Item extends EventTarget {
 
     #value;
     #parent;
@@ -26,12 +26,12 @@ export class Item extends EventTarget {
         const eventOptions = {detail: { item: this }};
         this.dispatchEvent(new CustomEvent('get', eventOptions));
         this.dispatchEventBubble(new CustomEvent('getIn', eventOptions));
+        this.#setterForbiden = false;
 
         if ('setValue' in eventOptions.detail) {
             this.#value = eventOptions.detail.setValue;
             this.#value;
         }
-        this.#setterForbiden = false;
 
         if (this.constructor.isPrimitive(this.#value)) {
             return this.#value;
@@ -44,17 +44,15 @@ export class Item extends EventTarget {
         if (this.#setterForbiden) throw new Error('cannot set value while getting it');
         if (value instanceof Item) value = value.value;
 
+        if (this.#value === value) return;
+
+        const oldValue = this.#value;
+        const eventOptions = {detail: { item: this, oldValue, newValue: value }};
+        this.dispatchEvent(new CustomEvent('set', eventOptions));
+        this.dispatchEventBubble(new CustomEvent('setIn', eventOptions));
+
         if (this.constructor.isPrimitive(value)) {
-            if (this.#value !== value) {
-
-                const oldValue = this.#value;
-                const eventOptions = {detail: { item: this, oldValue, newValue: value }};
-                this.dispatchEvent(new CustomEvent('set', eventOptions));
-                this.dispatchEventBubble(new CustomEvent('setIn', eventOptions));
-
-                this.#value = value;
-
-            }
+            if (this.#value !== value) this.#value = value;
         } else {
             for (const key of Object.keys(value)) {
                 this.item(key).value = value[key];
@@ -112,11 +110,12 @@ export class Item extends EventTarget {
 
 
 
-    // promise
+    // promise to trigger "set" when it gets fullfilled?
     // setPromise(promise){
     //     this.#value = promise;
     //     promise.then(value => {
     //         if (this.#value !== promise) return; // if the promise has been replaced
+    //         const oldValue = this.#value;
     //         const eventOptions = {detail: { item: this, oldValue, newValue: value }};
     //         this.dispatchEvent(new CustomEvent('set', eventOptions));
     //         this.dispatchEventBubble(new CustomEvent('setIn', eventOptions));
@@ -155,40 +154,3 @@ export function proxify(item){
     const proxy = new Proxy(item, proxyHandler);
     return proxy;
 }
-
-
-
-
-
-
-/* *
-export function denoFs(rootPath) {
-    const root = item();
-
-    const watcher = Deno.watchFs(rootPath);
-
-    for await (const event of watcher) {
-        // Example event: { kind: "create", paths: [ "/home/alice/deno/foo.txt" ] }
-        // get the path within the root
-        for (const path of event.paths) {
-            // get the path relative to the root
-            const relativePath = path.substring(rootPath.length + 1);
-            const pathArray = relativePath.split('/');
-            root.walkPathArray(pathArray).value = null; // trigger get, todo
-        }
-    }
-
-    root.addEventListener('setIn', e => {
-        const {item, newValue} = e.detail;
-        Deno.writeTextFile(rootPath + '/' + item.path, newValue);
-    });
-
-    root.addEventListener('getIn', e => {
-        const {item} = e.detail;
-        const value = Deno.readTextFile(rootPath + '/' + item.path); //  promise
-        item.value = value;
-    });
-
-    return root;
-}
-/* */

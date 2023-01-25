@@ -1,10 +1,10 @@
-import {Item} from '../item.js';
+import {item} from '../item.js';
 
 let root = null; // cached
 export function cookieItem(){
     if (!root) {
 
-        root = new Item();
+        root = item();
 
         cookieStore.addEventListener('change', e => { // todo: if two windows open, this will trigger twice
             e.changed.forEach(c => {

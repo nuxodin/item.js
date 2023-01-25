@@ -141,15 +141,7 @@
             });
             i.item('a').value = 2;
         });
-        it('adding object triggers item changes of its items, adding the object does not trigger, is it a good behavoir?', done => {
-            let i = item();
-            i.addEventListener('setIn', e => {
-                chai.expect(e.detail.item.key).to.equal('a1');
-                done();
-            });
-            i.item('a').value = {a1:1};
-        });
-    })
+    });
 
 
     describe('proxify', () => {

@@ -12,37 +12,52 @@
 
 <script type=module>
 
-// local storage
 
-import {attacheJsonSchema} from "../item.js";
-
-
+import {item} from "../item.js";
+import {dump} from 'https://cdn.jsdelivr.net/gh/nuxodin/dump.js@1.2.1/mod.min.js';
 
 
-const item = item('test');
-attacheJsonSchema(item, {
-    type: 'number',
-    minimum: 0,
-    maximum: 100,
-    multipleOf: 2,
-    default: 0,
-    examples: [0, 2, 4, 6, 8, 10],
-    enum: [0, 2, 4, 6, 8, 10],
-    title: 'test',
-    description: 'test',
-    readOnly: false,
-    writeOnly: false,
-    nullable: false,
-    deprecated: false,
-    required: true,
-    format: 'int32',
-    pattern: '^[0-9]+$',
-    minLength: 1,
-    maxLength: 2,
-    minItems: 1,
-    maxItems: 2,
+const v = item(33);
+
+v.addEventListener("setIn", e => {
+    console.log("setIn", e.detail);
 });
 
-item.value = 'test';
+v.value = "test";
+v.value = {a:1, b:2};
+
+
+let i = item();
+i.addEventListener('setIn', e => {
+    console.log(e.detail.item.key)
+});
+//i.item('a').value = ;
+
+
+
+let obj = {
+    a:1,
+    b:2,
+    b: {
+        b1: 1,
+        b2: 2,
+    },
+}
+
+let o = item(obj);
+
+o.addEventListener('setIn', e => {
+    setTimeout(() => {
+        document.body.innerHTML = dump(o.value, {order:0, inherited:true});
+    }, 0);
+});
+
+o.item('b').item('b1').value = 3;
+setTimeout(() => {
+    o.item('b').item('b1').value = Promise.resolve(1);
+    console.log(o.item('b').item('b1').value)
+}, 1000);
+
+
 
 </script>
