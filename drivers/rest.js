@@ -34,9 +34,7 @@ export function restApi(url, options){
         const {promise} = item.getRequest;
 
         promise.then(value => { // cache the promise for 1 seconds
-            setTimeout(() => {
-                item.getRequest = null;
-            }, 1000);
+            setTimeout(() => item.getRequest = null, 1000);
         });
         e.detail.setValue = promise; // silintly set the value, no event
     });
