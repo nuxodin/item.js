@@ -5,32 +5,25 @@ class Item extends EventTarget {
     #parent;
     #key;
 
-    constructor(value, parent, key){
+    constructor(parent, key){
         if (parent != null) {
             if (!(parent instanceof Item)) throw new Error('parent must be an instance of Item') ;
             if (!(typeof key === 'string')) throw new Error('key must be a string');
         }
         super();
-        this.value = value;
+        //this.value = value;
         this.#parent = parent;
         this.#key = key;
     }
     get key(){ return this.#key }
     get parent(){ return this.#parent }
 
-    #setterForbiden = false;
-
     get value(){
 
-        this.#setterForbiden = true;
         const eventOptions = {detail: { item: this }};
-        this.dispatchEvent(new CustomEvent('get', eventOptions));
-        this.dispatchEventBubble(new CustomEvent('getIn', eventOptions));
-        this.#setterForbiden = false;
-
-        if ('setValue' in eventOptions.detail) {
-            this.#value = eventOptions.detail.setValue;
-            this.#value;
+        dispatchEvent(this, 'get', eventOptions);
+        if ('returnValue' in eventOptions.detail) {
+            return eventOptions.detail.returnValue;
         }
 
         if (this.constructor.isPrimitive(this.#value)) {
@@ -40,19 +33,18 @@ class Item extends EventTarget {
         }
     }
     set value(value){
-
-        if (this.#setterForbiden) throw new Error('cannot set value while getting it');
         if (value instanceof Item) value = value.value;
 
-        if (this.#value === value) return;
-
         const oldValue = this.#value;
-        const eventOptions = {detail: { item: this, oldValue, newValue: value }};
-        this.dispatchEvent(new CustomEvent('set', eventOptions));
-        this.dispatchEventBubble(new CustomEvent('setIn', eventOptions));
+        const eventOptions = {detail: { item: this, oldValue, value }};
+        dispatchEvent(this, 'set', eventOptions);
+        value = eventOptions.detail.value;
 
         if (this.constructor.isPrimitive(value)) {
-            if (this.#value !== value) this.#value = value;
+            if (this.#value !== value) {
+                dispatchEvent(this, 'change', {detail: { item: this, oldValue, value }});
+                this.#value = value;
+            }
         } else {
             for (const key of Object.keys(value)) {
                 this.item(key).value = value[key];
@@ -61,7 +53,7 @@ class Item extends EventTarget {
     }
     item(key){
         if (this.constructor.isPrimitive(this.#value)) this.#value = Object.create(null);
-        this.#value[key] ??= new this.constructor(undefined, this, key);
+        this.#value[key] ??= new this.constructor(this, key);
         return this.#value[key];
     }
 
@@ -79,9 +71,7 @@ class Item extends EventTarget {
     // should it be at the instance level?
     static isPrimitive(value){
         return value !== Object(value) || 'toJSON' in value || value instanceof Promise;
-        // better like this? return value == null || primitives[typeof value] || 'toJSON' in value;
     }
-
 
     // path
     get path() {
@@ -97,18 +87,10 @@ class Item extends EventTarget {
     }
 
     static pathSeparator = '/';
-    // todo? should path look like "/a/b/c" or "a/b/c"?
-    // what if the key contains a slash?
-    get pathString() {
+    get pathString() { // todo? should path look like "/a/b/c" or "a/b/c"? what if the key contains a slash?
         if (this.#parent == null) return '';
         return this.pathKeys.join(this.constructor.pathSeparator);
     }
-    // get pathLevel() {
-    //     if (this.#parent == null) return 0;
-    //     return this.#parent.pathLevel + 1;
-    // }
-
-
 
     // promise to trigger "set" when it gets fullfilled?
     // setPromise(promise){
@@ -116,16 +98,23 @@ class Item extends EventTarget {
     //     promise.then(value => {
     //         if (this.#value !== promise) return; // if the promise has been replaced
     //         const oldValue = this.#value;
-    //         const eventOptions = {detail: { item: this, oldValue, newValue: value }};
-    //         this.dispatchEvent(new CustomEvent('set', eventOptions));
-    //         this.dispatchEventBubble(new CustomEvent('setIn', eventOptions));
+    //         const eventOptions = {detail: { item: this, oldValue, value }};
+    //         dispatchEvent(this, 'set', eventOptions);
     //     });
     // }
 
 }
 
-export const item = (...args) => new Item(...args);
+export const item = (...args) => {
+    const v = new Item();
+    if (args.length > 0) v.value = args[0];
+    return v;
+}
 
+function dispatchEvent(item, eventName, options){
+    item.dispatchEvent(new CustomEvent(eventName, options));
+    item.dispatchEventBubble(new CustomEvent(eventName + 'In', options));
+}
 
 
 // todo: signalize

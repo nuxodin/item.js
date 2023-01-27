@@ -56,6 +56,12 @@
             i.value = null;
             chai.expect(i.value).to.equal(null);
         });
+        it('set value: a other "item"-object uses its item.value as value', () => {
+            let a = item();
+            let b = item(2);
+            a.value = b;
+            chai.expect(a.value).to.equal(2);
+        });
         it('assigning a other Item assigns its value', () => {
             let item1 = item(22);
             let item2 = item(2);
@@ -117,10 +123,10 @@
             });
             i.value = 2;
         });
-        it('event.details.newValue', done => {
+        it('event.details.value', done => {
             let i = item(1);
             i.addEventListener('set', e => {
-                chai.expect(e.detail.newValue).to.equal(2);
+                chai.expect(e.detail.value).to.equal(2);
                 done();
             });
             i.value = 2;

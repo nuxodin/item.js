@@ -18,7 +18,7 @@ const item = localStorageItem();
 
 item.item('random').addEventListener('set', ({detail}) => {
     detail.item.value;
-    document.body.insertAdjacentHTML('beforeend', 'change localStorageItem, old: '+detail.oldValue+', new:'+detail.newValue+'<br>');
+    document.body.insertAdjacentHTML('beforeend', 'change localStorageItem, old: '+detail.oldValue+', new:'+detail.value+'<br>');
 });
 
 item.item('random').value = Math.random().toString();

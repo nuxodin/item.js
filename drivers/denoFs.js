@@ -17,8 +17,8 @@ export function denoFs(rootPath) {
     }
 
     root.addEventListener('setIn', e => {
-        const {item, newValue} = e.detail;
-        Deno.writeTextFile(rootPath + '/' + item.path, newValue);
+        const {item, value} = e.detail;
+        Deno.writeTextFile(rootPath + '/' + item.path, value);
     });
 
     root.addEventListener('getIn', e => {

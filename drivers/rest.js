@@ -18,7 +18,7 @@ export function restApi(url, options){
             item.getRequest = null;
         }
 
-        item.setRequest = itemRequest(item, 'PUT', JSON.stringify(e.detail.newValue));
+        item.setRequest = itemRequest(item, 'PUT', JSON.stringify(e.detail.value));
 
         item.setRequest.promise.then(() => { // wait for the fetch to be done
             item.setRequest = null;
@@ -36,7 +36,7 @@ export function restApi(url, options){
         promise.then(value => { // cache the promise for 1 seconds
             setTimeout(() => item.getRequest = null, 1000);
         });
-        e.detail.setValue = promise; // silintly set the value, no event
+        e.detail.returnValue = promise; // silintly set the value, no event
     });
 
 

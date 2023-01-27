@@ -6,9 +6,9 @@ export function broadcastChannelItem(channelName, {init=null}={}) {
     const channel = new BroadcastChannel(channelName);
     const root = item();
 
-    root.addEventListener('setIn', e => {
-        const {item, newValue} = e.detail;
-        channel.postMessage({path: item.pathKeys, newValue});
+    root.addEventListener('changeIn', e => {
+        const {item, value} = e.detail;
+        channel.postMessage({path: item.pathKeys, value});
     });
 
     channel.postMessage({getInitial: true});
@@ -23,8 +23,8 @@ export function broadcastChannelItem(channelName, {init=null}={}) {
         if (data.getInitial) channel.postMessage({setInitial: root.value});
         if (data.setInitial) root.value = data.setInitial;
         if (data.path) {
-            const {path, newValue} = data;
-            root.walkPathKeys(path).value = newValue;
+            const {path, value} = data;
+            root.walkPathKeys(path).value = value;
         }
     };
     return root;

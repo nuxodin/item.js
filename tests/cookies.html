@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
     <title>Test</title>
+    <script src="https://cdn.jsdelivr.net/gh/nuxodin/lazyfill@main/mod.min.js"></script>
 <body>
 
 <h1>Test</h1>
@@ -16,18 +17,13 @@ import {cookieItem} from "../drivers/cookies.js";
 
 const item = cookieItem();
 
-item.item('random').addEventListener('set', async ({detail}) => {
-
-    console.log(detail.newValue)
-    const value = await detail.item.value;
-    console.log(value)
+item.item('random').addEventListener('change', async ({detail}) => {
+    const value = await detail.item;
     const old = detail.oldValue;
     document.body.insertAdjacentHTML('beforeend', 'change cookie, old: '+old+', new:'+value+'<br>');
-
 });
 
 const rand = Math.random().toString();
-console.log(rand)
 item.item('random').value = rand;
 
 

@@ -23,8 +23,9 @@ import {broadcastChannelItem} from "../drivers/broadcastChannel.js";
 
 // broadcast channel
 window.bcItem = broadcastChannelItem('test');
-bcItem.item('input').addEventListener('set', (e) => {
-    bcItemInput.value = e.detail.newValue;
+bcItem.item('input').addEventListener('change', (e) => {
+    console.log(e.detail)
+    bcItemInput.value = e.detail.value;
 });
 
 </script>
