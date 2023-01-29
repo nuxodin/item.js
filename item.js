@@ -1,30 +1,29 @@
 
-class Item extends EventTarget {
+export class Item extends EventTarget {
 
     #value;
     #parent;
     #key;
+    #isgetting = false;
+    #issetting = false;
+    filled = false;
 
     constructor(parent, key){
-        if (parent != null) {
-            if (!(parent instanceof Item)) throw new Error('parent must be an instance of Item') ;
-            if (!(typeof key === 'string')) throw new Error('key must be a string');
-        }
         super();
-        //this.value = value;
         this.#parent = parent;
         this.#key = key;
     }
+
     get key(){ return this.#key }
     get parent(){ return this.#parent }
 
     get value(){
+        if (this.#isgetting) throw new Error('circular get');
+        this.#isgetting = true;
 
-        const eventOptions = {detail: { item: this }};
-        dispatchEvent(this, 'get', eventOptions);
-        if ('returnValue' in eventOptions.detail) {
-            return eventOptions.detail.returnValue;
-        }
+        dispatchEvent(this, 'get', { item: this, value:this.#value });
+
+        this.#isgetting = false;
 
         if (this.constructor.isPrimitive(this.#value)) {
             return this.#value;
@@ -33,45 +32,45 @@ class Item extends EventTarget {
         }
     }
     set value(value){
+        if (this.#issetting) throw new Error('circular set');
+        this.#issetting = true;
+
         if (value instanceof Item) value = value.value;
 
         const oldValue = this.#value;
-        const eventOptions = {detail: { item: this, oldValue, value }};
-        dispatchEvent(this, 'set', eventOptions);
-        value = eventOptions.detail.value;
+
+        dispatchEvent(this, 'set', { item:this, oldValue , value });
 
         if (this.constructor.isPrimitive(value)) {
-            if (this.#value !== value) {
-                dispatchEvent(this, 'change', {detail: { item: this, oldValue, value }});
+            if (!this.filled || this.#value !== value) {
                 this.#value = value;
+                this.filled = true;
+                if (!this.#isgetting) {
+                    dispatchEvent(this, 'change', { item: this, oldValue, value });
+                } else {
+                    console.warn('just for your info: set while getting dont trigger change');
+                }
             }
         } else {
-            for (const key of Object.keys(value)) {
-                this.item(key).value = value[key];
-            }
+            for (const key of Object.keys(value)) this.item(key).value = value[key];
         }
+        this.#issetting = false;
     }
     item(key){
-        if (this.constructor.isPrimitive(this.#value)) this.#value = Object.create(null);
-        this.#value[key] ??= new this.constructor(this, key);
+        if (this.constructor.isPrimitive(this.#value)) {
+            this.#value = Object.create(null);
+            this.filled = true;
+        }
+        const Klass = this.constructor.childClass??this.constructor;
+        this.#value[key] ??= new Klass(this, key);
         return this.#value[key];
     }
-
-    dispatchEventBubble(event){
-        this.dispatchEvent(event);
-        this.parent && this.parent.dispatchEventBubble(event);
-    }
+    static childClass;
 
     toJSON() { return this.value }
-    valueOf() { return this.value }
     then(fn) { fn(this.value); }
+    valueOf() { return this.value }
     toString() { return String(this.value) }
-
-    // todo: i think is object would be better
-    // should it be at the instance level?
-    static isPrimitive(value){
-        return value !== Object(value) || 'toJSON' in value || value instanceof Promise;
-    }
 
     // path
     get path() {
@@ -87,9 +86,13 @@ class Item extends EventTarget {
     }
 
     static pathSeparator = '/';
-    get pathString() { // todo? should path look like "/a/b/c" or "a/b/c"? what if the key contains a slash?
+    get pathString() {
         if (this.#parent == null) return '';
         return this.pathKeys.join(this.constructor.pathSeparator);
+    }
+
+    static isPrimitive(value){
+        return value !== Object(value) || 'toJSON' in value || value instanceof Promise;
     }
 
     // promise to trigger "set" when it gets fullfilled?
@@ -111,9 +114,15 @@ export const item = (...args) => {
     return v;
 }
 
-function dispatchEvent(item, eventName, options){
+function dispatchEvent(item, eventName, detail){
+    const options = {detail};
     item.dispatchEvent(new CustomEvent(eventName, options));
-    item.dispatchEventBubble(new CustomEvent(eventName + 'In', options));
+
+    let current = item;
+    while (current) {
+        current.dispatchEvent(new CustomEvent(eventName + 'In', options));
+        current = current.parent;
+    }
 }
 
 
@@ -131,7 +140,7 @@ const proxyHandler = {
         if (item.constructor.isPrimitive(item.value)) {
             return item.value;
         } else {
-            return proxify(item); // todo: cache it?
+            return proxy(item); // todo: cache it?
         }
     },
     set: function(target, property, value, receiver){
@@ -139,7 +148,7 @@ const proxyHandler = {
         return true;
     }
 };
-export function proxify(item){
-    const proxy = new Proxy(item, proxyHandler);
-    return proxy;
+export function proxy(arg){
+    if (arg instanceof Item) return new Proxy(arg, proxyHandler);
+    else return new Proxy(item(arg), proxyHandler);
 }

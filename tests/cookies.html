@@ -13,18 +13,31 @@
 
 // local storage
 
-import {cookieItem} from "../drivers/cookies.js";
+import {cookies} from "../drivers/cookies.js";
 
-const item = cookieItem();
 
-item.item('random').addEventListener('change', async ({detail}) => {
+const item = cookies();
+window.random = item.item('random');
+
+random.addEventListener('change', async ({detail}) => {
     const value = await detail.item;
     const old = detail.oldValue;
     document.body.insertAdjacentHTML('beforeend', 'change cookie, old: '+old+', new:'+value+'<br>');
 });
 
-const rand = Math.random().toString();
-item.item('random').value = rand;
+
+setTimeout(async () => {
+    const value = await random;
+    random.value = value;
+}, 1);
+
+setTimeout(async () => {
+    const value = await random;
+}, 100);
 
 
 </script>
+
+<div>
+    <button onclick="random.value = Math.random().toString()">change cookie</button>
+</div>

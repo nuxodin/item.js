@@ -11,7 +11,7 @@ export function localStorageItem(){
             localStorage.setItem(detail.item.key, detail.value);
         });
         root.addEventListener('getIn', ({detail}) => {
-            detail.returnValue = localStorage.getItem(detail.item.key);
+            detail.item.value = localStorage.getItem(detail.item.key);
         });
     }
     return root;
