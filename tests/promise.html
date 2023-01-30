@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Test</title>
+<body>
+
+<h1>Test</h1>
+
+<script type=module>
+
+// local storage
+
+import {Item} from "../item.js";
+
+class PomiseItem extends Item {
+    constructor(parent, key) {
+        super(parent, key);
+    }
+    createGetterPromise() {
+        return cookieStore.get(this.key);
+    }
+    createSetterPromise(value) {
+        return cookieStore.set(this.key, value);
+    }
+    get value() {
+        const cache = this.cachePromise;
+
+        if (this.setterPromise?.state === 'pending' && this.trustSendingValue) { // recently setted value
+            console.log('recently setted value, trust what will be saved', this.setterPromise.state)
+            return Promise.resolve(this.exptectedValue);
+        }
+        let promise = null;
+
+        console.log('is it cached? ' + this.getterPromise);
+
+        if (!this.getterPromise) {
+            promise = transparentPromise(this.createGetterPromise());
+            if (typeof cache === 'number') setTimeout(() => {
+                console.log('clear cache (getter-promise)')
+                this.getterPromise = undefined;
+            } , cache);
+        } else {
+            promise = this.getterPromise;
+        }
+        if (cache) {
+            console.log('cache (getter-promise)')
+            this.getterPromise = promise;
+        }
+        return promise;
+    }
+    set value(value) {
+        this.exptectedValue = value;
+        if (this.setterPromise?.state === 'pending') {  // abort previous promise
+            console.log('abort previous promise (not '+value+')');
+            this.setterPromise.aborted = true;
+        }
+        this.setterPromise = transparentPromise(delay(this.createSetterPromise(value),1));
+        this.setterPromise.finally(() => {
+            console.log('setting done, clear cache (getter-promise)');
+            this.getterPromise = undefined; // clear getter cache
+        });
+    }
+
+    trustSendingValue = true;
+    cachePromise = 2000; // cache for 2 seconds, false = no cache, true = cache forever
+
+}
+
+// helper functions
+function transparentPromise(promise) {
+    promise.state = 'pending';
+    promise.value = undefined;
+    promise.then(
+        value => {
+            promise.state = 'fulfilled';
+            promise.value = value;
+        },
+        reason => {
+            promise.state = 'rejected';
+            promise.value = reason;
+        }
+    );
+    return promise;
+}
+function delay(promise, ms) {
+    const newPromise = new Promise(resolve => setTimeout(() => {
+        if (newPromise.aborted) { // zzz
+            resolve(null);
+            return;
+        }
+        promise.then(resolve);
+    }, ms));
+    return newPromise;
+}
+
+function abortablePromise(fn) { // abortable withing 1ms
+    const promise = new Promise((resolve, reject) => {
+        setTimeout(() => {
+            if (promise.aborted) {
+                resolve(null);
+                return;
+            }
+            fn(resolve, reject);
+        }, 1);
+    });
+    return promise;
+}
+
+const promiseItem = new PomiseItem();
+promiseItem.createGetterPromise = () => delay(Promise.resolve(Math.random()), 100);
+promiseItem.createSetterPromise = value => delay(Promise.resolve('value from master'), 100);
+
+
+console.log('set value: ("val") ');
+promiseItem.value = 'val';
+
+let actual = await promiseItem.value;
+console.log('get value: ' + actual);
+
+actual = await promiseItem.value;
+console.log('get again: ' + actual);
+
+
+setTimeout(async () => {
+    actual = await promiseItem.value;
+    console.log('get againg after 2 seconds (getter is no more cached), value: ' + actual);
+}, 2000);
+
+setTimeout(async () => {
+    console.log('set value: ("val2") ');
+    promiseItem.value = 'val2';
+
+    console.log('set again: ("val3") ');
+    console.log('todo: first promise should not be executed, use abortablePromise ');
+    promiseItem.value = 'val3';
+}, 3000);
+
+setTimeout(async () => {
+    actual = await promiseItem.value;
+    console.log('get value again: ' + actual);
+}, 3100);
+
+
+</script>
+
+<div>
+    <button onclick="random.value = Math.random().toString()">change cookie</button>
+</div>
