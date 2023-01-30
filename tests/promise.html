@@ -73,6 +73,7 @@ class PomiseItem extends Item {
             if (this.setterPromise !== promise) return; // ignore if setterPromise has been replaced (by another setter)
             this.getterPromise = null; // clear getter cache
         }).finally(() => {
+            if (this.setterPromise !== promise) return; // ignore if setterPromise has been replaced (by another setter)
             this.setterPromise = null;
             this.expectedValue = null;
         });
