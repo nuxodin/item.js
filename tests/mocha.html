@@ -86,6 +86,11 @@
         it('access value should return object', () => {
             chai.expect(b.value).to.deep.equal({b1:2, b2:3});
         });
+        // it('toString of a object should be its key', () => {
+        //     let i = item({a:{b:22}});
+        //     chai.expect(i+'').to.equal('');
+        //     chai.expect(i.item('a')+'').to.equal('a');
+        // });
         it('as JSON object', () => {
             chai.expect(JSON.stringify(b)).to.equal('{"b1":2,"b2":3}');
         });

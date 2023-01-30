@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Test</title>
+<body>
+
+<h1>Test</h1>
+
+<script type=module>
+
+class AsyncMaster {
+
+    trustSendingValue = true;
+    cacheDuration = 2000; // cache for 2 seconds, false = no cache, true = cache forever
+    expectedValue = null;
+    setDebouncePeriod = 5; // debounce period for setter in ms
+    setter = null; // current setter promise
+    getter = null; // current/cached getter promise
+
+    constructor({get, set}) {
+        this.createGetter = get;
+        this.createSetter = set;
+    }
+    #createGetter() {
+        const promise = this.createGetter();
+        makePromiseTransparent(promise);
+        return promise;
+    }
+    #createSetter(value) {
+        const promise = abortablePromise((resolve, reject) => {
+            return this.createSetter(value).then(resolve, reject);
+        }, this.setDebouncePeriod);
+        makePromiseTransparent(promise);
+        return promise;
+    }
+    #cacheGetter(promise){
+        const duration = this.cacheDuration;
+        if (!duration) return;
+        if (typeof duration === 'number') {
+            setTimeout(() => {
+                if (this.getter === promise) this.getter = null
+            }, duration);
+        }
+        this.getter = promise;
+    }
+    get() {
+        if (this.setter?.state === 'pending' && this.trustSendingValue) return Promise.resolve(this.expectedValue); // trust sending value
+        let promise = this.getter;
+        if (!promise) {
+            promise = this.#createGetter();
+            this.#cacheGetter(promise);
+        }
+        return promise;
+    }
+    set(value) {
+        if (this.setter?.state === 'pending' && this.expectedValue === value) return; // ignore if sending value is the same
+        if (this.getter?.state === 'fulfilled' && this.getter.value === value) return; // ignore if latest getter value is the same
+
+        this.expectedValue = value;
+        this.setter?.abort(); // abort previous setter
+
+        const promise = this.#createSetter(value);
+        promise.then( data => {
+            if (this.setter !== promise) return; // ignore if setter has been replaced
+            this.#cacheGetter(transparentPromiseResolve(value));
+        }, err => {
+            if (this.setter !== promise) return;
+            console.warn('setter rejected: ', err);
+            this.getter = null; // clear getter cache
+        }).finally((x) => {
+            if (this.setter !== promise) return;
+            this.setter = null;
+            this.expectedValue = null;
+        });
+
+        this.setter = promise;
+    }
+}
+
+// helper functions
+
+/**
+ * Adds state and value properties to a Promise, making it transparent.
+ * @param {Promise} promise - The Promise to make transparent.
+ */
+function makePromiseTransparent(promise) {
+    if (promise.state) console.warn('already transparent');
+    promise.state = 'pending'; // or 'unknown' ?
+    promise.value = undefined;
+    promise.then(
+        value => {
+            promise.state = 'fulfilled';
+            promise.value = value;
+        },
+        reason => {
+            promise.state = 'rejected';
+            promise.value = reason;
+        }
+    );
+}
+
+function transparentPromiseResolve(value) {
+    const promise = Promise.resolve(value);
+    makePromiseTransparent(promise);
+    promise.state = 'fulfilled';
+    promise.value = value;
+    return promise;
+}
+
+/**
+ * Returns a delayed Promise that can be aborted within the specified time (ms).
+ * @param {Function} fn - A function that returns a Promise.
+ * @param {Number} [ms=1] - The time in milliseconds to delay before resolving the Promise.
+ * @returns {Promise} - A delayed Promise that can be aborted.
+ */
+function abortablePromise(fn, ms=1) { // delayed and therfore abortable withing ms
+    let aborted = false;
+    const promise = new Promise((resolve, reject) => {
+        setTimeout(() => {
+            if (aborted) return resolve(null);
+            fn(resolve, reject);
+        }, ms);
+    });
+    promise.abort = () => aborted = true;
+    promise.isAborted = () => aborted;
+    return promise;
+}
+
+
+/*  test  */
+/*  test  */
+
+function delayPromise(promise, ms) {
+    const newPromise = new Promise(resolve => setTimeout(() => {
+        promise.then(resolve);
+    }, ms));
+    return newPromise;
+}
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+
+const promiseItem = new AsyncMaster({
+    get() {
+        console.warn('getter requested' );
+        return delayPromise(Promise.resolve(Math.random()), 100);
+    },
+    set(value) {
+        console.warn('setter requested, value '+value );
+        return delayPromise(Promise.resolve({savedValue:'value from master'}), 100);
+    }
+});
+
+promiseItem.cacheDuration = 1000;
+
+let actual = null;
+
+actual = await promiseItem.get();
+console.log('get value: ' + actual);
+
+console.log('set value: ("val") ');
+promiseItem.set('val');
+
+console.log('set again same value');
+promiseItem.set('val');
+
+actual = await promiseItem.get();
+console.log('get value: ("'+actual+'") ');
+
+
+await delay(50);
+
+actual = await promiseItem.get();
+console.log('get again after 50ms, trust setter while pending, value: ' + actual);
+
+await delay(1100);
+
+actual = await promiseItem.get();
+console.log('get again after 1.1 seconds (getter is no more cached), value: ' + actual);
+
+await delay(10);
+actual = await promiseItem.get();
+console.log('get again after 10ms (getter is cached), value: ' + actual);
+
+await delay(500);
+
+console.log('set value: ("val2") ');
+promiseItem.set('val2');
+
+await delay(1);
+
+console.log('set again: ("val3") ');
+promiseItem.set('val3');
+
+await delay(70);
+
+actual = await promiseItem.get();
+console.log('get value again: ' + actual);
+
+
+
+</script>
+
+<div>
+    <button onclick="random.value = Math.random().toString()">change cookie</button>
+</div>

@@ -4,9 +4,9 @@ export class Item extends EventTarget {
     #value;
     #parent;
     #key;
+    #filled = false;
     #isgetting = false;
     #issetting = false;
-    filled = false;
 
     constructor(parent, key){
         super();
@@ -16,15 +16,13 @@ export class Item extends EventTarget {
 
     get key(){ return this.#key }
     get parent(){ return this.#parent }
+    get filled(){ return this.#filled }
 
     get value(){
         if (this.#isgetting) throw new Error('circular get');
         this.#isgetting = true;
-
         dispatchEvent(this, 'get', { item: this, value:this.#value });
-
         this.#isgetting = false;
-
         if (this.constructor.isPrimitive(this.#value)) {
             return this.#value;
         } else {
@@ -42,9 +40,9 @@ export class Item extends EventTarget {
         dispatchEvent(this, 'set', { item:this, oldValue , value });
 
         if (this.constructor.isPrimitive(value)) {
-            if (!this.filled || this.#value !== value) {
+            if (!this.#filled || this.#value !== value) {
                 this.#value = value;
-                this.filled = true;
+                this.#filled = true;
                 if (!this.#isgetting) {
                     dispatchEvent(this, 'change', { item: this, oldValue, value });
                 } else {
@@ -59,7 +57,7 @@ export class Item extends EventTarget {
     item(key){
         if (this.constructor.isPrimitive(this.#value)) {
             this.#value = Object.create(null);
-            this.filled = true;
+            this.#filled = true;
         }
         const Klass = this.constructor.childClass??this.constructor;
         this.#value[key] ??= new Klass(this, key);
@@ -67,10 +65,10 @@ export class Item extends EventTarget {
     }
     static childClass;
 
-    toJSON() { return this.value }
+    toJSON() { return this.value; }
     then(fn) { fn(this.value); }
-    valueOf() { return this.value }
-    toString() { return String(this.value) }
+    valueOf() { return this.value; }
+    toString() { String(this.value); }
 
     // path
     get path() {
@@ -94,18 +92,6 @@ export class Item extends EventTarget {
     static isPrimitive(value){
         return value !== Object(value) || 'toJSON' in value || value instanceof Promise;
     }
-
-    // promise to trigger "set" when it gets fullfilled?
-    // setPromise(promise){
-    //     this.#value = promise;
-    //     promise.then(value => {
-    //         if (this.#value !== promise) return; // if the promise has been replaced
-    //         const oldValue = this.#value;
-    //         const eventOptions = {detail: { item: this, oldValue, value }};
-    //         dispatchEvent(this, 'set', eventOptions);
-    //     });
-    // }
-
 }
 
 export const item = (...args) => {
