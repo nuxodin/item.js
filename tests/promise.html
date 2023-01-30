@@ -95,7 +95,7 @@ function delay(promise, ms) {
     return newPromise;
 }
 
-function abortablePromise(fn) { // abortable withing 1ms
+function abortablePromise(fn, ms=1) { // delayed and therfore abortable withing ms
     const promise = new Promise((resolve, reject) => {
         setTimeout(() => {
             if (promise.aborted) {
@@ -103,7 +103,7 @@ function abortablePromise(fn) { // abortable withing 1ms
                 return;
             }
             fn(resolve, reject);
-        }, 1);
+        }, ms);
     });
     return promise;
 }
