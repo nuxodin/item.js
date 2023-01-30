@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Test</title>
+<body>
+
+<h1>Test</h1>
+
+<script type=module>
+
+import {AsyncMaster} from '../drivers/AsyncMaster.js';
+
+
+/*  test  */
+/*  test  */
+
+function delayPromise(promise, ms) {
+    const newPromise = new Promise(resolve => setTimeout(() => {
+        promise.then(resolve);
+    }, ms));
+    return newPromise;
+}
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+
+const promiseItem = new AsyncMaster({
+    get() {
+        console.warn('getter requested' );
+        return delayPromise(Promise.resolve(Math.random()), 100);
+    },
+    set(value) {
+        console.warn('setter requested, value '+value );
+        return delayPromise(Promise.resolve({savedValue:'value from master'}), 100);
+    }
+});
+
+promiseItem.cacheDuration = 1000;
+
+let actual = null;
+
+actual = await promiseItem.get();
+console.log('get value: ' + actual);
+
+console.log('set value: ("val") ');
+promiseItem.set('val');
+
+console.log('set again same value');
+promiseItem.set('val');
+
+actual = await promiseItem.get();
+console.log('get value: ("'+actual+'") ');
+
+
+await delay(50);
+
+actual = await promiseItem.get();
+console.log('get again after 50ms, trust setter while pending, value: ' + actual);
+
+await delay(1100);
+
+actual = await promiseItem.get();
+console.log('get again after 1.1 seconds (getter is no more cached), value: ' + actual);
+
+await delay(10);
+actual = await promiseItem.get();
+console.log('get again after 10ms (getter is cached), value: ' + actual);
+
+await delay(500);
+
+console.log('set value: ("val2") ');
+promiseItem.set('val2');
+
+await delay(1);
+
+console.log('set again: ("val3") ');
+promiseItem.set('val3');
+
+await delay(70);
+
+actual = await promiseItem.get();
+console.log('get value again: ' + actual);
+
+
+
+</script>
+
+<div>
+    <button onclick="random.value = Math.random().toString()">change cookie</button>
+</div>
