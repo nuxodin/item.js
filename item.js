@@ -1,21 +1,3 @@
-// import { AsyncMaster } from "./drivers/AsyncMaster.js";
-// export class asyncItem extends Item {
-//     constructor(parent, key) {
-//         super(parent, key);
-//         this.master = new AsyncMaster({get:this.asyncGet, set:this.asyncSet});
-//         this.addEventListener("get", ({ detail }) => {
-//             detail.item.value = this.master.get(); // bad: triggers set
-//         });
-//         this.addEventListener("set", ({ detail: { value } }) => {
-//             this.master.set(value);
-//             detail.preventChange = true;
-//         });
-//         master.onchange = (value) => {
-//             dispatchEvent(this, "change", { item: this, value:value });
-//         });
-//     }
-// }
-
 
 export class Item extends EventTarget {
 
@@ -41,24 +23,28 @@ export class Item extends EventTarget {
         this.#isgetting = true;
         dispatchEvent(this, 'get', { item: this, value:this.#value });
         this.#isgetting = false;
+        //if (!this.#filled) throw new Error('value was never set');
+        return this.$get();
+    }
+    set value(value){
+        if (this.#issetting) throw new Error('circular set');
+        this.#issetting = true;
+        if (value instanceof Item) value = value.value;
+        dispatchEvent(this, 'set', { item:this, oldValue:this.#value , value });
+        this.$set(value);
+        this.#issetting = false;
+    }
+    $get(){
         if (this.constructor.isPrimitive(this.#value)) {
             return this.#value;
         } else {
             return Object.fromEntries(Object.entries(this.#value).map(([key, {value}]) => [key, value]));
         }
     }
-    set value(value){
-        if (this.#issetting) throw new Error('circular set');
-        this.#issetting = true;
-
-        if (value instanceof Item) value = value.value;
-
+    $set(value){
         const oldValue = this.#value;
-
-        dispatchEvent(this, 'set', { item:this, oldValue , value });
-
         if (this.constructor.isPrimitive(value)) {
-            if (!this.#filled || this.#value !== value) {
+            if (!this.#filled || oldValue !== value) {
                 this.#value = value;
                 this.#filled = true;
                 if (!this.#isgetting) {
@@ -70,18 +56,16 @@ export class Item extends EventTarget {
         } else {
             for (const key of Object.keys(value)) this.item(key).value = value[key];
         }
-        this.#issetting = false;
     }
     item(key){
         if (this.constructor.isPrimitive(this.#value)) {
             this.#value = Object.create(null);
             this.#filled = true;
         }
-        const Klass = this.constructor.childClass??this.constructor;
+        const Klass = this.ChildClass ?? this.constructor;
         this.#value[key] ??= new Klass(this, key);
         return this.#value[key];
     }
-    static childClass;
 
     toJSON() { return this.value; }
     then(fn) { fn(this.value); }
@@ -110,6 +94,9 @@ export class Item extends EventTarget {
     static isPrimitive(value){
         return value !== Object(value) || 'toJSON' in value || value instanceof Promise;
     }
+
+    static ChildClass;
+    ChildClass = this.constructor.ChildClass;
 }
 
 export const item = (...args) => {
@@ -118,7 +105,8 @@ export const item = (...args) => {
     return v;
 }
 
-function dispatchEvent(item, eventName, detail){
+/* helpers */
+export function dispatchEvent(item, eventName, detail){
     const options = {detail};
     item.dispatchEvent(new CustomEvent(eventName, options));
 
@@ -128,6 +116,7 @@ function dispatchEvent(item, eventName, detail){
         current = current.parent;
     }
 }
+
 
 
 // todo: signalize
@@ -148,6 +137,7 @@ const proxyHandler = {
         }
     },
     set: function(target, property, value, receiver){
+        if (typeof property === 'symbol') return Reflect.set(target, property, value, receiver);
         target.item(property).value = value;
         return true;
     }

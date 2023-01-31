@@ -1,44 +1,62 @@
 import {Item} from '../item.js';
+import {AsyncItem} from '../tools/AsyncItem.js';
 
 export const db = function(connection){
     return new DB(connection);
 }
 
 
-class Cell extends Item {
+class Cell extends AsyncItem {
     constructor(row, name) {
         super(row, name);
         this.row = this.parent;
         this.table = this.parent.parent;
         this.db = this.table.parent;
     }
-    get value() {
-        return this.getValue();
+    async createGetter() {
+        const where = await this.table.rowIdToWhere(this.row.key);
+        return await this.db.one("SELECT "+this.key+" FROM "+this.table+" WHERE "+where+" ");
     }
-    set value(value) {
-        this.setValue(value);
-        // const promi = this.P_value = this.table.rowIdToWhere(this.row.key).then(where=>{
-        //     return this.db.query("UPDATE "+this.table+" SET "+this.key+" = "+this.db.quote(value)+" WHERE "+where+" ");
-        // });
-        // this.P_value = Promise.resolve(value);
-        // promi;
-    }
-    async getValue() {
-        if (this._value === undefined) {
-            const where = await this.table.rowIdToWhere(this.row.key);
-            this._value = await this.db.one("SELECT "+this.key+" FROM "+this.table+" WHERE "+where+" ");
-        }
-        return this._value;
-    }
-    async setValue(value){
-        //this._value = value; // for now it has to refetch value
-        this._value = undefined;
-        await this.row.set({[this.key]:value});
+    createSetter(value) {
+        return this.row.set({[this.key]:value});
     }
     toString() { return this.key; }
     valueOf() { return this.key; }
 }
 
+// class Cell extends Item {
+//     constructor(row, name) {
+//         super(row, name);
+//         this.row = this.parent;
+//         this.table = this.parent.parent;
+//         this.db = this.table.parent;
+//     }
+//     get value() {
+//         return this.getValue();
+//     }
+//     set value(value) {
+//         this.setValue(value);
+//         // const promi = this.P_value = this.table.rowIdToWhere(this.row.key).then(where=>{
+//         //     return this.db.query("UPDATE "+this.table+" SET "+this.key+" = "+this.db.quote(value)+" WHERE "+where+" ");
+//         // });
+//         // this.P_value = Promise.resolve(value);
+//         // promi;
+//     }
+//     async getValue() {
+//         if (this._value === undefined) {
+//             const where = await this.table.rowIdToWhere(this.row.key);
+//             this._value = await this.db.one("SELECT "+this.key+" FROM "+this.table+" WHERE "+where+" ");
+//         }
+//         return this._value;
+//     }
+//     async setValue(value){
+//         //this._value = value; // for now it has to refetch value
+//         this._value = undefined;
+//         await this.row.set({[this.key]:value});
+//     }
+//     toString() { return this.key; }
+//     valueOf() { return this.key; }
+// }
 
 
 class Row extends Item {
@@ -47,19 +65,19 @@ class Row extends Item {
         this.table  = this.parent;
         this.db     = this.parent.parent;
     }
-    async cells() {
-        if (!this.hasAllCells) { // todo, evaluate if has all
-            const where = await this.table.rowIdToWhere(this.key);
-            const data = await this.db.row("SELECT * FROM "+this.table+" WHERE "+where);
-            this._is = !!data;
-            for (const name in data) {
-                const cell = this.item(name);
-                if (cell.P_value === undefined) cell.P_value = Promise.resolve(data[name]);
-            }
-            this.hasAllCells = true;
-        }
-        return this._cells;
-    }
+    // async cells() { // todo: just loop fields and make unfilled cells
+    //     if (!this.hasAllCells) { // todo, evaluate if has all
+    //         const where = await this.table.rowIdToWhere(this.key);
+    //         const data = await this.db.row("SELECT * FROM "+this.table+" WHERE "+where);
+    //         this._is = !!data;
+    //         for (const name in data) {
+    //             const cell = this.item(name);
+    //             if (cell.P_value === undefined) cell.P_value = Promise.resolve(data[name]);
+    //         }
+    //         this.hasAllCells = true;
+    //     }
+    //     return this._cells;
+    // }
     async values() {
         const obj = {};
         const cells = await this.cells();
@@ -98,8 +116,9 @@ class Row extends Item {
         }
     }
     async is() {
-        if (this._is === undefined) await this.cells();
-        return this._is ? this : false;
+        // todo: request its primaries if not yet?
+        // if (this._is === undefined) await this.cells();
+        // return this._is ? this : false;
     }
     async makeIfNot() {
         const is = await this.is();
@@ -111,7 +130,7 @@ class Row extends Item {
     toString() { return this.key; }
     valueOf() { return this.key; }
 
-    static childClass = Cell;
+    static ChildClass = Cell;
 }
 
 
@@ -266,7 +285,7 @@ const Table = class extends Item {
     toString() { return this.key; }
     valueOf() { return this.key; }
 
-    static childClass = Row;
+    static ChildClass = Row;
 };
 
 
@@ -312,5 +331,5 @@ class DB extends Item {
         return this.connection.escape(value);
     }
 
-    static childClass = Table;
+    static ChildClass = Table;
 }

@@ -1,16 +1,20 @@
-// ussage:
-// const datapoint = new AsyncDataPoint({
-//     get: () => fetch('https://example.com/todos/1').then(res => res.json()),
-//     set: value => fetch('https://example.com/todos/1', {method: 'PUT', body: JSON.stringify(value)}).then(res => res.json())
-// });
-// datapoint.set({title: 'foo', completed: true});
-// datapoint.get().then(value => console.log(value));
-// datapoint.onchange = ({value}) => console.log('value changed', value);
-// datapoint.cacheDuration = 1000; // cache for 1 second
-// datapoint.trustSendingValue = false; // dont trust sending value
-// datapoint.setDebouncePeriod = 100; // debounce period for setter in ms
-// datapoint.setFromMaster({title: 'foo', completed: true}); // set value without saving it to the server
+/*
+Ussage:
 
+const datapoint = new AsyncDataPoint({
+    get: () => fetch('https://example.com/todos/1').then(res => res.json()),
+    set: value => fetch('https://example.com/todos/1', {method: 'PUT', body: JSON.stringify(value)}).then(res => res.json())
+});
+datapoint.set({title: 'foo', completed: true});
+datapoint.get().then(value => console.log(value));
+
+// api
+datapoint.onchange = ({value}) => console.log('value changed', value);
+datapoint.cacheDuration = 1000; // cache for 1 second
+datapoint.trustSendingValue = true; // trust sending value: until the sending is done, the value is the new value, despite the uncertainty that the server will fail
+datapoint.setDebouncePeriod = 5; // debounce period for setter in ms, default 5
+datapoint.setFromMaster({title: 'foo', completed: true}); // set value without saving it to the server
+*/
 export class AsyncDataPoint {
 
     trustSendingValue = true;
@@ -45,8 +49,9 @@ export class AsyncDataPoint {
         // note: triggers also if the getter is no more cached as we dont know if the value has changed
         const oldGetter = this.#getter;
         promise.then(value => {
-            if (this.#getter !== promise) return;
-            if (oldGetter?.value !== value) this.onchange?.({value});
+            if (this.#getter !== promise) return; // promise is outdated
+            const oldValue = oldGetter?.value;
+            if (oldValue !== value) this.onchange?.({value, oldValue});
         });
 
         const duration = this.cacheDuration;

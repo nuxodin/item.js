@@ -1,5 +1,8 @@
 import {item} from '../item.js';
 
+// here is just a experiment
+// todo: AsyncItem!
+
 // restApi
 export function restApi(url, options){
 

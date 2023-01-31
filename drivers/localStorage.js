@@ -4,14 +4,15 @@ let root = null; // cached
 export function localStorageItem(){
     if (!root) {
         root = item();
-        addEventListener('storage', e => {
-            root.item(e.key).value = e.value;
-        });
         root.addEventListener('setIn', ({detail}) => {
             localStorage.setItem(detail.item.key, detail.value);
         });
-        root.addEventListener('getIn', ({detail}) => {
-            detail.item.value = localStorage.getItem(detail.item.key);
+        root.addEventListener('getIn', ({detail:{item}}) => {
+            if (item.filled) return; // use cached value
+            item.value = localStorage.getItem(item.key);
+        });
+        addEventListener('storage', e => {
+            root.item(e.key).value = e.newValue;
         });
     }
     return root;

@@ -15,16 +15,16 @@
 
 import {cookies} from "../drivers/cookies.js";
 
-
 const item = cookies();
 window.random = item.item('random');
+
+//item.item('cookie1').value = 'value1';
 
 random.addEventListener('change', async ({detail}) => {
     const value = await detail.item;
     const old = detail.oldValue;
     document.body.insertAdjacentHTML('beforeend', 'change cookie, old: '+old+', new:'+value+'<br>');
 });
-
 
 setTimeout(async () => {
     const value = await random;
@@ -36,8 +36,49 @@ setTimeout(async () => {
 }, 100);
 
 
+const all = await item.getAll({
+    url: location.href
+});
+const tableEl = document.getElementById('table');
+for (const key in all) {
+    const item = all[key];
+    const tr = document.createElement('tr');
+    tr.$item = item;
+    tr.setAttribute('data-key', key);
+    const value = await item;
+    tr.insertAdjacentHTML('beforeend', '<td>'+item.key+'<td><input value="'+value+'">');
+    tableEl.appendChild(tr);
+}
+tableEl.addEventListener('input', async ({target}) => {
+    const input = target.closest('input');
+    console.log(input.closest('tr').$item, input.value)
+    if (input) input.closest('tr').$item.value = input.value;
+});
+item.addEventListener('changeIn', async ({detail}) => {
+    const item = detail.item;
+    const value = await item;
+    const inp = tableEl.querySelector('[data-key="'+item.key+'"] input');
+    if (inp.value !== value) inp.value = value;
+});
+
+function escapeHtml(unsafe) {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+}
+
+
 </script>
 
 <div>
     <button onclick="random.value = Math.random().toString()">change cookie</button>
 </div>
+
+<br>
+<h2>All cookies</h2>
+<table id="table">
+
+</table>

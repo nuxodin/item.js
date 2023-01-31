@@ -11,21 +11,16 @@
 
 <label>
     synced using broadcast channel:<br>
-    <input type="text" value="test" id="bcItemInput" oninput="bcItem.item('input').value = this.value">
+    <input value=test id=input oninput="bcItem.item('input').value = this.value">
 </label>
 
 
 <script type=module>
 
-// local storage
-
 import {broadcastChannelItem} from "../drivers/broadcastChannel.js";
 
-// broadcast channel
-window.bcItem = broadcastChannelItem('test');
-bcItem.item('input').addEventListener('change', (e) => {
-    console.log(e.detail)
-    bcItemInput.value = e.detail.value;
-});
+window.bcItem = broadcastChannelItem({channelName: 'testChannel'});
+
+bcItem.item('input').addEventListener('change', (e) => input.value = e.detail.value);
 
 </script>

@@ -1,7 +1,7 @@
 import {item} from '../item.js';
 
 // BroadcastChannel
-export function broadcastChannelItem(channelName, {init=null}={}) {
+export function broadcastChannelItem({channelName='item.js-default channel',init=null}={}) {
 
     const channel = new BroadcastChannel(channelName);
     const root = item();

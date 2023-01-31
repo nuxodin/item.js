@@ -16,8 +16,7 @@ import {localStorageItem} from "../drivers/localStorage.js";
 
 const item = localStorageItem();
 
-item.item('random').addEventListener('set', ({detail}) => {
-    detail.item.value;
+item.item('random').addEventListener('change', ({detail}) => {
     document.body.insertAdjacentHTML('beforeend', 'change localStorageItem, old: '+detail.oldValue+', new:'+detail.value+'<br>');
 });
 
