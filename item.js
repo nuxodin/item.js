@@ -1,3 +1,21 @@
+// import { AsyncMaster } from "./drivers/AsyncMaster.js";
+// export class asyncItem extends Item {
+//     constructor(parent, key) {
+//         super(parent, key);
+//         this.master = new AsyncMaster({get:this.asyncGet, set:this.asyncSet});
+//         this.addEventListener("get", ({ detail }) => {
+//             detail.item.value = this.master.get(); // bad: triggers set
+//         });
+//         this.addEventListener("set", ({ detail: { value } }) => {
+//             this.master.set(value);
+//             detail.preventChange = true;
+//         });
+//         master.onchange = (value) => {
+//             dispatchEvent(this, "change", { item: this, value:value });
+//         });
+//     }
+// }
+
 
 export class Item extends EventTarget {
 

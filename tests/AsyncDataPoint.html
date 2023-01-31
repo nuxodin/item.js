@@ -10,7 +10,7 @@
 
 <script type=module>
 
-import {AsyncMaster} from '../drivers/AsyncMaster.js';
+import {AsyncDataPoint} from '../drivers/AsyncDataPoint.js';
 
 
 /*  test  */
@@ -27,7 +27,7 @@ function delay(ms) {
 }
 
 
-const promiseItem = new AsyncMaster({
+const promiseItem = new AsyncDataPoint({
     get() {
         console.warn('getter requested' );
         return delayPromise(Promise.resolve(Math.random()), 100);
@@ -39,6 +39,8 @@ const promiseItem = new AsyncMaster({
 });
 
 promiseItem.cacheDuration = 1000;
+
+console.log(promiseItem)
 
 let actual = null;
 
@@ -60,10 +62,10 @@ await delay(50);
 actual = await promiseItem.get();
 console.log('get again after 50ms, trust setter while pending, value: ' + actual);
 
-await delay(1100);
+await delay(1200);
 
 actual = await promiseItem.get();
-console.log('get again after 1.1 seconds (getter is no more cached), value: ' + actual);
+console.log('get again after 1.2 seconds (getter is no more cached), value: ' + actual);
 
 await delay(10);
 actual = await promiseItem.get();
@@ -85,9 +87,4 @@ actual = await promiseItem.get();
 console.log('get value again: ' + actual);
 
 
-
 </script>
-
-<div>
-    <button onclick="random.value = Math.random().toString()">change cookie</button>
-</div>
