@@ -6,7 +6,7 @@ Create observable datastructures
 
 ```js
 
-import { item, effect } from '../item.js';
+import { item } from '../item.js';
 
 const a = item(1);
 a.value === 1; // true
