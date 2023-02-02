@@ -19,6 +19,7 @@ class CookieItem extends AsyncItem {
 }
 
 let root = null; // cached
+
 export function cookies(){
     if (!root) {
         root = item();

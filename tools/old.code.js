@@ -1,9 +1,8 @@
 'use strict';
 {
-
     console.warn('used?');
 
-    let itm = c1.itm = class {
+    const itm = c1.itm = class {
         $set(value){
             if (this.value !== value) {
                 this.value = value;
@@ -32,7 +31,7 @@
     /* extensions */
     c1.itm.prototype.bindToInputValue = function(input){
         this.value === undefined && this.$set(input.value); // which is master (set this.value or the inputs value?)
-        input.addEventListener('input',e=>{
+        input.addEventListener('input', ()=>{
             this.$set(input.value);
         });
         this.on('change', ()=>{
