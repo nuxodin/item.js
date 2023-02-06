@@ -26,7 +26,7 @@
             let i = item(22);
             chai.expect(i.value).to.equal(22);
         });
-        it('item.filled (value provided in constructor?)', () => {
+        it('item.filled (value provided in constructor)', () => {
             let i = item();
             chai.expect(i.filled).to.equal(false);
             i.value = 22;
@@ -115,6 +115,11 @@
         });
         it('walkPathKeys', () => {
             chai.expect(i.walkPathKeys(['b', 'b2']).value).to.equal(3);
+        });
+        it('assigning a object will remove existing properties not in the new object', () => {
+            let i = item({a:1});
+            i.value = {b:2};
+            chai.expect(i.value).to.deep.equal({b:2});
         });
 
     });

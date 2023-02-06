@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Test</title>
+<body>
+
+<h1>Test</h1>
+
+<script type=module>
+
+import { item } from "../item.js";
+import { attachSchema } from "../tools/jsonSchema.js";
+import { toHtml } from "../../schema.js/tools/toHtml.js";
+
+
+const itm = item();
+
+attachSchema(itm, {
+    type: "object",
+    properties: {
+        random: {
+            type: "string"
+        },
+        number: {
+            type: "number",
+            minimum: 2,
+            maximum: 10,
+            default: 5,
+        },
+        old_deprecated_prop: {
+            type: "string",
+            deprecated: true
+        }
+    },
+    minProperties: 2,
+    propertyNames: {
+        pattern: "^[a-z_]+$"
+    }
+});
+
+
+itm.item('random').value = 'number will fail';
+console.log(itm.value);
+
+itm.item('random').value = 12;
+console.log(itm.value);
+
+itm.value = { a1:1 };
+console.log(itm.value);
+
+itm.value = { a:1, b:2, old_deprecated_prop: 'old' };
+console.log(itm.value);
+
+
+
+
+document.body.append(
+    toHtml(itm.schema.properties.number, itm.item('number').value)
+);
+
+</script>

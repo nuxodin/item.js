@@ -30,8 +30,8 @@ export class Item extends EventTarget {
         if (this.#issetting) throw new Error('circular set');
         this.#issetting = true;
         if (value instanceof Item) value = value.value;
-        dispatchEvent(this, 'set', { item:this, oldValue:this.#value , value });
-        this.$set(value);
+        const obj = dispatchEvent(this, 'set', { item:this, oldValue:this.#value , value });
+        if (!obj.defaultPrevented) this.$set(value);
         this.#issetting = false;
     }
     $get(){
@@ -55,6 +55,7 @@ export class Item extends EventTarget {
             }
         } else {
             for (const key of Object.keys(value)) this.item(key).value = value[key];
+            for (const key of Object.keys(this.#value)) if (!(key in value)) delete this.#value[key]; // remove keys that are not in value
         }
     }
     item(key){
@@ -107,13 +108,18 @@ export const item = (...args) => {
 
 /* helpers */
 export function dispatchEvent(item, eventName, detail){
-    const options = {detail};
-    item.dispatchEvent(new CustomEvent(eventName, options));
+    const options = {detail, cancelable: true};
+    const event = new CustomEvent(eventName, options);
+    item.dispatchEvent(event);
 
+    const eventIn = new CustomEvent(eventName + 'In', options);
     let current = item;
     while (current) {
-        current.dispatchEvent(new CustomEvent(eventName + 'In', options));
+        current.dispatchEvent(eventIn);
         current = current.parent;
+    }
+    return {
+        defaultPrevented: eventIn.defaultPrevented || event.defaultPrevented,
     }
 }
 
