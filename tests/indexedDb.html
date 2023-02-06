@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Test</title>
+<body>
+
+<h1>Test</h1>
+
+<script type=module>
+
+import {IDB} from "../drivers/indexedDb.js";
+
+const idb = IDB();
+
+const store = idb.item('keyval-store');
+store.open(2, {
+    upgrade(db, oldVersion, newVersion, transaction) {
+        if (oldVersion < 1) {
+            db.createObjectStore('keyval');
+        }
+    }
+});
+
+store.item('keyval').item('item1').value = 'value1';
+store.item('keyval').item('item2').value = {a:1, b:2};
+
+const valItem2 = await store.item('keyval').item('item2').value;
+
+
+
+// proxy test
+
+import {proxy} from "../item.js";
+
+let test = idb.item('test');
+test.open(2, {
+    upgrade(db, oldVersion, newVersion, transaction) {
+        if (oldVersion < 1) {
+            db.createObjectStore('user');
+            db.createObjectStore('group');
+        }
+    }
+});
+
+test = proxy(test);
+
+test.user.hans = 'value1';
+test.user.urs = 'value1';
+test.user.sepp = 'value1';
+
+
+</script>

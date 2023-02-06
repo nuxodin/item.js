@@ -38,7 +38,9 @@ export class Item extends EventTarget {
         if (this.constructor.isPrimitive(this.#value)) {
             return this.#value;
         } else {
-            return Object.fromEntries(Object.entries(this.#value).map(([key, {value}]) => [key, value]));
+            const value = this.#value ??= Object.create(null); // if undefined, create object (todo? should always be object)
+            return Object.fromEntries(Object.entries(value).map(([key, {value}]) => [key, value]));
+            //return Object.fromEntries(Object.entries(this.#value).map(([key, {value}]) => [key, value]));
         }
     }
     $set(value){
@@ -59,7 +61,8 @@ export class Item extends EventTarget {
         }
     }
     item(key){
-        if (this.constructor.isPrimitive(this.#value)) {
+        //if (this.constructor.isPrimitive(this.#value)) { // item forces value always to be object
+        if (this.#value == null || typeof this.#value !== 'object') {
             this.#value = Object.create(null);
             this.#filled = true;
         }
@@ -133,11 +136,13 @@ const proxyHandler = {
     get: function(target, property, receiver){
         if (typeof property === 'symbol') return Reflect.get(target, property, receiver);
         if (property === '$item') return target;
+
         const item = target.item(property);
 
         // todo: accessing item.value here is not good, it will trigger a get event (E.g. fetch data)
-        if (item.constructor.isPrimitive(item.value)) {
-            return item.value;
+        const value = item.value;
+        if (item.constructor.isPrimitive(value)) {
+            return value;
         } else {
             return proxy(item); // todo: cache it?
         }
