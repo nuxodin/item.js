@@ -10,12 +10,10 @@
 
 <script type=module>
 
-import {effect, signalize, proxy} from "../item.js";
+import {effect, proxy} from "../item.js";
 import {localStorageItem} from "../drivers/localStorage.js";
 
-let item = localStorageItem();
-signalize(item);
-window.ls = proxy(item);
+window.ls = proxy(localStorageItem());
 
 effect(()=>{
     sayHi.innerHTML = 'Hi '+ls.firstname+' '+ls.lastname+'!';

@@ -13,17 +13,25 @@
 
 // local storage
 
-import {item, effect, signalize } from "../item.js";
+import {item, effect} from "../item.js";
 
-const itm = item({outer:'0', inner:'0'});
-signalize(itm);
+const itm = item({outer:'0', inner:'0', deeper:0});
 
+const eff = ()=>{
+
+    log("inner effect, value:" + itm.item('inner').value);
+
+}
 
 effect(()=>{
 
     log("outer effect, value:" + itm.item('outer').value);
 
     effect(()=>{
+
+        effect(()=>{
+            log("deeper effect (bevore inner), value:" + itm.item('deeper').value);
+        });
 
         log("inner effect, value:" + itm.item('inner').value);
 
@@ -36,28 +44,31 @@ function log(msg){
     console.log(msg)
 }
 
-log('<br>start mutating<br>');
+log('<br>start mutating (firstly skiped because batched)<br>');
 
 itm.item('inner').value = '2';
 itm.item('outer').value = '2';
+itm.item('deeper').value = 2;
 
-log("<br>new values (skiped because batched)<br>");
+log("<br>new values<br>");
 
 itm.item('inner').value = '3';
 itm.item('outer').value = '3';
+itm.item('deeper').value = 3;
 
-log("<br>new values<br>");
 
 setTimeout(()=>{
     log("<br>new values after 50ms<br>");
     itm.item('inner').value = '4';
     itm.item('outer').value = '4';
+    itm.item('deeper').value = 4;
 }, 50);
 
 setTimeout(()=>{
     log("<br>new values after 100ms<br>");
     itm.item('inner').value = '5';
     itm.item('outer').value = '5';
+    itm.item('deeper').value = 5;
 }, 100);
 
 </script>

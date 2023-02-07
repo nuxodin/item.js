@@ -1,4 +1,4 @@
-
+// signal / effect
 const relatedEffects = new WeakMap();
 let currentEffect = null;
 
@@ -7,18 +7,16 @@ export function effect(fn){
     currentEffect = fn;
     if (outer) {
         (outer.nested ??= new Set()).add(fn);
+        if (fn.parent && fn.parent !== outer) throw('effect(cb) callbacks should not be reused for other effects');
         fn.parent = outer;
     }
     fn();
     currentEffect = outer;
     return () => fn.disposed = true
 }
-
-
 let batches = null;
 function batch(effect) {
     if (batches) return batches.add(effect);
-
     batches = new Set([effect]);
     Promise.resolve().then(()=>{ // setImmediate-alternative
         batches.forEach(fn => {
@@ -29,23 +27,21 @@ function batch(effect) {
         batches = null; // restart batch
     });
 }
-
-
-export function signalize(item) {
-    item.addEventListener('getIn', ({detail:{item}}) => {
-        if (!currentEffect) return;
-        if (!relatedEffects.has(item)) relatedEffects.set(item, new Set());
-        relatedEffects.get(item).add(currentEffect);
-    });
-    item.addEventListener('changeIn', ({detail:{item}}) => {
-        const effects = relatedEffects.get(item);
-        if (!effects) return;
+function registerCurrentEffectFor(signal) {
+    if (currentEffect) {
+        if (!relatedEffects.has(signal)) relatedEffects.set(signal, new Set());
+        relatedEffects.get(signal).add(currentEffect);
+    }
+}
+function triggerEffectsFor(signal) {
+    const effects = relatedEffects.get(signal);
+    if (effects) { // "&& effects.size" faster?
         effects.forEach(fn => {
             fn.nested?.forEach(fn => fn.disposed = true); // dispose child-effects
             if (fn.disposed) return effects.delete(fn);
             batch(fn);
         });
-    });
+    }
 }
 
 
@@ -62,6 +58,7 @@ export class Item extends EventTarget {
         super();
         this.#parent = parent;
         this.#key = key;
+        this.addEventListener('change', () => triggerEffectsFor(this) );
     }
 
     get key(){ return this.#key }
@@ -72,8 +69,8 @@ export class Item extends EventTarget {
         if (this.#isgetting) throw new Error('circular get');
         this.#isgetting = true;
         dispatchEvent(this, 'get', { item: this, value:this.#value });
+        registerCurrentEffectFor(this);
         this.#isgetting = false;
-        //if (!this.#filled) throw new Error('value was never set');
         return this.$get();
     }
     set value(value){
@@ -90,7 +87,6 @@ export class Item extends EventTarget {
         } else {
             const value = this.#value ??= Object.create(null); // if undefined, create object (todo? should always be object)
             return Object.fromEntries(Object.entries(value).map(([key, {value}]) => [key, value]));
-            //return Object.fromEntries(Object.entries(this.#value).map(([key, {value}]) => [key, value]));
         }
     }
     $set(value){
