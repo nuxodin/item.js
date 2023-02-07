@@ -85,7 +85,7 @@ export class AsyncDataPoint {
         const handleResult = data => {
             if (this.#setter !== promise) return; // ignore if setter has been replaced
             if (data instanceof Error) {
-                console.warn('setter rejected: ', data);
+                console.error('setter rejected: ', data);
                 this.#getter = null; // clear getter cache
             } else {
                 this.#cacheGetter(transparentPromiseResolve(value));

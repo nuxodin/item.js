@@ -13,6 +13,14 @@ class IDB_db extends Item {
     open(version, callbacks) {
         this.dbPromise = openDB(this.key, version, callbacks);
     }
+    // async allStores() { // works needed?
+    //     const db = await this.dbPromise;
+    //     const result = Object.create(null);
+    //     for (const name of db.objectStoreNames) {
+    //         result[name] = this.item(name);
+    //     }
+    //     return result;
+    // }
     static isPrimitive(){ return false; }
 }
 
@@ -32,10 +40,11 @@ class IDB_entry extends AsyncItem {
         const db = store.parent;
         return db.dbPromise.then( db => db.put(store.key, value, this.key) );
     }
+    ChildClass = Item;
 }
 
 
-let root = null; // cached
+let root = null; // cached, the item that stands for the root of all dbs
 export function IDB(){
     if (!root) {
         root = item();
@@ -44,17 +53,8 @@ export function IDB(){
     return root;
 }
 
-// const dbPromise = openDB('keyval-store', 1, {
-//   upgrade(db) {
-//     db.createObjectStore('keyval');
-//   },
-// });
-// export async function del(key) {
-//   return (await dbPromise).delete('keyval', key);
-// }
-// export async function clear() {
-//   return (await dbPromise).clear('keyval');
-// }
-// export async function keys() {
-//   return (await dbPromise).getAllKeys('keyval');
-// }
+
+// todo:
+// dbPromise.delete('keyval', key);
+// dbPromise.clear('keyval');
+// dbPromise.getAllKeys('keyval');

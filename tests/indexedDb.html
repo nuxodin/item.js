@@ -24,7 +24,9 @@ store.open(2, {
 });
 
 store.item('keyval').item('item1').value = 'value1';
-store.item('keyval').item('item2').value = {a:1, b:2};
+store.item('keyval').item('item2').value = {a:1, b:2}; // add value as object
+store.item('keyval').value = {item3: 'value3', item4: 'value4'}; // add multiple items
+
 
 const valItem2 = await store.item('keyval').item('item2').value;
 
@@ -35,17 +37,16 @@ const valItem2 = await store.item('keyval').item('item2').value;
 import {proxy} from "../item.js";
 
 let test = idb.item('test');
-test.open(2, {
+test.open(11, {
     upgrade(db, oldVersion, newVersion, transaction) {
-        if (oldVersion < 1) {
-            db.createObjectStore('user');
-            db.createObjectStore('group');
-        }
+        const stores = new Set(db.objectStoreNames);
+        !stores.has('user') && db.createObjectStore('user');
+        !stores.has('group') && db.createObjectStore('group');
+        !stores.has('post') && db.createObjectStore('post');
     }
 });
 
 test = proxy(test);
-
 test.user.hans = 'value1';
 test.user.urs = 'value1';
 test.user.sepp = 'value1';

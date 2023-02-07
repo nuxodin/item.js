@@ -1,35 +1,20 @@
 
+
 const relatedEffects = new WeakMap();
 let currentEffect = null;
 
 export function effect(fn){
     const outer = currentEffect;
     currentEffect = fn;
-    if (outer) {
-        (outer.nested ??= new Set()).add(fn);
-        fn.parent = outer;
-    }
+
+    //fn.nested = new Set();
+    //outer?.nested.add(fn);
+    outer && (outer.nested ??= new Set()).add(fn);
+
     fn();
     currentEffect = outer;
     return () => fn.disposed = true
 }
-
-
-let batches = null;
-function batch(effect) {
-    if (batches) return batches.add(effect);
-
-    batches = new Set([effect]);
-    Promise.resolve().then(()=>{ // setImmediate-alternative
-        batches.forEach(fn => {
-            if (batches.has(fn?.parent)) return;
-            currentEffect = fn; // effect() has to know his parent effect
-            fn();
-        });
-        batches = null; // restart batch
-    });
-}
-
 
 export function signalize(item) {
     item.addEventListener('getIn', ({detail:{item}}) => {
@@ -40,13 +25,20 @@ export function signalize(item) {
     item.addEventListener('changeIn', ({detail:{item}}) => {
         const effects = relatedEffects.get(item);
         if (!effects) return;
-        effects.forEach(fn => {
-            fn.nested?.forEach(fn => fn.disposed = true); // dispose child-effects
+        const prev = currentEffect;
+        currentEffect = null;
+        effects.forEach(fn => {  // no "for in" because we remove items from the set
+            fn.nested?.forEach(fn => fn.disposed = true);
             if (fn.disposed) return effects.delete(fn);
-            batch(fn);
+            fn();
         });
+        currentEffect = prev; // is this needed?
+        if (currentEffect !== null) console.error('just my test to see if this happens');
     });
 }
+
+//console.log('relatedEffects', relatedEffects);
+
 
 
 export class Item extends EventTarget {
@@ -175,6 +167,11 @@ export function dispatchEvent(item, eventName, detail){
         defaultPrevented: eventIn.defaultPrevented || event.defaultPrevented,
     }
 }
+
+
+
+// todo: signalize
+
 
 
 const proxyHandler = {

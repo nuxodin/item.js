@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Test</title>
+<body>
+
+<h1>Test</h1>
+
+<script type=module>
+
+import {effect, signalize, proxy} from "../item.js";
+import {localStorageItem} from "../drivers/localStorage.js";
+
+let item = localStorageItem();
+signalize(item);
+window.ls = proxy(item);
+
+effect(()=>{
+    sayHi.innerHTML = 'Hi '+ls.firstname+' '+ls.lastname+'!';
+});
+
+</script>
+
+<h2>Stored in and synced from localStorage!</h2>
+
+<label>
+    Firstname:
+    <input id=firstname oninput="ls[this.id] = this.value">
+</label>
+<label>
+    Lastname:
+    <input id=lastname oninput="ls[this.id] = this.value">
+</label>
+
+<h2 id=sayHi></h2>
