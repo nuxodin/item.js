@@ -46,13 +46,13 @@ function log(msg){
     console.log(msg)
 }
 
-log('<br>start mutating (firstly skiped because batched)<br>');
+log('<br>start mutating (skiped because effects run collected after microtask)<br>');
 
 itm.item('inner').value = 2;
 itm.item('outer').value = 2;
 itm.item('deeper').value = 2;
 
-log("<br>new values<br>");
+log("<br>mutate again<br>");
 
 itm.item('inner').value = 3;
 itm.item('outer').value = 3;

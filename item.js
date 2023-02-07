@@ -1,3 +1,5 @@
+
+
 // signal / effect
 const relatedEffects = new WeakMap();
 let currentEffect = null;
@@ -16,7 +18,7 @@ export function effect(fn){
     return () => fn.disposed = true
 }
 
-export function computed(fn){ // alpha
+export function computed(fn){ // alpha, I do not understand the meaning behind computed, its just the function...
     return {
         get value(){
             return fn();
@@ -27,9 +29,8 @@ export function computed(fn){ // alpha
 
 let batches = null;
 function batch(effect) {
-    if (batches) return batches.add(effect);
+    if (batches) return batches.add(effect); // currently collecting
     batches = new Set([effect]);
-
     queueMicrotask(() => {
         batches.forEach(fn => {
             if (batches.has(fn?.parent)) return;
@@ -49,7 +50,7 @@ function registerCurrentEffectFor(signal) {
 
 function triggerEffectsFor(signal) {
     const effects = relatedEffects.get(signal);
-    if (effects) { // "&& effects.size" faster?
+    if (effects) {
         effects.forEach(fn => {
             fn.nested?.forEach(fn => fn.disposed = true); // dispose child-effects
             if (fn.disposed) return effects.delete(fn);
@@ -58,7 +59,7 @@ function triggerEffectsFor(signal) {
     }
 }
 
-
+// Item
 export class Item extends EventTarget {
 
     #value;
