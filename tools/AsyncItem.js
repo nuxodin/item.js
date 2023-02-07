@@ -24,5 +24,5 @@ export class AsyncItem extends Item {
     // overwrite asyncItems can not have items, hmm... but what if the result is a object?
     // then it should be possible to get items from it but get and set should be handled by the AsyncItem
     // should we invent a class "AsyncChild"?
-    item = null
+//    item = null
 }

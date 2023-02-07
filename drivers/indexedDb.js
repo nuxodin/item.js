@@ -13,14 +13,6 @@ class IDB_db extends Item {
     open(version, callbacks) {
         this.dbPromise = openDB(this.key, version, callbacks);
     }
-    // async allStores() { // works needed?
-    //     const db = await this.dbPromise;
-    //     const result = Object.create(null);
-    //     for (const name of db.objectStoreNames) {
-    //         result[name] = this.item(name);
-    //     }
-    //     return result;
-    // }
     static isPrimitive(){ return false; }
 }
 

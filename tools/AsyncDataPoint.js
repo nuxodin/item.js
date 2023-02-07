@@ -64,6 +64,10 @@ export class AsyncDataPoint {
         }
         this.#getter = promise;
     }
+    // set value without saving it to the master
+    // this is useful if the value comes from the master through an other channel
+    // for example a cookechange event, or a fs watch event
+    // what would be a better name?
     setFromMaster(value) {
         this.#cacheGetter(transparentPromiseResolve(value));
     }

@@ -1,49 +1,23 @@
-import {item} from '../item.js';
+// alfa version, todo!
 
-// here is just a experiment
-// todo: AsyncItem!
+//import {Item} from '../item.js';
+import {AsyncItem} from '../tools/AsyncItem.js';
 
 // restApi
 export function restApi(url, options){
 
     // todo, cancel request if item turns into an object, great for proxified items
-
-    const root = item();
-    root.addEventListener('setIn', e => {
-        const item = e.detail.item;
-
-        if (item.setRequest) {// cancel previous getter fetch
-            item.setRequest.controller.abort();
-            item.setRequest = null;
+    class RestApiItem extends AsyncItem {
+        static isPrimitive(){ return false; }
+        createGetter() {
+            return itemRequest(this, 'GET').promise;
         }
-        if (item.getRequest) { // cancel getter fetch, will fetch next time
-            item.getRequest.controller.abort();
-            item.getRequest = null;
+        createSetter(value) {
+            return itemRequest(this, 'PUT', JSON.stringify(value)).promise;
         }
+    }
 
-        item.setRequest = itemRequest(item, 'PUT', JSON.stringify(e.detail.value));
-
-        item.setRequest.promise.then(() => { // wait for the fetch to be done
-            item.setRequest = null;
-        });
-
-    });
-    root.addEventListener('getIn', e => {
-        const item = e.detail.item;
-
-        if (item.getRequest) return; // already fetched or fetching
-
-        item.getRequest = itemRequest(item, 'GET');
-        const {promise} = item.getRequest;
-
-        promise.then(value => { // cache the promise for 1 seconds
-            setTimeout(() => item.getRequest = null, 1000);
-        });
-        e.detail.returnValue = promise; // silintly set the value, no event
-    });
-
-
-
+    const root = new RestApiItem();
 
     function itemRequest(item, method, body){
         const headers = new Headers();
@@ -69,17 +43,13 @@ export function restApi(url, options){
         return {controller,promise};
     }
 
-
+    function fetchDelay(url, options){ // not direct fetch, can be aborted quickly
+        return new Promise(resolve => {
+            setTimeout(() => {
+                resolve(fetch(url, options));
+            }, 1);
+        });
+    }
 
     return root;
-}
-
-
-
-function fetchDelay(url, options){ // not direct fetch, can be aborted quickly
-    return new Promise(resolve => {
-        setTimeout(() => {
-            resolve(fetch(url, options));
-        }, 1);
-    });
 }

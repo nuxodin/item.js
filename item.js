@@ -1,64 +1,3 @@
-
-
-// signal / effect
-const relatedEffects = new WeakMap();
-let currentEffect = null;
-
-
-export function effect(fn){
-    const outer = currentEffect;
-    currentEffect = fn;
-    if (outer) {
-        (outer.nested ??= new Set()).add(fn);
-        if (fn.parent && fn.parent !== outer) throw('effect(cb) callbacks should not be reused for other effects');
-        fn.parent = outer;
-    }
-    fn();
-    currentEffect = outer;
-    return () => fn.disposed = true
-}
-
-export function computed(fn){ // alpha, I do not understand the meaning behind computed, its just the function...
-    return {
-        get value(){
-            return fn();
-        },
-        toString(){ return String(this.value) },
-    };
-}
-
-let batches = null;
-function batch(effect) {
-    if (batches) return batches.add(effect); // currently collecting
-    batches = new Set([effect]);
-    queueMicrotask(() => {
-        batches.forEach(fn => {
-            if (batches.has(fn?.parent)) return;
-            currentEffect = fn; // effect() has to know his parent effect
-            fn();
-        });
-        batches = null; // restart batch
-    });
-}
-
-function registerCurrentEffectFor(signal) {
-    if (currentEffect) {
-        if (!relatedEffects.has(signal)) relatedEffects.set(signal, new Set());
-        relatedEffects.get(signal).add(currentEffect);
-    }
-}
-
-function triggerEffectsFor(signal) {
-    const effects = relatedEffects.get(signal);
-    if (effects) {
-        effects.forEach(fn => {
-            fn.nested?.forEach(fn => fn.disposed = true); // dispose child-effects
-            if (fn.disposed) return effects.delete(fn);
-            batch(fn);
-        });
-    }
-}
-
 // Item
 export class Item extends EventTarget {
 
@@ -73,7 +12,7 @@ export class Item extends EventTarget {
         super();
         this.#parent = parent;
         this.#key = key;
-        this.addEventListener('change', () => triggerEffectsFor(this) );
+        this.addEventListener('change', () => triggerEffectsFor(this) ); // the method that triggers the change effect can be overwritten by a child class, therefore we use the event
     }
 
     get key(){ return this.#key }
@@ -132,11 +71,6 @@ export class Item extends EventTarget {
         return this.#value[key];
     }
 
-    toJSON() { return this.value; }
-    then(fn) { fn(this.value); }
-    valueOf() { return this.value; }
-    toString() { return String(this.value); }
-
     // path
     get path() {
         if (this.#parent == null) return [this];
@@ -150,11 +84,20 @@ export class Item extends EventTarget {
         return this.item(keys[0]).walkPathKeys(keys.slice(1));
     }
 
-    static pathSeparator = '/';
-    get pathString() {
-        if (this.#parent == null) return '';
-        return this.pathKeys.join(this.constructor.pathSeparator);
+    toJSON() { return this.value; }
+    then(fn) { fn(this.value); }
+    valueOf() { return this.value; }
+    toString() { return String(this.value); }
+    get [Symbol.iterator]() {
+        this.value; // trigger get to possibliy collect values?
+        return () => Object.values(this.#value)[Symbol.iterator]();
     }
+
+    // static pathSeparator = '/';
+    // get pathString() {
+    //     if (this.#parent == null) return '';
+    //     return this.pathKeys.join(this.constructor.pathSeparator);
+    // }
 
     static isPrimitive(value){
         return value !== Object(value) || 'toJSON' in value || value instanceof Promise;
@@ -170,7 +113,69 @@ export const item = (...args) => {
     return v;
 }
 
-/* helpers */
+
+// signal / effect
+const relatedEffects = new WeakMap();
+let currentEffect = null;
+
+export function effect(fn){
+    const outer = currentEffect;
+    currentEffect = fn;
+    if (outer) {
+        (outer.nested ??= new Set()).add(fn);
+        if (fn.parent && fn.parent !== outer) throw('effect(cb) callbacks should not be reused for other effects');
+        fn.parent = outer;
+    }
+    fn();
+    currentEffect = outer;
+    return () => fn.disposed = true
+}
+
+export function computed(fn){ // alpha, I do not understand the meaning behind computed, its just the function...
+    return {
+        get value(){
+            return fn();
+        },
+        toString(){ return String(this.value) },
+    };
+}
+
+let batches = null;
+function batch(effect) {
+    if (batches) return batches.add(effect); // currently collecting
+    batches = new Set([effect]);
+    queueMicrotask(() => {
+        batches.forEach(fn => {
+            if (batches.has(fn?.parent)) return;
+            currentEffect = fn; // effect() called inside fn(callback) has to know his parent effect
+            fn();
+        });
+        batches = null; // restart batch
+    });
+}
+
+function registerCurrentEffectFor(signal) {
+    if (currentEffect) {
+        if (!relatedEffects.has(signal)) relatedEffects.set(signal, new Set());
+        relatedEffects.get(signal).add(currentEffect);
+    }
+}
+
+function triggerEffectsFor(signal) {
+    const effects = relatedEffects.get(signal);
+    if (effects) {
+        effects.forEach(fn => {
+            fn.nested?.forEach(fn => fn.disposed = true); // dispose child-effects
+            if (fn.disposed) return effects.delete(fn);
+            batch(fn);
+        });
+    }
+}
+
+
+
+
+// helpers
 export function dispatchEvent(item, eventName, detail){
     const options = {detail, cancelable: true};
     const event = new CustomEvent(eventName, options);
@@ -187,7 +192,7 @@ export function dispatchEvent(item, eventName, detail){
     }
 }
 
-
+// proxy
 const proxyHandler = {
     get: function(target, property, receiver){
         if (typeof property === 'symbol') return Reflect.get(target, property, receiver);

@@ -34,9 +34,8 @@ const valItem2 = await store.item('keyval').item('item2').value;
 
 // proxy test
 
-import {proxy} from "../item.js";
 
-let test = idb.item('test');
+let test = idb.item('testx');
 test.open(11, {
     upgrade(db, oldVersion, newVersion, transaction) {
         const stores = new Set(db.objectStoreNames);
@@ -45,6 +44,8 @@ test.open(11, {
         !stores.has('post') && db.createObjectStore('post');
     }
 });
+
+import {proxy} from "../item.js";
 
 test = proxy(test);
 test.user.hans = 'value1';

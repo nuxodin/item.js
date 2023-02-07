@@ -9,50 +9,38 @@
 
 <h1>Test</h1>
 
-
 <script type=module>
 
-import { item } from '../item.js';
-
-const a = item(1);
-a.value === 1; // true
-a.value = 2;
-a.value === 2; // true
+import { Item, effect } from '../item.js';
 
 
-a.addEventListener('change', ({detail}) => {
-  console.log(detail.oldValue, detail.value);
+// define a primitive item
+
+class PrimitiveItem extends Item {
+    static isPrimitive() { return true; }
+}
+
+function eventSignal(target, eventName) {
+    const signal = new PrimitiveItem();
+    target.addEventListener(eventName, e => signal.value = e);
+    return signal;
+}
+
+
+// ussage
+const inputEvent = eventSignal(myInput, 'input');
+
+effect(() => {
+    myOutput.value = inputEvent.value?.target?.value ?? '';
 });
-a.value = 3; // triggers 'change' event
 
-a.addEventListener('get', ({detail}) => {
-    console.log(detail.value);
+myInput.addEventListener('input', e => {
+    myOutput.value = e.target.value;
 });
-a.value; // triggers 'get' event
 
-
-// you can also add objects
-const b = item({a: 1});
-
-// 'change' would not trigger on 'b', when we change its child 'a'
-b.addEventListener('changeIn', ({detail}) => {
-    detail.item === b.item('a'); // true
-    console.log(detail.item, detail.oldValue, detail.value);
-});
-b.item('a').value = 2; // triggers 'changeIn' event on 'b' (bubbles up)
-
-b.item('a').parent === b; // true
-b.item('a').path; // equals [b, a];
-b.item('a').pathKeys; // ['a'];
-b.walkPathKeys(['a', 'b', 'c']); // equals b.item('a').item('b').item('c');
-
-// proxy!
-
-import {proxy} from '../item.js';
-
-const i = item({a: 1});
-const p = proxy(i);
-p.a === 1; // equals `i.item('a').value === 1`
-p.a = 2;
 
 </script>
+
+<input id="myInput" value="input">
+<br>
+<output id="myOutput"></output>
