@@ -2,6 +2,7 @@
 const relatedEffects = new WeakMap();
 let currentEffect = null;
 
+
 export function effect(fn){
     const outer = currentEffect;
     currentEffect = fn;
@@ -14,11 +15,22 @@ export function effect(fn){
     currentEffect = outer;
     return () => fn.disposed = true
 }
+
+export function computed(fn){ // alpha
+    return {
+        get value(){
+            return fn();
+        },
+        toString(){ return String(this.value) },
+    };
+}
+
 let batches = null;
 function batch(effect) {
     if (batches) return batches.add(effect);
     batches = new Set([effect]);
-    Promise.resolve().then(()=>{ // setImmediate-alternative
+
+    queueMicrotask(() => {
         batches.forEach(fn => {
             if (batches.has(fn?.parent)) return;
             currentEffect = fn; // effect() has to know his parent effect
@@ -27,12 +39,14 @@ function batch(effect) {
         batches = null; // restart batch
     });
 }
+
 function registerCurrentEffectFor(signal) {
     if (currentEffect) {
         if (!relatedEffects.has(signal)) relatedEffects.set(signal, new Set());
         relatedEffects.get(signal).add(currentEffect);
     }
 }
+
 function triggerEffectsFor(signal) {
     const effects = relatedEffects.get(signal);
     if (effects) { // "&& effects.size" faster?
@@ -120,7 +134,7 @@ export class Item extends EventTarget {
     toJSON() { return this.value; }
     then(fn) { fn(this.value); }
     valueOf() { return this.value; }
-    toString() { String(this.value); }
+    toString() { return String(this.value); }
 
     // path
     get path() {

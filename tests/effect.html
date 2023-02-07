@@ -13,15 +13,14 @@
 
 // local storage
 
-import {item, effect} from "../item.js";
+import {item, effect, computed} from "../item.js";
 
-const itm = item({outer:'0', inner:'0', deeper:0});
+const itm = item({outer:0, inner:0, deeper:0});
 
-const eff = ()=>{
+const sum = computed(()=>{
+    return itm.item('inner').value + itm.item('outer').value + itm.item('deeper').value;
+});
 
-    log("inner effect, value:" + itm.item('inner').value);
-
-}
 
 effect(()=>{
 
@@ -35,9 +34,12 @@ effect(()=>{
 
         log("inner effect, value:" + itm.item('inner').value);
 
+        log("sum.value:" + sum.value);
+
     });
 
 });
+
 
 function log(msg){
     document.body.insertAdjacentHTML('beforeend', msg+"<br>");
@@ -46,29 +48,33 @@ function log(msg){
 
 log('<br>start mutating (firstly skiped because batched)<br>');
 
-itm.item('inner').value = '2';
-itm.item('outer').value = '2';
+itm.item('inner').value = 2;
+itm.item('outer').value = 2;
 itm.item('deeper').value = 2;
 
 log("<br>new values<br>");
 
-itm.item('inner').value = '3';
-itm.item('outer').value = '3';
+itm.item('inner').value = 3;
+itm.item('outer').value = 3;
 itm.item('deeper').value = 3;
 
 
 setTimeout(()=>{
     log("<br>new values after 50ms<br>");
-    itm.item('inner').value = '4';
-    itm.item('outer').value = '4';
+    itm.item('inner').value = 4;
+    itm.item('outer').value = 4;
     itm.item('deeper').value = 4;
 }, 50);
 
 setTimeout(()=>{
     log("<br>new values after 100ms<br>");
-    itm.item('inner').value = '5';
-    itm.item('outer').value = '5';
+
+    itm.item('inner').value = 5;
+    itm.item('outer').value = 5;
     itm.item('deeper').value = 5;
+
 }, 100);
+
+
 
 </script>
