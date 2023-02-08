@@ -1,6 +1,6 @@
 # item.js
 
-Create observable datastructures
+Creates observable datastructures
 
 ## demo
 
