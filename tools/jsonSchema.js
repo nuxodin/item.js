@@ -23,8 +23,5 @@ export function attachSchema(rootItem, schema) {
             const msg = fails.length+' jsonSchema errors:' + '\n' + fails.join('\n');
             throw new Error(msg);
         }
-
-
     });
-
 }

@@ -39,6 +39,19 @@ myInput.addEventListener('input', e => {
 });
 
 
+
+class UpperCaseItem extends Item {
+    $get() { // overwrite getter
+        const value = super.$get();
+        return typeof value === 'string' ? value.toUpperCase() : value;
+    }
+}
+
+const a = new ReadOnlyUpperCaseItem();
+a.value = {a: 'Hello', b: 'World'};
+console.log(a.value); // {a: 'HELLO', b: 'WORLD'}
+
+
 </script>
 
 <input id="myInput" value="input">

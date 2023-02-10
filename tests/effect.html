@@ -40,6 +40,12 @@ effect(()=>{
 
 });
 
+effect(()=>{
+
+    log("outer effect again, value:" + itm.item('outer').value);
+
+});
+
 
 function log(msg){
     document.body.insertAdjacentHTML('beforeend', msg+"<br>");

@@ -28,6 +28,7 @@
         });
         it('item.filled (value provided in constructor)', () => {
             let i = item();
+            chai.expect(i.value).to.equal(undefined);
             chai.expect(i.filled).to.equal(false);
             i.value = 22;
             chai.expect(i.filled).to.equal(true);
@@ -121,7 +122,6 @@
             i.value = {b:2};
             chai.expect(i.value).to.deep.equal({b:2});
         });
-
     });
 
     describe('events', () => {
