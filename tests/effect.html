@@ -18,7 +18,7 @@ import {item, effect, computed} from "../item.js";
 const itm = item({outer:0, inner:0, deeper:0});
 
 const sum = computed(()=>{
-    return itm.item('inner').value + itm.item('outer').value + itm.item('deeper').value;
+    return itm.item('inner') + itm.item('outer') + itm.item('deeper');
 });
 
 
@@ -34,15 +34,13 @@ effect(()=>{
 
         log("inner effect, value:" + itm.item('inner').value);
 
-        log("sum.value:" + sum.value);
-
     });
 
 });
 
 effect(()=>{
 
-    log("outer effect again, value:" + itm.item('outer').value);
+    log("sum only in effect should trigger. value:" + sum.value);
 
 });
 
@@ -80,7 +78,6 @@ setTimeout(()=>{
     itm.item('deeper').value = 5;
 
 }, 100);
-
 
 
 </script>

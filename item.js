@@ -120,24 +120,21 @@ let currentEffect = null;
 
 export function effect(fn){
     const outer = currentEffect;
-    currentEffect = fn;
     if (outer) {
         (outer.nested ??= new Set()).add(fn);
         if (fn.parent && fn.parent !== outer) throw('effect(cb) callbacks should not be reused for other effects');
         fn.parent = outer;
     }
+    currentEffect = fn;
     fn();
     currentEffect = outer;
     return () => fn.disposed = true
 }
 
-export function computed(fn){ // alpha, I do not understand the meaning behind computed, its just the function...
-    return {
-        get value(){
-            return fn();
-        },
-        toString(){ return String(this.value) },
-    };
+export function computed(calc){
+    const signal = item();
+    effect(()=>signal.value = calc()); // todo: only primitive?
+    return signal;
 }
 
 let batches = null;
@@ -146,11 +143,11 @@ function batch(effect) {
     batches = new Set([effect]);
     queueMicrotask(() => {
         batches.forEach(fn => {
-            if (batches.has(fn?.parent)) return;
+            if (batches.has(fn?.parent)) return; // its parent has also to run, so it will run anyway
             currentEffect = fn; // effect() called inside fn(callback) has to know his parent effect
             fn();
         });
-        batches = null; // restart batch
+        batches = null; // restart collecting
     });
 }
 
