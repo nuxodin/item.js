@@ -61,8 +61,7 @@ export class Item extends EventTarget {
         }
     }
     item(key){
-        //if (this.constructor.isPrimitive(this.#value)) { // item forces value always to be object
-        if (this.#value == null || typeof this.#value !== 'object') {
+        if (this.#value == null || typeof this.#value !== 'object') { // item() forces value always to be object
             this.#value = Object.create(null);
             this.#filled = true;
         }
@@ -92,12 +91,6 @@ export class Item extends EventTarget {
         this.value; // trigger get to possibliy collect values?
         return () => Object.values(this.#value)[Symbol.iterator]();
     }
-
-    // static pathSeparator = '/';
-    // get pathString() {
-    //     if (this.#parent == null) return '';
-    //     return this.pathKeys.join(this.constructor.pathSeparator);
-    // }
 
     static isPrimitive(value){
         return value !== Object(value) || 'toJSON' in value || value instanceof Promise;
