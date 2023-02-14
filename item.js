@@ -195,7 +195,7 @@ const proxyHandler = {
         if (item.constructor.isPrimitive(value)) {
             return value;
         } else {
-            return proxy(item); // todo: cache it?
+            return proxy(item); // TODO: cache it, by saving it in a WeakMap?
         }
     },
     set: function(target, property, value, receiver){
