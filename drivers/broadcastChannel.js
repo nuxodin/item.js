@@ -6,7 +6,10 @@ export function broadcastChannelItem({channelName='item.js-default channel',init
     const channel = new BroadcastChannel(channelName);
     const root = item();
 
+    let byMe = false;
+
     root.addEventListener('changeIn', e => {
+        if (byMe) return;
         const {item, value} = e.detail;
         channel.postMessage({path: item.pathKeys, value});
     });
@@ -22,9 +25,12 @@ export function broadcastChannelItem({channelName='item.js-default channel',init
     channel.onmessage = ({data}) => {
         if (data.getInitial) channel.postMessage({setInitial: root.value});
         if (data.setInitial) root.value = data.setInitial;
+
         if (data.path) {
             const {path, value} = data;
+            byMe = true;
             root.walkPathKeys(path).value = value;
+            byMe = false;
         }
     };
     return root;

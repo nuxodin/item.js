@@ -8,19 +8,43 @@
 <body>
 
 <h1>Test</h1>
-
-<label>
-    synced using broadcast channel:<br>
-    <input value=test id=input oninput="bcItem.item('input').value = this.value">
-</label>
-
+Open an other window and see the cursor moving.
 
 <script type=module>
 
 import {broadcastChannelItem} from "../drivers/broadcastChannel.js";
 
-window.bcItem = broadcastChannelItem({channelName: 'testChannel'});
+window.bcItem = broadcastChannelItem({channelName: 'mouseCursors'});
 
-bcItem.item('input').addEventListener('change', (e) => input.value = e.detail.value);
+
+const myId = sessionStorage.getItem('myId') || Math.random().toString(36).substr(2, 9);
+sessionStorage.setItem('myId', myId);
+
+
+document.addEventListener('mousemove', e => {
+    console.log('mousemove');
+    bcItem.item(myId).value = {x: e.clientX, y: e.clientY};
+});
+
+bcItem.addEventListener('changeIn', (e) => {
+    const item = e.detail.item;
+    const id = item.parent.key;
+
+    if (!document.getElementById(id)) {
+        const div = document.createElement('div');
+        div.id = id;
+        document.body.appendChild(div);
+        div.style.width = '2rem';
+        div.style.height = '2rem';
+        div.style.borderRadius = '50%';
+        div.style.backgroundColor = 'red';
+        div.style.position = 'absolute';
+        div.innerText = id;
+    }
+
+    const div = document.getElementById(id);
+    div.style[item.key==='x'? 'left' : 'top'] = item.value + 'px';
+});
+
 
 </script>
