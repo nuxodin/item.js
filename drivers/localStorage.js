@@ -12,7 +12,6 @@ export function localStorageItem(){
             item.value = localStorage.getItem(item.key);
         });
         addEventListener('storage', e => { // does not trigger on source window!
-            console.log(e)
             root.item(e.key).value = e.newValue;
         });
     }
