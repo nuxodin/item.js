@@ -78,7 +78,7 @@ p.a = 2;
 const p = proxy({a: 1});
 ```
 
-## extend from Item
+## Extend from Item
 ```js
 import { Item } from '../item.js';
 
