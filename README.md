@@ -89,7 +89,7 @@ class UpperCaseItem extends Item {
     }
 }
 
-const a = new ReadOnlyUpperCaseItem();
+const a = new UpperCaseItem();
 a.value = {a: 'Hello', b: 'World'};
 console.log(a.value); // {a: 'HELLO', b: 'WORLD'}
 ```
