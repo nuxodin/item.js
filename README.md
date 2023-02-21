@@ -78,7 +78,7 @@ p.a = 2;
 const p = proxy({a: 1});
 ```
 
-## extend from Item
+## Extend from Item
 ```js
 import { Item } from '../item.js';
 
@@ -89,7 +89,8 @@ class UpperCaseItem extends Item {
     }
 }
 
-const a = new ReadOnlyUpperCaseItem();
+// Ussage:
+const a = new UpperCaseItem();
 a.value = {a: 'Hello', b: 'World'};
 console.log(a.value); // {a: 'HELLO', b: 'WORLD'}
 ```
