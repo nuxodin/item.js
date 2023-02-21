@@ -12,31 +12,40 @@
 
 import {IDB} from "../drivers/indexedDb.js";
 
+
 const idb = IDB();
 
-const store = idb.item('keyval-store');
-store.open(2, {
+const db1 = idb.item('db1');
+
+db1.open(2, {
     upgrade(db, oldVersion, newVersion, transaction) {
         if (oldVersion < 1) {
-            db.createObjectStore('keyval');
+            db.createObjectStore('store1');
         }
     }
 });
 
-store.item('keyval').item('item1').value = 'value1';
-store.item('keyval').item('item2').value = {a:1, b:2}; // add value as object
-store.item('keyval').value = {item3: 'value3', item4: 'value4'}; // add multiple items
+db1.item('store1').item('rand').value = Math.random();
+db1.item('store1').item('item2').value = {a:1, b:2}; // add value as object
+db1.item('store1').value = {item3: 'value3', item4: 'value4'}; // add multiple items
 
+//setTimeout(async () => {
+    // bug: the random value is the old one, because they are save together in one transaction
+    // but until the transaction is finished, the value should be the new one?? (trustSendingValue)
+    const valItem1 = db1.item('store1').item('rand').value;
+    const valItem2 = db1.item('store1').item('item2').value;
+    const valItem2again = db1.item('store1').item('item2').value; // get value again, db query executes only once
 
-const valItem2 = await store.item('keyval').item('item2').value;
+    const ps = await Promise.all([valItem1, valItem2, valItem2again]);
+    console.log(ps);
+//}, 10);
 
 
 
 // proxy test
 
-
-let test = idb.item('testx');
-test.open(11, {
+let db2 = idb.item('db2');
+db2.open(11, {
     upgrade(db, oldVersion, newVersion, transaction) {
         const stores = new Set(db.objectStoreNames);
         !stores.has('user') && db.createObjectStore('user');
@@ -47,10 +56,16 @@ test.open(11, {
 
 import {proxy} from "../item.js";
 
-test = proxy(test);
-test.user.hans = 'value1';
-test.user.urs = 'value1';
-test.user.sepp = 'value1';
+db2 = proxy(db2);
+
+db2.user.hans = 'value1';
+db2.user.urs = 'value1';
+db2.user.sepp = 'value1';
+
+// set value of item works
+db2.user.deep = { d1:1, d2:2 };
+// deeper then item does not work
+db2.user.deep.d1 = 3;
 
 
 </script>

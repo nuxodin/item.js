@@ -12,8 +12,6 @@
 
 import {AsyncDataPoint} from '../tools/AsyncDataPoint.js';
 
-
-/*  test  */
 /*  test  */
 
 function delayPromise(promise, ms) {
@@ -40,21 +38,22 @@ const promiseItem = new AsyncDataPoint({
 
 promiseItem.cacheDuration = 1000;
 
-console.log(promiseItem)
+console.log('This is the AsyncDataPoint:', promiseItem);
 
 let actual = null;
 
+console.log('getter returs a random value');
 actual = await promiseItem.get();
 console.log('get value: ' + actual);
 
-console.log('set value: ("val") ');
-promiseItem.set('val');
+console.log('set value: foo ');
+promiseItem.set('foo');
 
-console.log('set again same value');
-promiseItem.set('val');
+console.log('set again same value (setter only called once, will be called in a microtask sequen)');
+promiseItem.set('foo');
 
 actual = await promiseItem.get();
-console.log('get value: ("'+actual+'") ');
+console.log('get value: "'+actual+'" ');
 
 
 await delay(50);

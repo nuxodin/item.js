@@ -1,5 +1,5 @@
 import { Item } from '../../item.js';
-import { Table } from './table.js';
+import { Table } from './Table.js';
 
 export class Db extends Item {
     constructor(connection){
@@ -20,11 +20,10 @@ export class Db extends Item {
     }
     async one(sql){
         const row = await this.row(sql);
-        if (row) for (let i in row) return row[i];
+        if (row) for (const i in row) return row[i];
     }
     quote(value){
         return "'"+(value+'').replace(/'/g, "\'")+"'";
-        return this.connection.escape(value);
     }
 
     // schema

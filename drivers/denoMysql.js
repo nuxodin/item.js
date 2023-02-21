@@ -1,4 +1,4 @@
-import { Db } from "./sql/db.js";
+import { Db } from "./sql/Db.js";
 
 
 export const db = function(connection){

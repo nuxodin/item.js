@@ -1,5 +1,5 @@
 import {db} from "../drivers/denoMysql.js";
-import {Client} from "https://deno.land/x/mysql/mod.ts";
+import {Client} from "https://deno.land/x/mysql@v2.8.0/mod.ts";
 //import * as schemaSql from "../schema/sql.js";
 
 

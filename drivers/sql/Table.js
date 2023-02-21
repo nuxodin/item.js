@@ -1,6 +1,6 @@
 import { Item } from '../../item.js';
-import { Row } from './row.js';
-import { Field } from './field.js';
+import { Row } from './Row.js';
+import { Field } from './Field.js';
 
 export const Table = class extends Item {
     constructor(db, name){
@@ -21,6 +21,7 @@ export const Table = class extends Item {
             const row = this.row(id);
             for (const i in data) {
                 row.cell(i)._value = data[i]; // todo
+                row.cell(i).setFromMaster(data[i]); // todo
             }
             rows.push( row );
         }

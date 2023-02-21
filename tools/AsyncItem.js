@@ -11,6 +11,8 @@ export class AsyncItem extends Item {
         this.master.onchange = ({value, oldValue}) => {
             dispatchEvent(this, 'change', { item: this, value, oldValue });
         }
+
+        // TODO: changes in child items should be handled (get the actual value and make a patch from the change inside)
     }
     createGetter() { throw new Error('createGetter not implemented'); }
     createSetter(value) { throw new Error('createSetter not implemented (value: ' + value + ')'); }

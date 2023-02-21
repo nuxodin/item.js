@@ -1,5 +1,5 @@
 import { Item } from '../../item.js';
-import { Cell } from './cell.js';
+import { Cell } from './Cell.js';
 
 export class Row extends Item {
     constructor(table, eid){

@@ -15,6 +15,7 @@ datapoint.trustSendingValue = true; // trust sending value: until the sending is
 datapoint.setDebouncePeriod = 5; // debounce period for setter in ms, default 5
 datapoint.setFromMaster({title: 'foo', completed: true}); // set value without saving it to the server
 */
+
 export class AsyncDataPoint {
 
     trustSendingValue = true;
@@ -39,7 +40,7 @@ export class AsyncDataPoint {
     }
     #createSetter(value) {
         const promise = abortablePromise((resolve, reject) => {
-            return this.createSetter(value).then(resolve, reject);
+            return this.createSetter(value).then(resolve, reject); // TODO: add a second argument "signal" to "createSetter()" to abort the request if abort is called
         }, this.setDebouncePeriod);
         makePromiseTransparent(promise);
         return promise;
@@ -66,13 +67,14 @@ export class AsyncDataPoint {
     }
     // set value without saving it to the master
     // this is useful if the value comes from the master through an other channel
-    // for example a cookechange event, or a fs watch event
+    // for example a cookechange event, or a fs-watch event
     // what would be a better name?
     setFromMaster(value) {
         this.#cacheGetter(transparentPromiseResolve(value));
     }
     get() {
         if (this.#setter?.state === 'pending' && this.trustSendingValue) return Promise.resolve(this.#expectedValue); // trust sending value
+        // TODO?: wait for setter to be done if not trustSendingValue?
         let promise = this.#getter;
         if (!promise) {
             promise = this.#createGetter();
@@ -105,9 +107,19 @@ export class AsyncDataPoint {
 
 
 // helper functions
+
 /**
  * Adds state and value properties to a Promise, making it transparent.
  * @param {Promise} promise - The Promise to make transparent.
+ * @returns void
+ * @example
+ * const promise = makePromiseTransparent(new Promise(resolve => resolve('foo')));
+ * promise.state; // 'pending'
+ * promise.value; // undefined
+ * promise.then(value => {
+ *      console.log(promise.state); // 'fulfilled'
+ *      console.log(promise.value); // 'foo'
+ * });
  */
 function makePromiseTransparent(promise) {
     if (promise.state) console.warn('already transparent');
@@ -125,6 +137,11 @@ function makePromiseTransparent(promise) {
     );
 }
 
+/**
+ * Returns a transparent Promise (see makePromiseTransparent) that is resolved with the specified value.
+ * @param {any} value - The value to resolve the Promise with.
+ * @returns {Promise} - A transparent Promise.
+ */
 function transparentPromiseResolve(value) {
     const promise = Promise.resolve(value);
     makePromiseTransparent(promise);
