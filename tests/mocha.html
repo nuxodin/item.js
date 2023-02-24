@@ -45,11 +45,6 @@
             let i = item(22);
             chai.expect(JSON.stringify(i)).to.equal('22');
         });
-        it('await item (thenable)', async () => {
-            let i = item(22);
-            let value = await i;
-            chai.expect(value).to.equal(22);
-        });
         it('.parent is undefined', () => {
             let i = item(22);
             chai.expect(i.parent).to.equal(undefined);

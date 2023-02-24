@@ -79,27 +79,11 @@ class IDB_store extends Item {
 class IDB_entry extends AsyncItem {
     static isPrimitive(){ return false; } // needed?
 
-    // constructor(parent, key) { // does not work as expected, we should solve this in AsyncItem
-    //     super(parent, key);
-    //     this.addEventListener('changeIn', e=>{ // save if changed from inside, not tested
-    //         console.log('changeIn', e.detail.item.key, e.detail);
-    //         if (e.target !== this) {
-    //             //this.value = this.value; this.value is a promise in asyncItems
-    //         }
-    //     });
-    // }
-
     createGetter() {
-        const store = this.parent;
-        //const db = store.parent;
-        //return db.dbPromise.then( db => db.get(store.key, this.key) );
-        return store._batch( store => store.get(this.key) );
+        return this.parent._batch( store => store.get(this.key) );
     }
     createSetter(value) {
-        const store = this.parent;
-        // const db = store.parent;
-        // return db.dbPromise.then( db => db.put(store.key, value, this.key) );
-        return store._batch( store => store.put(value, this.key) );
+        return this.parent._batch( store => store.put(value, this.key) );
     }
     ChildClass = Item;
 }

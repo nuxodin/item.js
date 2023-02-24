@@ -84,7 +84,6 @@ export class Item extends EventTarget {
     }
 
     toJSON() { return this.value; }
-    then(fn) { fn(this.value); }
     valueOf() { return this.value; }
     toString() { return String(this.value); }
     get [Symbol.iterator]() {

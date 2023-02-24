@@ -100,7 +100,7 @@ export class AsyncDataPoint {
             this.#expectedValue = null;
         };
         promise.then(handleResult, handleResult);
-        this.#setter = promise;
+        this.#setter = promise; // return: the actual setter or a reference to the newest one? (i think the actual one)
     }
 }
 

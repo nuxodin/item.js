@@ -1,26 +1,16 @@
-import { Item } from '../../item.js';
+import { Item } from '../../../item.js';
 import { Table } from './Table.js';
 
 export class Db extends Item {
-    constructor(connection){
+    constructor(){
         super();
-        this.connection = connection;
     }
-    query(sql /*, params */){
-        try {
-            return this.connection.query(sql /*, params */);
-        } catch(e) {
-            console.log(sql, e) //throw e;
-            return false;
-        }
-    }
+    query(){ throw new Error('Not implemented'); }
     async row(sql){
-        const all = await this.query(sql);
-        return all && all[0];
+        for (const row of await this.query(sql)) return row;
     }
     async one(sql){
-        const row = await this.row(sql);
-        if (row) for (const i in row) return row[i];
+        return Object.values(await this.row(sql))[0];
     }
     quote(value){
         return "'"+(value+'').replace(/'/g, "\'")+"'";

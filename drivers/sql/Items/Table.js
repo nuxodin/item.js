@@ -1,4 +1,4 @@
-import { Item } from '../../item.js';
+import { Item } from '../../../item.js';
 import { Row } from './Row.js';
 import { Field } from './Field.js';
 
@@ -18,7 +18,7 @@ export const Table = class extends Item {
         const rows = [];
         for (const data of all) {
             const id = await this.rowId(data);
-            const row = this.row(id);
+            const row = this.item(id);
             for (const i in data) {
                 row.cell(i)._value = data[i]; // todo
                 row.cell(i).setFromMaster(data[i]); // todo
@@ -27,6 +27,7 @@ export const Table = class extends Item {
         }
         return rows;
     }
+
     field(name) {
         if (!this._fields[name]) this._fields[name] = new Field(this, name);
         return this._fields[name];
@@ -127,27 +128,15 @@ export const Table = class extends Item {
         const sqls = await this._objectToSqls(data, alias, true);
         return sqls.join(' , ');
 	}
-    async insert(data){
-        // todo intervention
-        // event = {
-        //     _waitingPromises:[],
-        //     data
-        // };
-        // event.waitUntil = function(promise){
-        //     this._waitingPromises.push(promise);
-        // }
-        // this.trigger('insert-before',event)
-        // async Promise.all(event._waitingPromises);
-
+    async insert(data) {
         const set = await this.objectToSet(data);
-        const Statement = await this.parent.query("INSERT INTO " + this + (set ? " SET "+set : " () values () "));
-        if (!Statement.affectedRows) return false;
+        const done = await this.parent.query("INSERT INTO " + this + (set ? " SET "+set : " () values () "));
+        if (!done.affectedRows) return false;
         const auto = await this.autoincrement();
-        if (auto) data[auto.name] = Statement.lastInsertId;
+        if (auto) data[auto.name] = done.lastInsertId;
         const rowId = await this.rowId(data);
-        //this.trigger('insert-after',data);
-        return this.row(rowId);
-        //return id;
+        const item = this.item(rowId);
+        return item;
     }
     toString() { return this.key; }
     valueOf() { return this.key; }
