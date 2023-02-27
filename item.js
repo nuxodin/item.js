@@ -98,6 +98,7 @@ export class Item extends EventTarget {
     // get await() {
     //     if (this.#value instanceof Promise) { // too complicated?
     //         return this.#value.then(value => {
+    //             if (this.constructor.isPrimitive(value)) return value;
     //             this.value = value;
     //             return this.value;
     //         });
