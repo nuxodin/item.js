@@ -65,9 +65,21 @@ export class Item extends EventTarget {
             this.#value = Object.create(null);
             this.#filled = true;
         }
-        const Klass = this.ChildClass ?? this.constructor;
-        this.#value[key] ??= new Klass(this, key);
+        if (!(key in this.#value)) {
+            const Klass = this.ChildClass ?? this.constructor;
+            const item = new Klass(this, key);
+            dispatchEvent(this, 'change', { item: this, add:item });
+            this.#value[key] = item;
+        }
         return this.#value[key];
+    }
+    remove(){ // beta?
+        if (this.#parent) {
+            delete this.#parent.#value[this.#key];
+            dispatchEvent(this.#parent, 'change', { item: this.#parent, remove: this });
+        } else {
+            throw new Error('cannot remove root item');
+        }
     }
 
     // path
@@ -83,12 +95,31 @@ export class Item extends EventTarget {
         return this.item(keys[0]).walkPathKeys(keys.slice(1));
     }
 
+    // get await() {
+    //     if (this.#value instanceof Promise) { // too complicated?
+    //         return this.#value.then(value => {
+    //             this.value = value;
+    //             return this.value;
+    //         });
+    //     }
+    //     if (this.constructor.isPrimitive(this.#value)) return this.#value;
+    //     const promises = [...this].map(item => item.await);
+    //     return Promise.all(promises).then(values => {
+    //         const value = {};
+    //         for (const key in this.#value) value[key] = values.shift();
+    //         return value;
+    //     });
+    // }
+
+
     toJSON() { return this.value; }
     valueOf() { return this.value; }
     toString() { return String(this.value); }
     get [Symbol.iterator]() {
-        this.value; // trigger get to possibliy collect values?
-        return () => Object.values(this.#value)[Symbol.iterator]();
+        this.value; // trigger getter, for signals and collecting children (too expensive?)
+        return function *(){
+            for (const key in this.#value) yield this.#value[key];
+        }
     }
 
     static isPrimitive(value){
@@ -161,7 +192,43 @@ function triggerEffectsFor(signal) {
     }
 }
 
+// proxy
+const proxyHandler = {
+    get: function(target, property, receiver){
+        if (typeof property === 'symbol') return Reflect.get(target, property, receiver);
+        if (property === '$item') return target;
 
+        const item = target.item(property);
+
+        // todo: accessing item.value here is not good, it will trigger a get event (E.g. fetch data)
+        const value = item.value;
+        if (item.constructor.isPrimitive(value)) {
+            return value;
+        } else {
+            return toProxy(item);
+        }
+    },
+    set: function(target, property, value, receiver){
+        if (typeof property === 'symbol') return Reflect.set(target, property, value, receiver);
+        target.item(property).value = value;
+        return true;
+    },
+    deleteProperty: function(target, property){
+        target.item(property).remove();
+        return true;
+    },
+};
+
+const cachedProxies = new WeakMap();
+const toProxy = (item) => {
+    if (!cachedProxies.has(item)) cachedProxies.set(item, new Proxy(item, proxyHandler));
+    return cachedProxies.get(item);
+}
+
+export function proxy(arg){
+    if (arg instanceof Item) return toProxy(arg);
+    else return toProxy(item(arg));
+}
 
 
 // helpers
@@ -179,31 +246,4 @@ export function dispatchEvent(item, eventName, detail){
     return {
         defaultPrevented: eventIn.defaultPrevented || event.defaultPrevented,
     }
-}
-
-// proxy
-const proxyHandler = {
-    get: function(target, property, receiver){
-        if (typeof property === 'symbol') return Reflect.get(target, property, receiver);
-        if (property === '$item') return target;
-
-        const item = target.item(property);
-
-        // todo: accessing item.value here is not good, it will trigger a get event (E.g. fetch data)
-        const value = item.value;
-        if (item.constructor.isPrimitive(value)) {
-            return value;
-        } else {
-            return proxy(item); // TODO: cache it, by saving it in a WeakMap?
-        }
-    },
-    set: function(target, property, value, receiver){
-        if (typeof property === 'symbol') return Reflect.set(target, property, value, receiver);
-        target.item(property).value = value;
-        return true;
-    }
-};
-export function proxy(arg){
-    if (arg instanceof Item) return new Proxy(arg, proxyHandler);
-    else return new Proxy(item(arg), proxyHandler);
 }

@@ -16,6 +16,10 @@ class CookieItem extends AsyncItem {
     $set(value){
         super.$set(String(value));
     }
+    remove(){
+        super.remove();
+        return cookieStore.delete(this.key);
+    }
 }
 
 let root = null; // cached
@@ -28,7 +32,8 @@ export function cookies(){
             const result = Object.create(null);
             await cookieStore.getAll(options).then( cookies => {
                 cookies.forEach(c => {
-                    const item = root.item(c.name)
+                    const item = root.item(c.name);
+                    item.master.cacheDuration = 10000; // hold for 10 seconds in cache
                     item.master.setFromMaster(c.value);
                     result[c.name] = item;
                 });
@@ -37,8 +42,10 @@ export function cookies(){
         };
 
         cookieStore.addEventListener?.('change', e => { // todo: if two windows open, this will trigger twice
+            e.deleted.forEach(c => {
+                root.item(c.name).remove(); // remove from master?
+            });
             e.changed.forEach(c => {
-                //if (!root.has(c.name)) return;
                 root.item(c.name).master.setFromMaster(c.value); // triggers item change
             });
         });

@@ -19,31 +19,28 @@ const {render, html} = uhtml;
 
 window.betterCookies = cookies();
 
-function effectRender(el, fn) {
-    effect(() => render(el, fn()) );
-}
+const all = await betterCookies.getAll({ url: location.href }); // fetch it so it's ready for the first render
 
-const renderCookies = async () => {
-    const all = await betterCookies.getAll({ url: location.href });
 
-    effectRender(document.getElementById('table'), () => html`
+
+effect(async () => {
+    render(document.getElementById('table'), html`
         <thead>
             <tr>
                 <th>key
                 <th>value
+                <th>
         <tbody>
-            ${Object.values(all).map(item => {
-                return html.for(item)`
+            ${[...betterCookies].map(item => {
+                return html.for(item, item.key)`
                     <tr>
                         <td>${item.key}
                         <td><input value="${item.value}" oninput=${(e)=>item.value=e.target.value}>
-                        <td><button>remove (todo)</button>
+                        <td><button onclick="${()=>{item.remove()}}">delete</button>
                 `;
             })}
     `);
-};
-
-renderCookies();
+});
 
 </script>
 
