@@ -117,6 +117,11 @@
             i.value = {b:2};
             chai.expect(i.value).to.deep.equal({b:2});
         });
+        it('assigning a object that was void before', () => {
+            let i = item({});
+            i.value = {a:2};
+            chai.expect(i.value).to.deep.equal({a:2});
+        });
         it('iterator', () => {
             let i = item({a:1, b:2});
             const result = [];

@@ -47,17 +47,20 @@ console.log(itm.value);
 itm.item('random').value = 12;
 console.log(itm.value);
 
-itm.value = { a1:1 };
-console.log(itm.value);
-
-itm.value = { a:1, b:2, old_deprecated_prop: 'old' };
-console.log(itm.value);
 
 
+const div = document.createElement('div');
+div.innerHTML = `
+    <h2>Schema</h2>
+    <pre>${JSON.stringify(itm.schema, null, 2)}</pre>
+    <table>
+        ${toHtml(itm.schema, itm.value)}
+    </table>
 
 
-document.body.append(
-    toHtml(itm.schema.properties.number, itm.item('number').value)
-);
+`;
+document.body.append(div);
+
+
 
 </script>

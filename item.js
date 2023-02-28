@@ -57,7 +57,9 @@ export class Item extends EventTarget {
             }
         } else {
             for (const key of Object.keys(value)) this.item(key).value = value[key];
-            for (const key of Object.keys(this.#value)) if (!(key in value)) delete this.#value[key]; // remove keys that are not in value
+            if (this.#value && Object(this.#value)) { // remove keys that are not in value
+                for (const key of Object.keys(this.#value)) if (!(key in value)) this.#value[key].remove();
+            }
         }
     }
     item(key){

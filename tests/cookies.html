@@ -5,9 +5,12 @@
     <meta name="viewport" content="width=device-width">
     <title>Test</title>
     <script src="https://cdn.jsdelivr.net/gh/nuxodin/lazyfill@main/mod.min.js"></script>
+    <link rel=stylesheet href="http://gcdn.li/u1ui/base.css/full.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/variables.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/classless.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/more.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/simple.css">
 <body>
-
-<h1>Test</h1>
 
 <script type=module>
 
@@ -17,26 +20,23 @@ import 'https://unpkg.com/uhtml/async';
 const {render, html} = uhtml;
 
 
-window.betterCookies = cookies();
+const betterCookies = cookies();
+await betterCookies.getAll({ url: location.href }); // fetch it so it's ready for the first render
 
-const all = await betterCookies.getAll({ url: location.href }); // fetch it so it's ready for the first render
-
-
-
-effect(async () => {
-    render(document.getElementById('table'), html`
+effect(() => {
+    render(table, html`
         <thead>
             <tr>
-                <th>key
-                <th>value
-                <th>
+                <th> Name
+                <th> Value
+                <th> <button onclick="${()=>{let name=prompt('cookie name'); if(name)betterCookies.item(name).value=''}}">add</button>
         <tbody>
             ${[...betterCookies].map(item => {
-                return html.for(item, item.key)`
+                return html`
                     <tr>
-                        <td>${item.key}
-                        <td><input value="${item.value}" oninput=${(e)=>item.value=e.target.value}>
-                        <td><button onclick="${()=>{item.remove()}}">delete</button>
+                        <td> ${item.key}
+                        <td> <input .value="${item.value}" oninput=${(e)=>item.value=e.target.value}>
+                        <td> <button onclick="${()=>item.remove()}">✖</button>
                 `;
             })}
     `);
@@ -44,11 +44,6 @@ effect(async () => {
 
 </script>
 
-<div>
-    <button onclick="let name=prompt('cookie name'); if(name)betterCookies.item(name).value=''">add cookie</button>
-</div>
 
-
-<h2>Cookie Manager:</h2>
-
-<table id="table"></table>
+<h1>Cookie Manager</h1>
+<table id=table></table>

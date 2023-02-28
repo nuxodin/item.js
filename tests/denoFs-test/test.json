@@ -1,0 +1,24 @@
+{
+  "name": "John Doe",
+  "description": "CEO of Acme Corp",
+  "children": {
+    "1": {
+      "name": "Hello World",
+      "description": "CTO of Acme Corp"
+    },
+    "2": {
+      "name": "Alice Doe",
+      "description": "VP of Marketing",
+      "children": {
+        "1": {
+          "name": "John Smith",
+          "description": "Sales Rep"
+        }
+      }
+    },
+    "3": {
+      "name": "Bob Doe",
+      "description": "VP of Sales"
+    }
+  }
+}

@@ -17,3 +17,11 @@ export function localStorageItem(){
     }
     return root;
 }
+
+
+
+export async function jsonItem(name) {
+    const {jsonDataItem} = await import('../tools/jsonDataItem.js');
+    const lsItem = localStorageItem().item(name);
+    return await jsonDataItem(lsItem);
+}

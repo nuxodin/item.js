@@ -12,14 +12,16 @@ export function denoFs(rootPath, options) {
                     // get the path relative to the root
                     const relativePath = path.substring(rootPath.length + 1);
                     const pathArray = relativePath.split(/[\\\/]/);
-                    const targetItem = root.walkPathKeys(pathArray);
+                    const targetItem = relativePath === '' ? root : root.walkPathKeys(pathArray);
                     if (event.kind === 'modify') {
                         // todo, only make this if item is already accessed?
                         const contents = await Deno.readTextFile(targetItem.fsPath);
                         targetItem.master.setFromMaster(contents);
                     }
-                    // if (event.kind === 'create') {}
-                    // if (event.kind === 'remove') {}
+                    //if (event.kind === 'create') {}
+                    if (event.kind === 'remove') {
+                        targetItem.remove();
+                    }
                 }
             }
         });
@@ -32,6 +34,7 @@ class FsItem extends AsyncItem {
     constructor(parent, key) {
         super(parent, key);
         if (parent) {
+            if (key === '') throw new Error('key cannot be empty');
             if (key.startsWith('.')) throw new Error('key cannot start with a dot');
             if (key.includes('/')) throw new Error('key cannot contain a slash');
         }
@@ -64,4 +67,12 @@ class FsItem extends AsyncItem {
         if (this.parent == null) return this.fsRootPath;
         return this.parent.fsPath + '/' + this.pathKeys.join('/');
     }
+}
+
+
+import { jsonDataItem } from '../tools/jsonDataItem.js';
+
+export async function jsonFile(path) {
+    const fileItem = denoFs(path, {watch: true})
+    return await jsonDataItem(fileItem);
 }
