@@ -95,7 +95,7 @@ export class Item extends EventTarget {
         return this.item(keys[0]).walkPathKeys(keys.slice(1));
     }
 
-    // get await() {
+    // get await() { // move to tools?
     //     if (this.#value instanceof Promise) { // too complicated?
     //         return this.#value.then(value => {
     //             if (this.constructor.isPrimitive(value)) return value;
