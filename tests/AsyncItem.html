@@ -12,12 +12,6 @@
 
 import {AsyncItem} from "../tools/AsyncItem.js";
 
-
-
-
-/*  test  */
-/*  test  */
-
 function delay(promise, ms) {
     const newPromise = new Promise(resolve => setTimeout(() => {
         promise.then(resolve);
@@ -31,7 +25,10 @@ promiseItem.createGetter = () => {
     console.warn('getterPromise requested' );
     return delay(Promise.resolve(Math.random()), 100);
 }
-promiseItem.createSetter = value => {
+promiseItem.createSetter = (value, abortSignal) => {
+    abortSignal.addEventListener('abort', () => {
+        console.warn('setter aborted');
+    });
     console.warn('setterPromise requested, value '+value );
     return delay(Promise.resolve({savedValue:'value from master'}), 100);
 }
@@ -54,7 +51,15 @@ console.log('get value: ("'+actual+'") ');
 setTimeout(async () => {
     actual = await promiseItem.value;
     console.log('get againg after 50ms, trust setter while pending, value: ' + actual);
+
+    console.log('set again while setting: will abort previous setter');
+    promiseItem.value = 'yyy';
 }, 50);
+
+setTimeout(async () => {
+    actual = await promiseItem.value;
+    console.log('get againg after 20ms, value: ' + actual);
+}, 70);
 
 setTimeout(async () => {
     actual = await promiseItem.value;
@@ -81,7 +86,3 @@ setTimeout(async () => {
 
 
 </script>
-
-<div>
-    <button onclick="random.value = Math.random().toString()">change cookie</button>
-</div>

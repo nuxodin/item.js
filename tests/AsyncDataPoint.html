@@ -36,6 +36,34 @@ const promiseItem = new AsyncDataPoint({
     }
 });
 
+// const datapoint = new AsyncDataPoint({
+//     get() {
+//         return fetch('https://example.com/todos/1').then(response => response.json());
+//     },
+//     set(value, signal) {
+//         return fetch('https://example.com/todos/1', {
+//             signal
+//             method: 'PUT',
+//             body: JSON.stringify(value),
+//             headers: { 'Content-type': 'application/json; charset=UTF-8' },
+//         }).then(response => response.json());
+//     }
+// });
+
+// data = datapoint.get();
+// wait(100)
+// data = datapoint.get(); // cached
+
+// datapoint.set({foo:'bar1'});
+// wait(10)
+// datapoint.set({foo:'bar2'}); // abort previous pending setter
+// wait(10)
+// data = datapoint.get(); // {foo:'bar2'}  trust setter while pending
+
+
+
+
+
 promiseItem.cacheDuration = 1000;
 
 console.log('This is the AsyncDataPoint:', promiseItem);

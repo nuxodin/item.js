@@ -185,6 +185,20 @@
             });
             let y = i.value;
         });
+        it('throw set while get', done => {
+            let i = item();
+            i.addEventListener('get', e => {
+                console.log('GETTING START')
+                chai.expect(()=>{
+                    console.log('SET START')
+                    i.value = Math.random()
+                    console.log('SET END')
+                }).to.throw('set while get');
+                console.log('GETTING END')
+                done();
+            });
+            let y = i.value;
+        });
 
     });
 

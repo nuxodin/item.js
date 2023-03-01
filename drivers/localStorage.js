@@ -4,7 +4,12 @@ let root = null; // cached
 export function localStorageItem(){
     if (!root) {
         root = item();
-        root.addEventListener('setIn', ({detail}) => {
+        // root.addEventListener('setIn', ({detail}) => {
+        //     localStorage.setItem(detail.item.key, detail.value);
+        // });
+        root.addEventListener('changeIn', ({detail}) => {
+            if (detail.item === root) return; // ignore root change (add and remove items)
+            console.log(detail.item.key, detail.oldValue, detail.value)
             localStorage.setItem(detail.item.key, detail.value);
         });
         root.addEventListener('getIn', ({detail:{item}}) => {

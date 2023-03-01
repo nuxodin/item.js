@@ -10,21 +10,30 @@
 
 <script type=module>
 
-// local storage
-
-import {proxy} from "../item.js";
+import {proxy, effect} from "../item.js";
 import {jsonItem} from "../drivers/localStorage.js";
 
 
-const track = proxy(await jsonItem('track'));
+const track = window.track = proxy(await jsonItem('track'));
 
 ++track.visits;
 track.lastVisit = new Date().toISOString();
 
 
+++track.sessions;
+addEventListener('beforeunload', () => {
+    --track.sessions;
+});
 
 
-
-
+effect(() => {
+    output.innerHTML = JSON.stringify(track.$item, null, 2);
+});
 
 </script>
+
+<small>Open an other window and see the value change.</small><br>
+
+<button onclick="track.$item.value = {}">clean</button>
+
+<pre id=output></pre>

@@ -22,7 +22,7 @@ export class AsyncDataPoint {
     cacheDuration = 2000; // cache for 2 seconds, false = no cache, true = cache forever
     setDebouncePeriod = 5; // debounce period for setter in ms
     createGetter = null; // function that returns a promise
-    createSetter = null; // function that returns a promise
+    createSetter = null; // function that returns a promise, if it failed, the promise must be rejected
 
     #expectedValue = null; // value while saving
     #setter = null; // current setter promise
@@ -40,7 +40,7 @@ export class AsyncDataPoint {
     }
     #createSetter(value) {
         const promise = abortablePromise((resolve, reject) => {
-            return this.createSetter(value).then(resolve, reject); // TODO: add a second argument "signal" to "createSetter()" to abort the request if abort is called
+            return this.createSetter(value, promise.controller.signal).then(resolve, reject); // TODO: add a second argument "signal" to "createSetter()" to abort the request if abort is called
         }, this.setDebouncePeriod);
         makePromiseTransparent(promise);
         return promise;
@@ -52,7 +52,7 @@ export class AsyncDataPoint {
         promise.then(value => {
             if (this.#getter !== promise) return; // promise is outdated
             const oldValue = oldGetter?.value;
-            if (oldValue !== value) this.onchange?.({value, oldValue});
+            if (oldValue !== value) this.onchange?.({value, oldValue}); // TODO: would not trigger if its the same object but modified!
         });
 
         const duration = this.cacheDuration;
@@ -86,10 +86,11 @@ export class AsyncDataPoint {
         if (this.#setter?.state === 'pending' && this.#expectedValue === value) return; // ignore if sending value is the same
         if (this.#getter?.state === 'fulfilled' && this.#getter.value === value) return; // ignore if latest getter value is the same
         this.#expectedValue = value;
-        this.#setter?.abort(); // abort previous setter
+        //this.#setter?.abort(); // abort previous setter
+        this.#setter?.controller.abort(); // abort previous setter
         const promise = this.#createSetter(value);
         const handleResult = data => {
-            if (this.#setter !== promise) return; // ignore if setter has been replaced
+            if (this.#setter !== promise) return; // promise is outdated
             if (data instanceof Error) {
                 console.error('setter rejected: ', data);
                 this.#getter = null; // clear getter cache
@@ -156,15 +157,27 @@ function transparentPromiseResolve(value) {
  * @param {Number} [ms=1] - The time in milliseconds to delay before resolving the Promise.
  * @returns {Promise} - A delayed Promise that can be aborted.
  */
-function abortablePromise(fn, ms=1) { // delayed and therfore abortable withing ms
-    let aborted = false;
+// function abortablePromise(fn, ms=1) { // delayed and therfore abortable withing ms
+//     let aborted = false;
+//     const promise = new Promise((resolve, reject) => {
+//         setTimeout(() => {
+//             if (aborted) return resolve(null);
+//             fn(resolve, reject);
+//         }, ms);
+//     });
+//     promise.abort = () => aborted = true;
+//     promise.isAborted = () => aborted;
+//     return promise;
+// }
+
+function abortablePromise(fn, ms=1) { // delayed and therfore abortable within ms
+    const controller = new AbortController();
     const promise = new Promise((resolve, reject) => {
         setTimeout(() => {
-            if (aborted) return resolve(null);
+            if (controller.signal.aborted) return resolve(null);
             fn(resolve, reject);
         }, ms);
     });
-    promise.abort = () => aborted = true;
-    promise.isAborted = () => aborted;
+    promise.controller = controller;
     return promise;
 }

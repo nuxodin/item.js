@@ -6,7 +6,7 @@ export class AsyncItem extends Item {
         super(parent, key);
         this.master = new AsyncDataPoint({
             get: () => this.createGetter(),
-            set: value => this.createSetter(value)
+            set: (value, abortSignal) => this.createSetter(value, abortSignal)
         });
         this.master.onchange = ({value, oldValue}) => {
             dispatchEvent(this, 'change', { item: this, value, oldValue });
