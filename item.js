@@ -1,6 +1,3 @@
-let accesscount = 0;
-setInterval(() => accesscount = 0, 1000);
-
 // Item
 export class Item extends EventTarget {
 
@@ -23,9 +20,6 @@ export class Item extends EventTarget {
     get filled(){ return this.#filled }
 
     get value(){
-
-if (accesscount++ > 100) throw new Error('too many accesses');
-
         if (this.#isgetting) throw new Error('circular get');
         this.#isgetting = true;
         dispatchEvent(this, 'get', { item: this, value:this.#value });
@@ -34,11 +28,8 @@ if (accesscount++ > 100) throw new Error('too many accesses');
         return this.$get();
     }
     set value(value){
-
-if (accesscount++ > 100) throw new Error('too many accesses');
-
         if (this.#issetting) throw new Error('circular set');
-//        if (this.#isgetting) throw new Error('set while getting');
+        // if (this.#isgetting) throw new Error('set while getting');
         this.#issetting = true;
         if (value instanceof Item) value = value.value;
         const obj = dispatchEvent(this, 'set', { item:this, oldValue:this.#value , value });
