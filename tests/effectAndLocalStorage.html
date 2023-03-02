@@ -3,33 +3,31 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
-    <title>Test</title>
+    <title>item.js localStorage test</title>
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/simple.css">
+    <script type=module src="http://gcdn.li/u1ui/u1@main/auto.js?debug=1"></script>
 <body>
 
-<h1>Test</h1>
+<h1>Stored in and synced from localStorage!</h1>
 
 <script type=module>
-
+import {getStore} from "../drivers/localStorage.js";
 import {effect, proxy} from "../item.js";
-import {localStorageItem} from "../drivers/localStorage.js";
 
-window.ls = proxy(localStorageItem());
+window.ls = proxy(getStore());
 
 effect(()=>{
     sayHi.innerHTML = 'Hi '+ls.firstname+' '+ls.lastname+'!';
 });
-
 </script>
 
-<h2>Stored in and synced from localStorage!</h2>
-
 <label>
-    Firstname:
-    <input id=firstname oninput="ls[this.id] = this.value">
+    Firstname:<br>
+    <input id=firstname oninput="ls.firstname = this.value">
 </label>
 <label>
-    Lastname:
-    <input id=lastname oninput="ls[this.id] = this.value">
+    Lastname:<br>
+    <input id=lastname oninput="ls.lastname = this.value">
 </label>
 
 <h2 id=sayHi></h2>

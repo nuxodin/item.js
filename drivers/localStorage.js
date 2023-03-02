@@ -1,7 +1,7 @@
 import {item} from '../item.js';
 
 let root = null; // cached
-export function localStorageItem(){
+export function getStore(){
     if (!root) {
         root = item();
         // root.addEventListener('setIn', ({detail}) => {
@@ -9,7 +9,6 @@ export function localStorageItem(){
         // });
         root.addEventListener('changeIn', ({detail}) => {
             if (detail.item === root) return; // ignore root change (add and remove items)
-            console.log(detail.item.key, detail.oldValue, detail.value)
             localStorage.setItem(detail.item.key, detail.value);
         });
         root.addEventListener('getIn', ({detail:{item}}) => {
@@ -27,6 +26,6 @@ export function localStorageItem(){
 
 export async function jsonItem(name) {
     const {jsonDataItem} = await import('../tools/jsonDataItem.js');
-    const lsItem = localStorageItem().item(name);
+    const lsItem = getStore().item(name);
     return await jsonDataItem(lsItem);
 }

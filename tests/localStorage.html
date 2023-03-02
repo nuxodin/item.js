@@ -12,15 +12,15 @@
 
 // local storage
 
-import {localStorageItem} from "../drivers/localStorage.js";
+import {getStore} from "../drivers/localStorage.js";
 
-const item = localStorageItem();
+const store = getStore();
 
-item.item('random').addEventListener('change', ({detail}) => {
+store.item('random').addEventListener('change', ({detail}) => {
     document.body.insertAdjacentHTML('beforeend', 'change localStorageItem, old: '+detail.oldValue+', new:'+detail.value+'<br>');
 });
 
-item.item('random').value = Math.random().toString();
+store.item('random').value = Math.random().toString();
 
 
 
