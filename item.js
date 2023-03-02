@@ -29,7 +29,6 @@ export class Item extends EventTarget {
     }
     set value(value){
         if (this.#issetting) throw new Error('circular set');
-        // if (this.#isgetting) throw new Error('set while getting');
         this.#issetting = true;
         if (value instanceof Item) value = value.value;
         const obj = dispatchEvent(this, 'set', { item:this, oldValue:this.#value , value });
@@ -47,7 +46,7 @@ export class Item extends EventTarget {
     $set(value){
         const oldValue = this.#value;
         if (this.constructor.isPrimitive(value)) {
-            if (!this.#filled || oldValue !== value) {
+            if (!this.#filled || oldValue !== value) { // TODO: we shoul use deepEqual as "primitive" can be an object
                 this.#value = value;
                 this.#filled = true;
                 if (!this.#isgetting) {

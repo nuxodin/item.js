@@ -185,21 +185,29 @@
             });
             let y = i.value;
         });
-        it('throw set while get', done => {
-            let i = item();
-            i.addEventListener('get', e => {
-                console.log('GETTING START')
-                chai.expect(()=>{
-                    console.log('SET START')
-                    i.value = Math.random()
-                    console.log('SET END')
-                }).to.throw('set while get');
-                console.log('GETTING END')
-                done();
-            });
-            let y = i.value;
-        });
 
+        it('set same (modified) object does not trigger change', () => {
+            let date = new Date();
+            let i = item(date);
+
+            let changeTriggered = false;
+            let setTriggered = false;
+
+            i.addEventListener('set', e => {
+                setTriggered = true;
+            });
+
+            i.addEventListener('change', e => {
+                changeTriggered = true;
+            });
+
+            date.setFullYear(2000);
+
+            i.value = date;
+
+            chai.expect(setTriggered).to.equal(true);
+            chai.expect(changeTriggered).to.equal(false);
+        });
     });
 
 
@@ -224,7 +232,6 @@
             let i = proxy({a: {c:3}});
             chai.expect(i.a).to.equal(i.a);
         });
-
     })
 
 

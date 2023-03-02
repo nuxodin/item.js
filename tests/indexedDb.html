@@ -45,7 +45,7 @@ db1.item('store1').value = {item3: 'value3', item4: 'value4'}; // add multiple i
 // proxy test
 
 let db2 = idb.item('db2');
-db2.open(11, {
+db2.open(15, {
     upgrade(db, oldVersion, newVersion, transaction) {
         const stores = new Set(db.objectStoreNames);
         !stores.has('user') && db.createObjectStore('user');

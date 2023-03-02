@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Test</title>
+    <script src="https://cdn.jsdelivr.net/gh/nuxodin/lazyfill@main/mod.min.js"></script>
+    <link rel=stylesheet href="http://gcdn.li/u1ui/base.css/full.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/variables.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/classless.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/more.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/simple.css">
+    <script type=module src="https://cdn.jsdelivr.net/gh/u1ui/u1/auto.min.js"></script>
+
+    <style>
+        body {
+            display:block
+        }
+    </style>
+<body>
+
+<script type=module>
+
+import {effect} from '../item.js';
+import {cookies} from "../drivers/cookies.js";
+import 'https://unpkg.com/uhtml/async';
+const {render, html} = uhtml;
+
+
+
+import {IDB} from "../drivers/indexedDb.js";
+
+const idb = IDB();
+
+let db = idb.item('db2');
+db.open(15, {
+    upgrade(db, oldVersion, newVersion, transaction) {
+        const stores = new Set(db.objectStoreNames);
+        !stores.has('group') && db.createObjectStore('group');
+        !stores.has('post') && db.createObjectStore('post');
+
+        if (!stores.has('user')) db.createObjectStore('user');
+
+        const store = transaction.objectStore('user');
+
+        //store.createIndex("age", "age", { unique: false });
+
+    }
+});
+
+let store = db.item('user');
+
+await db.loadAll();
+
+const effectFn = async ()=>{
+
+    store.loadAll(); // its a promise and every time is internal "for await (const cursor ..." is called, it will trigger the effect
+
+    render(appEl, html`
+
+        <select onchange="${(e)=>{store = db.item(e.target.value.trim()); effectFn()}}">
+            ${[...db].map(item => {
+                return html`
+                    <option .selected="${item.key===store.key}"> ${item.key}
+                `;
+            })}
+        </select>
+
+        <table>
+            <thead>
+                <tr>
+                    <th> Key
+                    <th> Value
+                    <th style="width:2rem"> <button onclick="${()=>{let name=prompt('cookie name'); if(name)store.item(name).value=''}}">add</button>
+            <tbody>
+                ${[...store].map(item => {
+                    return html`
+                        <tr>
+                            <td> ${item.key}
+                            <td> <textarea .value="${item.value.then(v=>JSON.stringify(v, null, 2))}" onchange=${(e)=> {const v=JSON.parse(e.target.value); item.value=v} }></textarea>
+                            <td> <button u1-confirm onclick="${()=>item.remove()}">✖</button>
+                    `;
+                })}
+        </table>
+    `);
+}
+effect(effectFn);
+
+
+
+
+</script>
+
+
+<h1>IDB Manager</h1>
+<div id=appEl></div>

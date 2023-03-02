@@ -13,38 +13,15 @@ class IDB_db extends Item {
     open(version, callbacks) {
         this.dbPromise = openDB(this.key, version, callbacks);
     }
-    _batch
+    async loadAll() {
+        const db = await this.dbPromise;
+        for (const store of db.objectStoreNames) {
+            this.item(store);
+        }
+    }
+
     static isPrimitive(){ return false; }
 }
-
-
-
-// let batchStack = null;
-// function batch(callback) {
-//     if (batchStack) {
-//         batchStack.push(callback);
-//     } else {
-//         batchStack = [callback];
-//         queueMicrotask( () => {
-//             const connection = connect();
-//             for (const callback of batchStack) {
-//                 callback.resolve(callback(connection));
-//             }
-//             batchStack = null;
-//         });
-//     }
-//     return new Promise((resolveFn) => {
-//         callback.resolve = resolveFn;
-//     });
-// }
-
-// // ussage:
-// const [foo, bar] = Promise.all([
-//     batch(connection=>connection.get('foo')),
-//     batch(connection=>connection.get('bar')),
-// ]);
-
-
 
 class IDB_store extends Item {
     ChildClass = IDB_entry;
@@ -74,6 +51,12 @@ class IDB_store extends Item {
             callback.reject = reject;
         });
     }
+    async loadAll() {
+        const store = await this.parent.dbPromise.then( db => db.transaction(this.key).store );
+        for await (const cursor of store.iterate()) {
+            this.item(cursor.key);
+        }
+    }
 }
 
 class IDB_entry extends AsyncItem {
@@ -84,6 +67,11 @@ class IDB_entry extends AsyncItem {
     }
     createSetter(value) {
         return this.parent._batch( store => store.put(value, this.key) );
+    }
+    remove() {
+        this.parent._batch( store => store.delete(this.key) ).then( () => {
+            super.remove();
+        });
     }
     ChildClass = Item;
 }
