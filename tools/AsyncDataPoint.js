@@ -40,7 +40,7 @@ export class AsyncDataPoint {
     }
     #createSetter(value) {
         const promise = abortablePromise((resolve, reject) => {
-            return this.createSetter(value, promise.controller.signal).then(resolve, reject); // TODO: add a second argument "signal" to "createSetter()" to abort the request if abort is called
+            return this.createSetter(value, promise.controller.signal).then(resolve, reject);
         }, this.setDebouncePeriod);
         makePromiseTransparent(promise);
         return promise;

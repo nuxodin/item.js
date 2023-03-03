@@ -14,8 +14,6 @@
 import { Item, effect } from '../item.js';
 
 
-// define a primitive item
-
 class PrimitiveItem extends Item {
     static isPrimitive() { return true; }
 }
@@ -26,7 +24,6 @@ function eventSignal(target, eventName) {
     return signal;
 }
 
-
 // ussage
 const inputEvent = eventSignal(myInput, 'input');
 
@@ -34,26 +31,10 @@ effect(() => {
     myOutput.value = inputEvent.value?.target?.value ?? '';
 });
 
-myInput.addEventListener('input', e => {
-    myOutput.value = e.target.value;
-});
-
-
-
-class UpperCaseItem extends Item {
-    $get() { // overwrite getter
-        const value = super.$get();
-        return typeof value === 'string' ? value.toUpperCase() : value;
-    }
-}
-
-const a = new ReadOnlyUpperCaseItem();
-a.value = {a: 'Hello', b: 'World'};
-console.log(a.value); // {a: 'HELLO', b: 'WORLD'}
-
-
 </script>
 
-<input id="myInput" value="input">
-<br>
-<output id="myOutput"></output>
+<label>
+    <input id="myInput" value="input">
+    <br>
+    <output id="myOutput"></output>
+</label>

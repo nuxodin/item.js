@@ -32,18 +32,24 @@ import {IDB} from "../drivers/indexedDb.js";
 
 const idb = IDB();
 
+
 let db = idb.item('db2');
-db.open(15, {
+db.open(23, {
     upgrade(db, oldVersion, newVersion, transaction) {
+
         const stores = new Set(db.objectStoreNames);
         !stores.has('group') && db.createObjectStore('group');
         !stores.has('post') && db.createObjectStore('post');
+        !stores.has('user_group') && db.createObjectStore('user_group', {keyPath: ['user_id', 'group_id']});
 
-        if (!stores.has('user')) db.createObjectStore('user');
+        if (!stores.has('user')) db.createObjectStore('user', {keyPath: 'id', autoIncrement: true});
 
-        const store = transaction.objectStore('user');
+        const user = transaction.objectStore('user');
+        user.createIndex("name", "name", { unique: false });
+        user.createIndex("age", "age", { unique: false });
 
-        //store.createIndex("age", "age", { unique: false });
+        const user_group = transaction.objectStore('user_group');
+        //user_group.createIndex("relation", "relation", { unique: false });
 
     }
 });
@@ -52,12 +58,19 @@ let store = db.item('user');
 
 await db.loadAll();
 
+const fields =  [...(await db.item('user').fields()).values()];
+
 const effectFn = async ()=>{
 
     store.loadAll(); // its a promise and every time is internal "for await (const cursor ..." is called, it will trigger the effect
 
+    store.value; // just to trigger the effect, before await
+
+    const fields =  [...(await store.fields()).values()];
+
     render(appEl, html`
 
+        Select Store:
         <select onchange="${(e)=>{store = db.item(e.target.value.trim()); effectFn()}}">
             ${[...db].map(item => {
                 return html`
@@ -65,18 +78,44 @@ const effectFn = async ()=>{
                 `;
             })}
         </select>
+        <hr>
+
+        <details style="width:fit-content">
+            <summary>Add</summary>
+            <form onsubmit="${(e)=>{e.preventDefault(); const data={}; for(const field of fields) data[field.name]=e.target[field.name].value; store.item(data.id).value=data;}}">
+                <table style="width:auto">
+                    ${fields.map(field => {
+                        //if(field.autoIncrement) return html``;
+                        return html`<tr><td> ${field.name} <td> <input name="${field.name}">`;
+                    })}
+                </table>
+                <button>add</button>
+            </form>
+        </details>
+
+        <br>
 
         <table>
             <thead>
                 <tr>
-                    <th> Key
+                    <th> Key </th>
+                    ${fields.map(
+                        field => html`<th> ${field.name} `
+                    )}
                     <th> Value
-                    <th style="width:2rem"> <button onclick="${()=>{let name=prompt('cookie name'); if(name)store.item(name).value=''}}">add</button>
+                    <th style="width:2rem"> <button onclick="${()=>{let name=prompt('cookie name'); if(name)store.item().value={id:11}; }}">add</button>
             <tbody>
                 ${[...store].map(item => {
                     return html`
                         <tr>
-                            <td> ${item.key}
+                            <td> ${item.key} </td>
+                            ${fields.map(
+                                field => {
+                                    const cell = item.item(field.name);
+                                    if (field.primary) return html`<td> ${cell.value} `;
+                                    return html`<td> <input .value="${cell.value}" onchange="${(e)=>cell.value=e.target.value}">`
+                                }
+                            )}
                             <td> <textarea .value="${item.value.then(v=>JSON.stringify(v, null, 2))}" onchange=${(e)=> {const v=JSON.parse(e.target.value); item.value=v} }></textarea>
                             <td> <button u1-confirm onclick="${()=>item.remove()}">✖</button>
                     `;

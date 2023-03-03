@@ -1,12 +1,11 @@
 // alpha
 
 import { item, Item } from '../item.js';
-import { AsyncItem } from '../tools/AsyncItem.js';
+import { AsyncItem, AsyncChild } from '../tools/AsyncItem.js';
 import { openDB } from 'https://cdn.jsdelivr.net/npm/idb@7.1.1/with-async-ittr/+esm';
 
 
-class IDB_db extends Item {
-    ChildClass = IDB_store;
+class Db extends Item {
     constructor(parent, key) {
         super(parent, key);
     }
@@ -15,17 +14,13 @@ class IDB_db extends Item {
     }
     async loadAll() {
         const db = await this.dbPromise;
-        for (const store of db.objectStoreNames) {
-            this.item(store);
-        }
+        for (const store of db.objectStoreNames) this.item(store);
     }
 
-    static isPrimitive(){ return false; }
+    ChildClass = Table;
 }
 
-class IDB_store extends Item {
-    ChildClass = IDB_entry;
-    static isPrimitive(){ return false; }
+class Table extends Item { // store
 
     // collect all changes in a batch
     _batchStack = null;
@@ -57,23 +52,78 @@ class IDB_store extends Item {
             this.item(cursor.key);
         }
     }
+
+    #fields = null;
+    #primaries = null;
+    async fields() {
+        if (!this.#fields) {
+
+            const store = await this.parent.dbPromise.then( db => db.transaction(this.key).store );
+
+            this.#fields = new Map();
+            this.#primaries = new Map();
+
+            if (store.keyPath) {
+                let keys = store.keyPath;
+                if (typeof keys === 'string') keys = [keys];
+                for (const key of keys) {
+                    const field = new Field(this, key);
+                    field.primary = true;
+                    field.autoIncrement = store.autoIncrement;
+                    this.#fields.set(key, field);
+                    this.#primaries.set(key, field);
+                }
+            }
+
+            for (const key of store.indexNames) {
+                this.#fields.set(key, new Field(this, key));
+            }
+        }
+        return this.#fields;
+    }
+    async primaries() {
+        if (!this.#primaries) await this.fields();
+        return this.#primaries;
+    }
+
+    async field(name) {
+        return (await this.fields()).get(name);
+    }
+
+    ChildClass = Row;
 }
 
-class IDB_entry extends AsyncItem {
-    static isPrimitive(){ return false; } // needed?
+class Field {
+    constructor(table, name) {
+        this.name = name;
+        this.table = table;
+        this.db = table.parent;
+    }
+    primary = false;
+    autoIncrement = false;
+    toString(){ return this.name; }
+}
 
+
+class Cell extends AsyncChild {
+    ChildClass = AsyncChild;
+}
+
+
+class Row extends AsyncItem {
     createGetter() {
         return this.parent._batch( store => store.get(this.key) );
     }
     createSetter(value) {
-        return this.parent._batch( store => store.put(value, this.key) );
+        return this.parent._batch( store => store.put(value) );
+        //return this.parent._batch( store => store.put(value, this.key) ); // TODO: if the store has no inline key
     }
     remove() {
         this.parent._batch( store => store.delete(this.key) ).then( () => {
             super.remove();
         });
     }
-    ChildClass = Item;
+    ChildClass = Cell;
 }
 
 
@@ -81,7 +131,7 @@ let root = null; // cached, the item that stands for the root of all dbs
 export function IDB(){
     if (!root) {
         root = item();
-        root.ChildClass = IDB_db;
+        root.ChildClass = Db;
     }
     return root;
 }
