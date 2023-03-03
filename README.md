@@ -2,7 +2,7 @@
 
 Creates observable datastructures
 
-## installation
+## Installation
 
 ```js
 import { item } from '../item.js';
