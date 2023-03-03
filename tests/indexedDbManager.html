@@ -34,7 +34,7 @@ const idb = IDB();
 
 
 let db = idb.item('db2');
-db.open(24, {
+db.open(25, {
     upgrade(db, oldVersion, newVersion, transaction) {
 
         const stores = new Set(db.objectStoreNames);
@@ -45,11 +45,11 @@ db.open(24, {
         if (!stores.has('user')) db.createObjectStore('user', {keyPath: 'id', autoIncrement: true});
 
         const user = transaction.objectStore('user');
-        user.createIndex("name", "name", { unique: false });
-        user.createIndex("age", "age", { unique: false });
+        //user.createIndex("name", "name", { unique: false });
+        //user.createIndex("age", "age", { unique: false });
 
         const user_group = transaction.objectStore('user_group');
-        user_group.createIndex("relation", "relation", { unique: false });
+        //user_group.createIndex("relation", "relation", { unique: false });
 
     }
 });
