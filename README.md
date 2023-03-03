@@ -15,17 +15,15 @@ a.value === 1; // true
 a.value = 2;
 a.value === 2; // true
 
-// not filled
-const c = item(); // no argument
-c.value === undefined;
+const c = item(); // no argument (not filled)
 c.filled === false;
-c.value = 1;
+c.value = undefined;
 c.filled === true; // true
 
 // using object
 const a = item({b: 1});
-a.value // {a: 1}
-b = a.item('b'); // property 'b' is also an "Item"
+a.value // {b: 1}
+const b = a.item('b'); // property 'b' is also an "Item"
 b.parent === a;
 b.key === 'b';
 b.path; // equals [a, b]
