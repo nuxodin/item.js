@@ -171,7 +171,7 @@ function batch(effect) {
         batches.forEach(fn => {
             if (batches.has(fn?.parent)) return; // its parent has also to run, so it will run anyway
             currentEffect = fn; // effect() called inside fn(callback) has to know his parent effect
-            fn();
+            fn(); // TODO? fn(fn) to rerun effect? https://github.com/nuxodin/item.js/issues/2
         });
         batches = null; // restart collecting
     });
