@@ -92,3 +92,14 @@ const a = new UpperCaseItem();
 a.value = {a: 'Hello', b: 'World'};
 console.log(a.value); // {a: 'HELLO', b: 'WORLD'}
 ```
+
+
+## Alternatives
+
+https://github.com/dy/signal-struct
+
+https://github.com/luisherranz/deepsignal
+
+https://github.com/EthanStandel/deepsignal/tree/main/packages/preact
+
+https://github.com/melnikov-s/preact-observables
