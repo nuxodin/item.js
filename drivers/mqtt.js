@@ -5,7 +5,7 @@ import { AsyncItem } from '../tools/AsyncItem.js';
 export async function mqtt(options){
     const client = new Client(options); // Deno and Node.js
     await client.connect();
-    await client.subscribe(options.subscribe || '#');
+    //await client.subscribe(options.subscribe || '#');
 
     const decoder = new TextDecoder();
 
@@ -25,6 +25,10 @@ export async function mqtt(options){
             if (!this.constructor.isPrimitive(value)) return Promise.resolve(value);
             const topic = this.pathKeys.join('/');
             return client.publish(topic, String(value));
+        }
+        subscribe(selector='#') {
+            const topic = this.pathKeys.join('/') + '/' + selector;
+            return client.subscribe(topic);
         }
         remove(){ throw new Error('cannot remove mqtt item'); }
         ChildClass = MQTTItem;

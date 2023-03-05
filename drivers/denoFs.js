@@ -67,6 +67,7 @@ class FsItem extends AsyncItem {
         if (this.parent == null) return this.fsRootPath;
         return this.parent.fsPath + '/' + this.pathKeys.join('/');
     }
+    ChildClass = FsItem;
 }
 
 
