@@ -58,12 +58,12 @@
             i.value = null;
             chai.expect(i.value).to.equal(null);
         });
-        it('set value: a other "item"-object uses its item.value as value', () => {
-            let a = item();
-            let b = item(2);
-            a.value = b;
-            chai.expect(a.value).to.equal(2);
-        });
+        // it('set value: a other "item"-object uses its item.value as value', () => {
+        //     let a = item();
+        //     let b = item(2);
+        //     a.value = b;
+        //     chai.expect(a.value).to.equal(2);
+        // });
         it('date is primitive', () => {
             let date = new Date();
             let i = item(date);

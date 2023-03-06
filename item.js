@@ -30,7 +30,7 @@ export class Item extends EventTarget {
     set value(value){
         if (this.#issetting) throw new Error('circular set');
         this.#issetting = true;
-        if (value instanceof Item) value = value.value;
+        //if (value instanceof Item) value = value.value;
         const obj = dispatchEvent(this, 'set', { item:this, oldValue:this.#value , value });
         if (!obj.defaultPrevented) this.$set(value);
         this.#issetting = false;
