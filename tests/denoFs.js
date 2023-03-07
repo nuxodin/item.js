@@ -29,7 +29,9 @@ console.log('## modifie it directly in a editor and save it');
 
 readme.value = 'Hello World, last saved on: ' + new Date();
 
-/* */
+
+
+/* jsonFile */
 import {jsonFile} from "../drivers/denoFs.js";
 
 const data = await jsonFile(testDirectory+'/test.json');

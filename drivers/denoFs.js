@@ -45,6 +45,8 @@ class FsItem extends AsyncItem {
             return Deno.readTextFile(this.fsPath);
         }
         if (info.isDirectory) {
+            // this.loadAll();
+            // return this;
             const list = Object.create(null);
             for await (const dirEntry of Deno.readDir(this.fsPath)) {
                 list[dirEntry.name] = this.item(dirEntry.name);
@@ -52,6 +54,13 @@ class FsItem extends AsyncItem {
             return list;
         }
     }
+    // async loadAll() { // if directory, load all children, todo
+    //     for await (const dirEntry of Deno.readDir(this.fsPath)) {
+    //         this.item(dirEntry.name);
+    //         // this.item(dirEntry.name).type = dirEntry.isDirectory ? 'directory' : 'file';
+    //     }
+    // }
+
     createSetter(value) {
         if (typeof value === 'string') { // if string its a file
             return Deno.writeTextFile(this.fsPath, value);

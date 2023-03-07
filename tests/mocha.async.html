@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Tests</title>
+    <meta name="viewport" content="width=device-width" />
+    <link rel="stylesheet" href="https://unpkg.com/mocha/mocha.css" />
+
+<body>
+    <div id="mocha"></div>
+
+    <script src="https://unpkg.com/chai/chai.js"></script>
+    <script src="https://unpkg.com/mocha/mocha.js"></script>
+
+    <script class="mocha-init">
+        mocha.setup('bdd');
+        mocha.checkLeaks();
+    </script>
+
+    <script type=module>
+    import { item, proxy } from '../item.js';
+    import { AsyncItem, resolveAll } from '../tools/AsyncItem.js';
+
+
+    let asyncRootValue = null;
+
+    let setterAborted = 0;
+    let getterRequested = 0;
+    let setterRequested = 0;
+
+    function reset(){
+        setterAborted = 0;
+        getterRequested = 0;
+        setterRequested = 0;
+    }
+
+    const asyncItem = new AsyncItem();
+
+    asyncItem.master.options.trustSendingValue = true;
+    asyncItem.master.options.cacheDuration = 100;
+    asyncItem.master.options.setDebouncePeriod = 5;
+
+    asyncItem.createGetter = async function(...args){
+        getterRequested++;
+        console.log('getterRequested')
+        await delay(10);
+        return asyncRootValue;
+    }
+    asyncItem.createSetter = async function(value, abortSignal){
+        setterRequested++;
+        abortSignal.addEventListener('abort', () => {
+            setterAborted++;
+        });
+        await delay(10);
+        if (!abortSignal.aborted) {
+            asyncRootValue = value;
+        }
+    }
+
+
+    describe('asyncItem', () => {
+        it('asyncItem get root value', async () => {
+            asyncRootValue = 'old value';
+            const value = await asyncItem.value;
+            chai.expect(value).to.deep.equal('old value');
+        });
+        it('asyncItem set and get value', async () => {
+            asyncItem.value = 'new value';
+            const value = await asyncItem.value;
+            chai.expect(value).to.equal('new value');
+            chai.expect(asyncRootValue).to.equal('old value'); // not yet saved!
+            await delay(40);
+            chai.expect(asyncRootValue).to.equal('new value'); // now saved!
+        });
+        it('trust sending value even if it is not saved yet', async () => {
+            asyncItem.value = 'trust me';
+            chai.expect(await asyncItem.value).to.equal('trust me');
+            chai.expect(asyncRootValue).to.equal('new value');
+            await delay(40);
+            chai.expect(asyncRootValue).to.equal('trust me');
+        });
+        it('set again fast ignores first setter (setters are debounced)', async () => {
+            reset();
+            asyncItem.value = 'fast new 1';
+            await delay(1);
+            asyncItem.value = 'fast new 2';
+            await delay(40);
+            chai.expect(setterRequested).to.equal(1);
+            chai.expect(setterAborted).to.equal(0);
+            chai.expect(asyncRootValue).to.equal('fast new 2');
+        });
+        it('set again aborts first setter while pending', async () => {
+            reset();
+            asyncItem.value = 'new 1';
+            await delay(8);
+            asyncItem.value = 'new 2';
+            await delay(40);
+            chai.expect(setterRequested).to.equal(2);
+            chai.expect(setterAborted).to.equal(1);
+            chai.expect(asyncRootValue).to.equal('new 2');
+        });
+        it('set again same value ignores the second, does not abort the first', async () => {
+            reset();
+            asyncItem.value = 'twice while pending';
+            await delay(8);
+            asyncItem.value = 'twice while pending';
+            await delay(40);
+            chai.expect(setterRequested).to.equal(1);
+            chai.expect(setterAborted).to.equal(0);
+        });
+        it('set the same value that the cached getter has', async () => {
+            await delay(100);
+            reset();
+            const value = await asyncItem.value;
+            await delay(50);
+            asyncItem.value = value;
+            await delay(40);
+            chai.expect(getterRequested).to.equal(1);
+            chai.expect(setterRequested).to.equal(0);
+            chai.expect(setterAborted).to.equal(0);
+        });
+
+
+    });
+
+    describe('asyncItem deep (asyncChild)', () => {
+
+        it('asyncItem get root value', async () => {
+            asyncRootValue = { b: 'old value' };
+            await delay(100);
+            const value = await asyncItem.value;
+            chai.expect(value).to.deep.equal({b:'old value'});
+        });
+        it('asyncChild get child value', async () => {
+            await delay(100);
+            const value = await asyncItem.item('b').value;
+            chai.expect(value).to.deep.equal('old value');
+        });
+        it('asyncChild set value', async () => {
+            await delay(100);
+            asyncItem.item('b').value = 'new value';
+            await delay(40);
+            chai.expect(asyncRootValue).to.deep.equal({b:'new value'});
+        });
+        it('asyncItem add new property', async () => {
+            await delay(100);
+            asyncItem.item('c').value = 'new value';
+            await delay(40);
+            chai.expect(asyncRootValue).to.deep.equal({b:'new value', c:'new value'});
+        });
+        it('asyncItem delete property', async () => {
+            await delay(100);
+            asyncItem.item('c').remove();
+            await delay(40);
+            chai.expect(asyncRootValue).to.deep.equal({b:'new value'});
+        });
+
+        /*
+        it('asyncItem get child value', async () => {
+            const value = await asyncItem.item('b').value;
+            chai.expect(value).to.equal('new value');
+        });
+        it('asyncItem set and get child value', async () => {
+            const i = asyncItem.item('b');
+            i.value = 'new value';
+            const value = await i.value;
+            chai.expect(value).to.equal('new value');
+            // not yet saved!
+            chai.expect(asyncRootValue.b).to.equal('old value');
+            await delay(20);
+            // now saved!
+            chai.expect(asyncRootValue.b).to.equal('new value');
+        });
+        it('trust sending value even if it is not saved yet', async () => {
+            const i = asyncItem.item('b');
+            i.value = 'trust me';
+            chai.expect(await i.value).to.equal('trust me');
+            chai.expect(asyncRootValue.b).to.equal('new value');
+            await delay(30);
+            chai.expect(asyncRootValue.b).to.equal('trust me');
+        });
+        it('asyncItem set twice aborts first setter', async () => {
+            const i = asyncItem;
+            reset();
+            i.item('b').value = 'new b value 1';
+            await delay(5);
+            i.item('c').value = 'new c value 1';
+            await delay(50);
+            chai.expect(setterRequested).to.equal(2);
+            chai.expect(setterAborted).to.equal(1);
+            console.log(asyncRootValue)
+            chai.expect(asyncRootValue.b).to.equal('new b value 1');
+        });
+        it('set same value twice ignores the second, does not abort the first', async () => {
+            const i = asyncItem;
+            reset();
+            i.item('b').value = 'twice';
+            await delay(5);
+            i.item('b').value = 'twice';
+            await delay(40);
+            chai.expect(setterRequested).to.equal(1);
+            chai.expect(setterAborted).to.equal(0);
+            chai.expect(asyncRootValue.b).to.equal('twice');
+        });
+        it('set the same value that the cached getter has', async () => {
+            const i = asyncItem;
+            await delay(100);
+            reset();
+            const value = await i.item('b').value;
+            await delay(50);
+            i.item('b').value = value;
+            await delay(40);
+            chai.expect(getterRequested).to.equal(1);
+            chai.expect(setterRequested).to.equal(0);
+            chai.expect(setterAborted).to.equal(0);
+            chai.expect(asyncRootValue.b).to.equal('twice');
+        });
+        */
+
+
+    });
+
+
+
+
+    describe('normal items with promises', () => {
+        it('Promise is promitive', async () => {
+            const i = item( Promise.resolve(2) );
+            const value = await i.value;
+            chai.expect(value).to.equal(2);
+        });
+        it('can not get value of promise', async () => {
+            const i = item( Promise.resolve({c:3}) );
+            const cVal = await i.item('c').value;
+            chai.expect(cVal).to.equal(undefined);
+        });
+    })
+
+    describe('resolveAll() helper', () => {
+        it('resolveAll() primitive', async () => {
+            const i = item(Promise.resolve(2));
+            const value = await resolveAll(i);
+            chai.expect(value).to.equal(2);
+        });
+        it('resolveAll() object', async () => {
+            const i = item({a:1, b:Promise.resolve(2)});
+            const value = await resolveAll(i);
+            chai.expect(value).to.deep.equal({a:1, b:2});
+        });
+        it('resolveAll() object', async () => {
+            const i = item({a:1, b:Promise.resolve({c:3})});
+            const value = await resolveAll(i);
+            chai.expect(value).to.deep.equal({a:1, b:{c:3}});
+        });
+    })
+
+
+
+
+
+    function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    </script>
+    <script class="mocha-exec" type=module>
+      mocha.run();
+    </script>
+</body>
+
+</html>

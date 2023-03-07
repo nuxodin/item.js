@@ -19,7 +19,13 @@ export class Item extends EventTarget {
     get parent(){ return this.#parent }
     get filled(){ return this.#filled }
 
+    set value(value){
+        this.set(value);
+    }
     get value(){
+        return this.get();
+    }
+    get(){
         if (this.#isgetting) throw new Error('circular get');
         this.#isgetting = true;
         dispatchEvent(this, 'get', { item: this, value:this.#value });
@@ -27,13 +33,13 @@ export class Item extends EventTarget {
         this.#isgetting = false;
         return this.$get();
     }
-    set value(value){
+    set(value){
         if (this.#issetting) throw new Error('circular set');
         this.#issetting = true;
-        //if (value instanceof Item) value = value.value;
         const obj = dispatchEvent(this, 'set', { item:this, oldValue:this.#value , value });
-        if (!obj.defaultPrevented) this.$set(value);
+        const result = !obj.defaultPrevented ? this.$set(value) : null;
         this.#issetting = false;
+        return result;
     }
     $get(){
         if (this.constructor.isPrimitive(this.#value)) {
@@ -56,7 +62,7 @@ export class Item extends EventTarget {
                 }
             }
         } else {
-            for (const key of Object.keys(value)) this.item(key).value = value[key];
+            for (const key of Object.keys(value)) this.item(key).set(value[key]);
             if (this.#value && Object(this.#value)) { // remove keys that are not in value
                 for (const key of Object.keys(this.#value)) if (!(key in value)) this.#value[key].remove();
             }
@@ -97,29 +103,11 @@ export class Item extends EventTarget {
         return this.item(keys[0]).walkPathKeys(keys.slice(1));
     }
 
-    // get await() { // move to tools?
-    //     if (this.#value instanceof Promise) { // too complicated?
-    //         return this.#value.then(value => {
-    //             if (this.constructor.isPrimitive(value)) return value;
-    //             this.value = value;
-    //             return this.value;
-    //         });
-    //     }
-    //     if (this.constructor.isPrimitive(this.#value)) return this.#value;
-    //     const promises = [...this].map(item => item.await);
-    //     return Promise.all(promises).then(values => {
-    //         const value = {};
-    //         for (const key in this.#value) value[key] = values.shift();
-    //         return value;
-    //     });
-    // }
-
-
-    toJSON() { return this.value; }
-    valueOf() { return this.value; }
-    toString() { return String(this.value); }
+    toJSON() { return this.get(); }
+    valueOf() { return this.get(); }
+    toString() { return String(this.get()); }
     get [Symbol.iterator]() {
-        this.value; // trigger getter, for signals and collecting children (too expensive?)
+        this.get(); // trigger getter, for signals and collecting children (too expensive?)
         return function *(){
             for (const key in this.#value) yield this.#value[key];
         }
@@ -135,7 +123,7 @@ export class Item extends EventTarget {
 
 export const item = (...args) => {
     const v = new Item();
-    if (args.length > 0) v.value = args[0];
+    if (args.length > 0) v.set(args[0]);
     return v;
 }
 
@@ -159,7 +147,7 @@ export function effect(fn){
 
 export function computed(calc){
     const signal = item();
-    effect(()=>signal.value = calc()); // todo: only primitive?
+    effect(()=>signal.set(calc())); // todo: only primitive?
     return signal;
 }
 
@@ -204,7 +192,7 @@ const proxyHandler = {
         const item = target.item(property);
 
         // todo: accessing item.value here is not good, it will trigger a get event (E.g. fetch data)
-        const value = item.value;
+        const value = item.get();
         if (item.constructor.isPrimitive(value)) {
             return value;
         } else {
@@ -213,7 +201,7 @@ const proxyHandler = {
     },
     set: function(target, property, value, receiver){
         if (typeof property === 'symbol') return Reflect.set(target, property, value, receiver);
-        target.item(property).value = value;
+        target.item(property).set(value);
         return true;
     },
     deleteProperty: function(target, property){

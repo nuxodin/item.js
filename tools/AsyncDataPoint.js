@@ -18,9 +18,9 @@ datapoint.setFromMaster({title: 'foo', completed: true}); // set value without s
 
 export class AsyncDataPoint {
 
-    trustSendingValue = true;
-    cacheDuration = 2000; // cache for 2 seconds, false = no cache, true = cache forever
-    setDebouncePeriod = 5; // debounce period for setter in ms
+    // trustSendingValue = true;
+    // cacheDuration = 2000; // cache for 2 seconds, false = no cache, true = cache forever
+    // setDebouncePeriod = 5; // debounce period for setter in ms
     createGetter = null; // function that returns a promise
     createSetter = null; // function that returns a promise, if it failed, the promise must be rejected
 
@@ -29,7 +29,13 @@ export class AsyncDataPoint {
     #getter = null; // current/cached getter promise
     #cacheGetterTimeout = null;
 
-    constructor({get, set}) {
+    constructor({get, set}, options={}) {
+
+        this.options = options;
+        this.options.trustSendingValue ??= true;
+        this.options.cacheDuration ??= 2000; // cache for 2 seconds, false = no cache, true = cache forever
+        this.options.setDebouncePeriod ??= 5; // debounce period for setter in ms
+
         this.createGetter = get;
         this.createSetter = set;
     }
@@ -41,7 +47,7 @@ export class AsyncDataPoint {
     #createSetter(value) {
         const promise = abortablePromise((resolve, reject) => {
             return this.createSetter(value, promise.controller.signal).then(resolve, reject);
-        }, this.setDebouncePeriod);
+        }, this.options.setDebouncePeriod);
         makePromiseTransparent(promise);
         return promise;
     }
@@ -55,7 +61,7 @@ export class AsyncDataPoint {
             if (oldValue !== value) this.onchange?.({value, oldValue}); // TODO: would not trigger if its the same object but modified!
         });
 
-        const duration = this.cacheDuration;
+        const duration = this.options.cacheDuration;
         if (!duration) return;
         if (typeof duration === 'number') {
             clearTimeout(this.#cacheGetterTimeout);
@@ -73,14 +79,16 @@ export class AsyncDataPoint {
         this.#cacheGetter(transparentPromiseResolve(value));
     }
     get() {
-        if (this.#setter?.state === 'pending' && this.trustSendingValue) return Promise.resolve(this.#expectedValue); // trust sending value
+        if (this.#setter?.state === 'pending' && this.options.trustSendingValue) return Promise.resolve(this.#expectedValue); // trust sending value
         // TODO?: wait for setter to be done if not trustSendingValue?
-        let promise = this.#getter;
-        if (!promise) {
-            promise = this.#createGetter();
-            this.#cacheGetter(promise);
-        }
-        return promise;
+        if (!this.#getter) this.#cacheGetter(this.#createGetter());
+        return this.#getter;
+        // let promise = this.#getter;
+        // if (!promise) {
+        //     promise = this.#createGetter();
+        //     this.#cacheGetter(promise);
+        // }
+        // return promise;
     }
     set(value) {
         if (this.#setter?.state === 'pending' && this.#expectedValue === value) return; // ignore if sending value is the same
@@ -101,7 +109,7 @@ export class AsyncDataPoint {
             this.#expectedValue = null;
         };
         promise.then(handleResult, handleResult);
-        this.#setter = promise; // return: the actual setter or a reference to the newest one? (i think the actual one)
+        return this.#setter = promise;
     }
 }
 
