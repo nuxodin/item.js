@@ -29,9 +29,8 @@ export class AsyncDataPoint {
     #getter = null; // current/cached getter promise
     #cacheGetterTimeout = null;
 
-    constructor({get, set}, options={}) {
-
-        this.options = options;
+    constructor({get, set}) {
+        this.options = {};
         this.options.trustSendingValue ??= true;
         this.options.cacheDuration ??= 2000; // cache for 2 seconds, false = no cache, true = cache forever
         this.options.setDebouncePeriod ??= 5; // debounce period for setter in ms
@@ -83,12 +82,6 @@ export class AsyncDataPoint {
         // TODO?: wait for setter to be done if not trustSendingValue?
         if (!this.#getter) this.#cacheGetter(this.#createGetter());
         return this.#getter;
-        // let promise = this.#getter;
-        // if (!promise) {
-        //     promise = this.#createGetter();
-        //     this.#cacheGetter(promise);
-        // }
-        // return promise;
     }
     set(value) {
         if (this.#setter?.state === 'pending' && this.#expectedValue === value) return; // ignore if sending value is the same
@@ -165,19 +158,6 @@ function transparentPromiseResolve(value) {
  * @param {Number} [ms=1] - The time in milliseconds to delay before resolving the Promise.
  * @returns {Promise} - A delayed Promise that can be aborted.
  */
-// function abortablePromise(fn, ms=1) { // delayed and therfore abortable withing ms
-//     let aborted = false;
-//     const promise = new Promise((resolve, reject) => {
-//         setTimeout(() => {
-//             if (aborted) return resolve(null);
-//             fn(resolve, reject);
-//         }, ms);
-//     });
-//     promise.abort = () => aborted = true;
-//     promise.isAborted = () => aborted;
-//     return promise;
-// }
-
 function abortablePromise(fn, ms=1) { // delayed and therfore abortable within ms
     const controller = new AbortController();
     const promise = new Promise((resolve, reject) => {

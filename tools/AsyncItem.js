@@ -46,7 +46,7 @@ export class AsyncItem extends Item {
 export class AsyncChild extends AsyncItem {
     constructor(parent, key) {
         super(parent, key);
-        this.master.options = this.parent.master.options;
+        this.master.options = this.parent.master.options; // same options as parent
     }
     createGetter() {
         return this.parent.get().then(row => {
@@ -54,7 +54,7 @@ export class AsyncChild extends AsyncItem {
             return row[this.key];
         });
     }
-    createSetter(value) {
+    createSetter(value) { // setters in AsyncChilds must first get the value to modify it
         return this.parent.get().then( row => {
             row ??= Object.create(null);
             row[this.key] = value;
