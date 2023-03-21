@@ -29,7 +29,6 @@ export const Table = class extends Item {
     }
     async loadAll() {
         const all = await this.parent.query("SELECT * FROM "+this.key);
-//        console.log(all)
         for (const data of all) {
             const id = await this.rowId(data);
             const row = this.item(id);
