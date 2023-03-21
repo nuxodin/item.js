@@ -27,6 +27,18 @@ export const Table = class extends Item {
         }
         return rows;
     }
+    async loadAll() {
+        const all = await this.parent.query("SELECT * FROM "+this.key);
+//        console.log(all)
+        for (const data of all) {
+            const id = await this.rowId(data);
+            const row = this.item(id);
+            for (const i in data) {
+                row.item(i).master.setFromMaster(data[i]);
+            }
+        }
+    }
+
 
     field(name) {
         if (!this._fields[name]) this._fields[name] = new Field(this, name);
@@ -51,22 +63,6 @@ export const Table = class extends Item {
     async primaries(){
         await this.fields();
         return this.a_primaries;
-    }
-    async setPrimaries(newPrimaries){
-        const existing = await this.primaries();
-        let changed = false;
-        for (const newPrimary of newPrimaries) {
-            const field = this._fields[newPrimary];
-            if (!field) throw new Error('field '+this+'.'+newPrimary+' does not exist');
-            if (!existing.includes(field)) changed = true;
-        }
-        if (changed) {
-            try {
-                await this.parent.query("ALTER TABLE "+this+" DROP PRIMARY KEY");
-            } catch {}
-            await this.parent.query("ALTER TABLE "+this+" ADD PRIMARY KEY ("+newPrimaries.join(',')+")");
-            this.a_field = null; // remove cache
-        }
     }
     async autoincrement(){
         await this.fields();
@@ -143,6 +139,11 @@ export const Table = class extends Item {
 
     // schema
     async setSchema(schema){
+
+        // const {fromShowFields} = await import('../../../../schema.js/tools/toSql.js');
+        // const fields = await this.parent.query("SHOW FULL FIELDS FROM " + this.key);
+        // const existingSchema = fromShowFields(fields);
+
         this.schema = schema;
         const query = "CREATE TABLE IF NOT EXISTS `"+this+"` ( _qgtmp varchar(0) NOT NULL ) ENGINE = MYISAM";
         await this.parent.query(query);
@@ -151,6 +152,24 @@ export const Table = class extends Item {
         }
         // todo primaries / indexes
     }
+    /*
+    async setPrimaries(newPrimaries){
+        const existing = await this.primaries();
+        let changed = false;
+        for (const newPrimary of newPrimaries) {
+            const field = this._fields[newPrimary];
+            if (!field) throw new Error('field '+this+'.'+newPrimary+' does not exist');
+            if (!existing.includes(field)) changed = true;
+        }
+        if (changed) {
+            try {
+                await this.parent.query("ALTER TABLE "+this+" DROP PRIMARY KEY");
+            } catch {}
+            await this.parent.query("ALTER TABLE "+this+" ADD PRIMARY KEY ("+newPrimaries.join(',')+")");
+            this.a_field = null; // remove cache
+        }
+    }
+    */
 
 
     static ChildClass = Row;

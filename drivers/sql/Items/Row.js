@@ -30,6 +30,7 @@ export class Row extends Item {
 
         if (!sets) return;
         //this.valueToSet = {};
+console.log("UPDATE "+this.table+" SET "+sets+" WHERE "+where+" ");
         await this.db.query("UPDATE "+this.table+" SET "+sets+" WHERE "+where+" ");
         const cells = await this.cells();
         for (const name in cells) {

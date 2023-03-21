@@ -70,7 +70,9 @@ export class AsyncChild extends AsyncItem {
 export async function resolveAll(item) {
     const value = await item.get();
     if (typeof value === 'object' && value != null) {
-        const results = await Promise.all([...item].map(item=>item.get()));
+        const results = await Promise.all([...item].map(item=>{
+            return resolveAll(item);
+        }));
 
         for (const sub of item) {
             value[sub.key] = results.shift();

@@ -8,6 +8,9 @@ export class MysqlDb extends Db {
     async connect(options){
         const client = new Client();
         this.connection = await client.connect(options);
+        this.name = options.db;
+        //await this.connection.execute(`CREATE DATABASE IF NOT EXISTS \`${this.name}\``);
+        //await this.connection.execute(`USE \`${this.name}\``);
     }
     close(){
         this.connection.close();
