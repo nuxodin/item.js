@@ -8,12 +8,20 @@ export class Row extends Item {
         this.db     = this.parent.parent;
     }
     async values() {
+        await this.loadItems();
+        return resolveAll(this);
         const obj = {};
         const cells = await this.cells();
         for (const name in cells) { // todo: Promise.all()
             obj[name] = await cells[name].value;
         }
         return obj;
+    }
+    async loadItems() {
+        const fields = await this.table.fields();
+        for (const field of fields) {
+            this.item(field.name);
+        }
     }
 
 
