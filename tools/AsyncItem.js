@@ -15,12 +15,17 @@ export class AsyncItem extends Item {
     createGetter() { throw new Error('createGetter not implemented'); }
     createSetter(value) { throw new Error('createSetter not implemented (value: ' + value + ')'); }
 
+    //async loadKeys() { throw new Error('loadKeys not implemented'); }
+    //async loadItems() { throw new Error('loadItems not implemented'); }
+
     $get() {
         return this.master.get();
     }
     $set(value) {
         return this.master.set(value);
     }
+
+
     ChildClass = AsyncChild;
 }
 

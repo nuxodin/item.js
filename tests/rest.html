@@ -14,36 +14,21 @@
 import {restApi} from "../drivers/rest.js";
 
 // rest api
-/*
+/* */
 const api = restApi('https://restcountries.com/v3.1');
-api.item('currency').item('chf').value.then(chf => {
-    console.log(chf);
-});
-*/
+const chf = await api.item('currency').item('chf').value;
+console.log(chf)
+/* *
 
 
 const api = restApi('https://reqres.in/api', {map: result => {
     return Object.fromEntries(result.data.map(item => [item.id, item]));
 }});
 
-api.item('user').value.then(data => {
-    console.log(api.item('user'), data)
-});
-
-const user2 = api.item('user').item('2');
-
-user2.value.then(data => {
-    console.log(data)
-});
-
-user2.value = {
-    name: 'morpheus',
-    job: 'zion resident'
-};
-
-api.item('user').item('23').value.then(data => {
-    console.log(data)
-});
+const i3 = api.item(2);
+console.log(api)
+console.log('3', await i3.value);
+/* */
 
 
 </script>

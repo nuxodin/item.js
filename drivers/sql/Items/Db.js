@@ -16,6 +16,14 @@ export class Db extends Item {
         return "'"+(value+'').replace(/'/g, "\'")+"'";
     }
 
+    async loadItems(){
+        const tables = await this.query("SHOW TABLES");
+        for (const table of tables) {
+            this.item(table.key);
+        }
+    }
+
+
     // schema
     async setSchema(schema){
         this.schema = schema;
