@@ -54,24 +54,22 @@ class FsItem extends AsyncItem {
             return list;
         }
     }
-    // async loadItems() { // if directory, load all children, todo
-    //     for await (const dirEntry of Deno.readDir(this.fsPath)) {
-    //         this.item(dirEntry.name);
-    //         // this.item(dirEntry.name).type = dirEntry.isDirectory ? 'directory' : 'file';
-    //     }
-    // }
-
     createSetter(value) {
         if (typeof value === 'string') { // if string its a file
             return Deno.writeTextFile(this.fsPath, value);
         }
-
         for (const key in value) {
             this.item(key).value = value[key];
         }
         // todo, await all children setters?
         return Promise.resolve({});
     }
+    // async loadItems() { // if directory, load all children, todo
+    //     for await (const dirEntry of Deno.readDir(this.fsPath)) {
+    //         this.item(dirEntry.name);
+    //         // this.item(dirEntry.name).type = dirEntry.isDirectory ? 'directory' : 'file';
+    //     }
+    // }
     get fsPath() {
         if (this.parent == null) return this.fsRootPath;
         return this.parent.fsPath + '/' + this.pathKeys.join('/');
