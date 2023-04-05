@@ -5,8 +5,9 @@ Creates observable datastructures
 
 | :exclamation: Uniform interfaces for diverse structured data! |
 |:------------------|
-| We plan to develop various drivers based on "item.js" to consistently use the same API for accessing data. Examples include `file systems`, `MQTT`, `localStorage`, `cookies`,`databases` , and so on. |
-| [See this localStorage example]() |
+We are working on various drivers based on "item.js" to consistently use the same API everywhere.  
+Examples include `file systems`, `MQTT`, `localStorage`, `cookies`,`databases` , and so on.
+<!-- [See this localStorage example]() -->
 
 ## Installation
 
