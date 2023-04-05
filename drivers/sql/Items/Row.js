@@ -40,10 +40,10 @@ export class Row extends Item {
         //this.valueToSet = {};
 console.log("UPDATE "+this.table+" SET "+sets+" WHERE "+where+" ");
         await this.db.query("UPDATE "+this.table+" SET "+sets+" WHERE "+where+" ");
-        const cells = await this.cells();
-        for (const name in cells) {
+        await this.loadItems();
+        for (const name in this.value) {
             if (values[name] === undefined) continue;
-            cells[name]._value = values[name];
+            this.item(name).master.setFromMaster(values[name]);
         }
     }
     // async is() {
