@@ -1,5 +1,5 @@
 import { Db } from "./Items/Db.js";
-import { Client } from "https://deno.land/x/mysql@v2.8.0/mod.ts";
+import { Client } from "https://deno.land/x/mysql@v2.11.0/mod.ts";
 
 export class MysqlDb extends Db {
     constructor(){
