@@ -2,6 +2,11 @@
 
 Creates observable datastructures
 
+
+| :exclamation: Uniform interfaces for diverse structured data! |
+|:------------------|
+| We plan to develop various drivers based on "item.js" to consistently use the same API for accessing data. Examples include file systems, MQTT topics, cookies, databases, and so on. |
+
 ## Installation
 
 ```js
