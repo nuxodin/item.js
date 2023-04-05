@@ -9,8 +9,9 @@ export class MysqlDb extends Db {
         const client = new Client();
         this.connection = await client.connect(options);
         this.name = options.db;
-        //await this.connection.execute(`CREATE DATABASE IF NOT EXISTS \`${this.name}\``);
-        //await this.connection.execute(`USE \`${this.name}\``);
+
+        await this.connection.query("CREATE DATABASE IF NOT EXISTS `"+this.name+"` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"); // Encryption = 'Y'?
+        await this.connection.execute(`USE \`${this.name}\``);
     }
     close(){
         this.connection.close();
