@@ -1,6 +1,6 @@
 
 
-import { errors } from '../../schema.js/schema.js';
+import { errors } from '../../jema.js/schema.js';
 
 export function attachSchema(rootItem, schema) {
     rootItem.schema = schema;

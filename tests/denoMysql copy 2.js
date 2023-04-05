@@ -1,14 +1,11 @@
-import { Mysql } from "../drivers/sql/MysqlDb.js";
+import { MysqlDb } from "../drivers/sql/MysqlDb.js";
 import { assertEquals } from "https://deno.land/std@0.177.0/testing/asserts.ts";
-
 
 
 Deno.test("database", async () => {
 
-
-    const client = new Mysql({host: 'localhost'});
-    const db = client.item('itemjs_mysql_test');
-    await db.connect();
+    const db = new MysqlDb();
+    await db.connect({host: 'localhost', db:'v7_test'});
 
     await db.query(
     `CREATE TABLE IF NOT EXISTS test (

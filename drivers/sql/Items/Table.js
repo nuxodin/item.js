@@ -133,13 +133,17 @@ export const Table = class extends Item {
         const item = this.item(rowId);
         return item;
     }
+    remove() {
+        this.parent.query("DROP TABLE " + this);
+        super.remove();
+    }
     toString() { return this.key; }
     valueOf() { return this.key; }
 
     // schema
     async setSchema(schema){
 
-        // const {fromShowFields} = await import('../../../../schema.js/tools/toSql.js');
+        // const {fromShowFields} = await import('../../../../jema.js/tools/toSql.js');
         // const fields = await this.parent.query("SHOW FULL FIELDS FROM " + this.key);
         // const existingSchema = fromShowFields(fields);
 

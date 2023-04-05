@@ -2,10 +2,9 @@ import { Item } from '../../../item.js';
 import { Table } from './Table.js';
 
 export class Db extends Item {
-    constructor(){
-        super();
-    }
+
     query(){ throw new Error('Not implemented'); }
+
     async row(sql){
         for (const row of await this.query(sql)) return row;
     }

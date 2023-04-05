@@ -15,6 +15,9 @@ export class Cell extends AsyncItem {
     createSetter(value) {
         return this.row.set({[this.key]:value});
     }
+    remove() {
+        throw new Error("Cannot remove a single cell");
+    }
     toString() { return this.key; }
     valueOf() { return this.key; }
 }

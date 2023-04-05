@@ -59,6 +59,11 @@ console.log("UPDATE "+this.table+" SET "+sets+" WHERE "+where+" ");
     //         return await this.table.insert(values);
     //     }
     // }
+
+    remove() {
+        this.db.query("DELETE FROM "+this.table+" WHERE "+this.table.rowIdToWhere(this.key));
+        super.remove();
+    }
     toString() { return this.key; }
     valueOf() { return this.key; }
 
