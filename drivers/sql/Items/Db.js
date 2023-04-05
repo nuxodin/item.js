@@ -17,9 +17,7 @@ export class Db extends Item {
 
     async loadItems(){
         const tables = await this.query("SHOW TABLES");
-        for (const table of tables) {
-            this.item(table.key);
-        }
+        for (const table of tables) this.item(table.key);
     }
 
 
@@ -27,11 +25,11 @@ export class Db extends Item {
     async setSchema(schema){
         this.schema = schema;
         //const query = "CREATE DATABASE IF NOT EXISTS `"+this.name+"` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci"; // Encryption = 'Y'?
-        const query = "CREATE DATABASE IF NOT EXISTS `"+this.name+"` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"; // Encryption = 'Y'?
-        await this.query(query);
+        //const query = "CREATE DATABASE IF NOT EXISTS `"+this.name+"` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"; // Encryption = 'Y'?
+        //await this.query(query);
 
         for (const [name, schema] of Object.entries(this.schema.properties)) {
-            this.item(name).setSchema(schema);
+            await this.item(name).setSchema(schema);
         }
     }
     async getSchema(){

@@ -13,7 +13,7 @@ export class Cell extends AsyncItem {
         return await this.db.one("SELECT "+this.key+" FROM "+this.table+" WHERE "+where+" ");
     }
     createSetter(value) {
-        return this.row.set({[this.key]:value});
+        return this.row.setValues({[this.key]:value});
     }
     remove() {
         throw new Error("Cannot remove a single cell");

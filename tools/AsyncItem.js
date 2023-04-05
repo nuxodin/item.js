@@ -78,17 +78,9 @@ export async function resolveAll(item) {
         const results = await Promise.all([...item].map(item=>{
             return resolveAll(item);
         }));
-
         for (const sub of item) {
             value[sub.key] = results.shift();
         }
-        // await Promise.all(promises).then(results => {
-        //     console.log(results)
-        //     for (let i = 0; i < promises.length; i++) {
-        //         const key = promises[i].key;
-        //         value[key] = results[i];
-        //     }
-        // });
     }
     return value;
 }

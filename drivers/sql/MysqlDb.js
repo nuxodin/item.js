@@ -1,11 +1,10 @@
 import { Item } from '../../item.js';
 import { Db } from "./Items/Db.js";
-import { Client } from "https://deno.land/x/mysql@v2.11.0/mod.ts";
+import { Client } from "https://deno.land/x/mysql@v2.10.0/mod.ts"; // Warning: v2.11.0 has a breaking bug!
 
 class MysqlDb extends Db {
     async connect(){
-        const client = new Client();
-        this.connection = await client.connect(this.parent.options);
+        this.connection = await new Client().connect(this.parent.options);
         await this.connection.execute("CREATE DATABASE IF NOT EXISTS `"+this.key+"` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"); // Encryption = 'Y'?
         await this.connection.execute(`USE \`${this.key}\``);
     }
@@ -24,7 +23,7 @@ class MysqlDb extends Db {
         return "'"+(value+'').replace(/'/g, "\'")+"'";
     }
     remove(){
-        this.query("DROP DATABASE `"+this.key+"`");
+        this.execute("DROP DATABASE `"+this.key+"`");
         super.remove();
     }
 }
@@ -35,14 +34,12 @@ export class Mysql extends Item {
         this.options = options;
     }
     async connect(){
-        const client = new Client();
-        return await client.connect(this.options);
+        return await new Client().connect(this.options);
     }
     async loadItems(){
         const connection = await this.connect();
         const rows = await connection.query("SHOW DATABASES");
         for (const row of rows) {
-            console.log(row.Database)
             this.item(row.Database);
         }
         connection.close();

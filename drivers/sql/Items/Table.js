@@ -20,20 +20,19 @@ export const Table = class extends Item {
             const id = await this.rowId(data);
             const row = this.item(id);
             for (const i in data) {
-                row.cell(i)._value = data[i]; // todo
-                row.cell(i).setFromMaster(data[i]); // todo
+                row.cell(i).setFromMaster(data[i]);
             }
             rows.push( row );
         }
         return rows;
     }
     async loadAll() {
-        const all = await this.parent.query("SELECT * FROM "+this.key);
-        for (const data of all) {
+        const rows = await this.parent.query("SELECT * FROM "+this.key);
+        for (const data of rows) {
             const id = await this.rowId(data);
             const row = this.item(id);
-            for (const i in data) {
-                row.item(i).master.setFromMaster(data[i]);
+            for (const field in data) {
+                row.item(field).master.setFromMaster(data[field]);
             }
         }
     }
@@ -59,6 +58,7 @@ export const Table = class extends Item {
         }
         return this.a_fields;
     }
+
     async primaries(){
         await this.fields();
         return this.a_primaries;
@@ -106,11 +106,12 @@ export const Table = class extends Item {
         const fields = await this.fields();
         for (const field of fields) {
             if (object[field.name] === undefined) continue;
-            //let sqlValue = field.valueToSql(object[field.name]);
-            const sqlValue = this.parent.quote(object[field.name]);
+
+            const sqlValue = field.valueToSql(object[field.name]);
+            //const sqlValue = this.parent.quote(object[field.name]);
             const sqlField = (alias?alias+'.':'') + field.name;
-			const equal = ' = ';
-			//let equal = (!isSet && sqlValue==='NULL'?' IS ':' = ');
+			//const equal = ' = ';
+			const equal = (!isSet && sqlValue==='NULL'?' IS ':' = ');
 			sqls.push(sqlField + equal + sqlValue);
         }
         return sqls;
