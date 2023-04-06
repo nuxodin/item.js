@@ -2,6 +2,10 @@
 
 Creates observable datastructures
 
+## Motivation
+
+`item.js` is designed to provide developers with a consistent API for accessing and manipulating data from various sources. This makes it easier to use and integrate these data sources in your projects.
+
 ## 🎉 Uniform interfaces for diverse structured data!
 
 We are working on various drivers based on "item.js" to consistently use the same API everywhere.  
