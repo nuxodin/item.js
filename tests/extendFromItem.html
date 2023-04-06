@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Test</title>
+<body>
+
+<h1>Extend from Item</h1>
+
+<script type=module>
+
+import {Item} from "../item.js";
+
+class UpperCaseItem extends Item {
+    $get() { // overwrite getter
+        const value = super.$get();
+        return typeof value === 'string' ? value.toUpperCase() : value;
+    }
+}
+
+// Ussage:
+const obj = {a: 'Hello', b: 'World'};
+const a = new UpperCaseItem();
+a.value = obj;
+
+inEl.innerHTML = JSON.stringify(obj, null, 4);
+outEl.innerHTML = JSON.stringify(a.value, null, 4);
+
+</script>
+
+<pre id="inEl"></pre>
+<pre id="outEl"></pre>

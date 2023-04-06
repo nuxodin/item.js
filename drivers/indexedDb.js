@@ -12,7 +12,7 @@ class Db extends Item {
     open(version, callbacks) {
         this.dbPromise = openDB(this.key, version, callbacks);
     }
-    async loadAll() {
+    async loadItems() {
         const db = await this.dbPromise;
         for (const store of db.objectStoreNames) this.item(store);
     }
@@ -46,7 +46,7 @@ class Table extends Item { // store
             callback.reject = reject;
         });
     }
-    async loadAll() {
+    async loadItems() {
         const store = await this.parent.dbPromise.then( db => db.transaction(this.key).store );
         for await (const cursor of store.iterate()) {
             this.item(cursor.key);
@@ -138,6 +138,5 @@ export function IDB(){
 
 
 // todo:
-// dbPromise.delete('keyval', key);
 // dbPromise.clear('keyval');
 // dbPromise.getAllKeys('keyval');

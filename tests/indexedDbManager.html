@@ -55,13 +55,13 @@ db.open(25, {
 
 let store = db.item('user');
 
-await db.loadAll();
+await db.loadItems();
 
 const fields =  [...(await db.item('user').fields()).values()];
 
 const effectFn = async ()=>{
 
-    store.loadAll(); // its a promise and every time is internal "for await (const cursor ..." is called, it will trigger the effect
+    store.loadItems(); // its a promise and every time is internal "for await (const cursor ..." is called, it will trigger the effect
 
     store.value; // just to trigger the effect, before await
 
