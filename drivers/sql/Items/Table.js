@@ -7,12 +7,30 @@ export const Table = class extends Item {
         super(db, name);
         this._fields = {};
     }
+    async loadItems() {
+        const rows = await this.parent.query("SELECT * FROM "+this.key);b // todo, just get primaries?
+        for (const data of rows) {
+            const id = await this.rowId(data);
+            const row = this.item(id);
+            for (const field in data) {
+                row.item(field).master.setFromMaster(data[field]);
+            }
+        }
+    }
+    async remove() {
+        await this.parent.query("DROP TABLE " + this);
+        super.remove();
+    }
+
+
     async ensure(filter) {
+        console.error('used?')
         const rows = await this.rows(filter);
         for (const row of rows) return row; // return first
         return this.insert(filter); // else insert, todo: filter?
     }
     async rows(filter /* limit? */) {
+        console.error('used?')
         const where = await this.objectToWhere(filter); // todo
         const all = await this.parent.query("SELECT * FROM "+this.key+" WHERE " + where);
         const rows = [];
@@ -26,23 +44,15 @@ export const Table = class extends Item {
         }
         return rows;
     }
-    async loadItems() {
-        const rows = await this.parent.query("SELECT * FROM "+this.key);
-        for (const data of rows) {
-            const id = await this.rowId(data);
-            const row = this.item(id);
-            for (const field in data) {
-                row.item(field).master.setFromMaster(data[field]);
-            }
-        }
-    }
 
 
     field(name) {
+        //console.debug('used?')
         if (!this._fields[name]) this._fields[name] = new Field(this, name);
         return this._fields[name];
     }
     async fields(){
+        //console.debug('used?')
         if (!this.a_fields) {
             const all = await this.parent.query("SHOW FIELDS FROM " + this.key); // just "this"?
             this.a_fields = [];
@@ -60,14 +70,17 @@ export const Table = class extends Item {
     }
 
     async primaries(){
+        //console.debug('used?')
         await this.fields();
         return this.a_primaries;
     }
     async autoincrement(){
+        //console.debug('used?')
         await this.fields();
         return this._autoincrement;
     }
     async rowId(array){
+        //console.debug('used?')
         if ({string:1,number:1}[typeof array]) return array;
         return (await this.primaries()).map(field=>{
             //if (field instanceof Row) { ... }
@@ -76,6 +89,7 @@ export const Table = class extends Item {
         }).join('-:-');
     }
     async rowIdObject(id){
+        //console.debug('used?')
         const isObject = !{string:1,number:1}[typeof id];
         const object = Object.create(null);
         const primaries = await this.primaries();
@@ -95,36 +109,38 @@ export const Table = class extends Item {
         return object;
     }
     async rowIdToWhere(id){
+        //console.debug('used?')
         const obj = await this.rowIdObject(id);
         return await this.objectToWhere(obj);
     }
+
     async _objectToSqls(object, alias=null, isSet=false) {
-
+        //console.debug('used?')
         if (object == undefined) throw new Error('objectToSqls: object is undefined');
-
         const sqls = [];
         const fields = await this.fields();
         for (const field of fields) {
             if (object[field.name] === undefined) continue;
-
             const sqlValue = field.valueToSql(object[field.name]);
-            //const sqlValue = this.parent.quote(object[field.name]);
             const sqlField = (alias?alias+'.':'') + field.name;
-			//const equal = ' = ';
 			const equal = (!isSet && sqlValue==='NULL'?' IS ':' = ');
 			sqls.push(sqlField + equal + sqlValue);
         }
         return sqls;
     }
 	async objectToWhere(data, alias=null) {
+        //console.debug('used?')
         const sqls = await this._objectToSqls(data, alias);
         return sqls.join(' AND ');
 	}
 	async objectToSet(data, alias=null) {
+        //console.debug('used?')
         const sqls = await this._objectToSqls(data, alias, true);
         return sqls.join(' , ');
 	}
+
     async insert(data) {
+        //console.debug('used?')
         const set = await this.objectToSet(data);
         const done = await this.parent.query("INSERT INTO " + this + (set ? " SET "+set : " () values () "));
         if (!done.affectedRows) return false;
@@ -134,10 +150,7 @@ export const Table = class extends Item {
         const item = this.item(rowId);
         return item;
     }
-    remove() {
-        this.parent.query("DROP TABLE " + this);
-        super.remove();
-    }
+
     toString() { return this.key; }
     valueOf() { return this.key; }
 

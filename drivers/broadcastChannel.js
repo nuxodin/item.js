@@ -1,5 +1,11 @@
 import {item} from '../item.js';
 
+
+// TODO? Would it be better as a tool like "syncWithBroadcastChannel"?
+// i = item()
+// syncWithBroadcastChannel(i, {channelName: 'my-channel'})
+// i.item('a').value = 1 // will be broadcasted to other tabs
+
 // BroadcastChannel
 export function broadcastChannelItem({channelName='item.js-default channel',init=null}={}) {
 
@@ -11,7 +17,9 @@ export function broadcastChannelItem({channelName='item.js-default channel',init
     root.addEventListener('changeIn', e => {
         if (byMe) return;
         const {item, value} = e.detail;
+        byMe = true;
         channel.postMessage({path: item.pathKeys, value});
+        byMe = false;
     });
 
     channel.postMessage({getInitial: true});
@@ -28,9 +36,7 @@ export function broadcastChannelItem({channelName='item.js-default channel',init
 
         if (data.path) {
             const {path, value} = data;
-            byMe = true;
             root.walkPathKeys(path).value = value;
-            byMe = false;
         }
     };
     return root;

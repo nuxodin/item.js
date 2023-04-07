@@ -9,11 +9,10 @@ export class Cell extends AsyncItem {
         this.field = this.table.field(name);
     }
     async createGetter() {
-        const where = await this.table.rowIdToWhere(this.row.key);
-        return await this.db.one("SELECT "+this.key+" FROM "+this.table+" WHERE "+where+" ");
+        return (await this.row.selectForce([this.key]))[this.key];
     }
-    createSetter(value) {
-        return this.row.setValues({[this.key]:value});
+    async createSetter(value) {
+        return await this.row.updateForce({[this.key]:value});
     }
     remove() {
         throw new Error("Cannot remove a single cell");

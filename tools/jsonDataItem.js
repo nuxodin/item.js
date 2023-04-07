@@ -17,10 +17,6 @@ export async function jsonDataItem(jsonItem) {
         },1);
     });
 
-    // root.addEventListener('changeIn', () => {
-    //     jsonItem.value = JSON.stringify(root.value, null, 2);
-    // });
-
     jsonItem.addEventListener('change', async () => { // changes from outside
         const json = await jsonItem.value;
         root.value = JSON.parse(json);

@@ -25,8 +25,7 @@ export class Field {
             if (value instanceof Date) return value.toISOString();
             if (typeof value === 'number') return new Date(value).toISOString();
         }
-
-        return String(value);
+        return value;
 	}
 	valueToSql(value) {
         value = this.valueTransform(value);
@@ -52,7 +51,6 @@ export class Field {
         const row = await this.db.row(query);
         const {fromShowFields} = await import('../../../../jema.js/tools/toSql.js');
         this.schema = fromShowFields([row])[this.name];
-console.log('get schema', this.schema);
         return this.schema;
     }
     toString(){

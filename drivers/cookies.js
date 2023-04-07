@@ -9,7 +9,7 @@ class CookieItem extends AsyncItem {
         return cookieStore.set({ // triggers store-change
             name: this.key,
             value,
-            //expires: Date.now() + day,
+            expires: new Date(Date.now() + 1000*60*60*24*365*2), // expires in 2 years
             //domain: "example.com",
         });
     }

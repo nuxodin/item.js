@@ -9,7 +9,8 @@ export class Db extends Item {
         for (const row of await this.query(sql)) return row;
     }
     async one(sql){
-        return Object.values(await this.row(sql))[0];
+        const row = await this.row(sql);
+        return Object.values(row)[0];
     }
     quote(value){
         return "'"+(value+'').replace(/'/g, "\'")+"'";
@@ -24,10 +25,6 @@ export class Db extends Item {
     // schema
     async setSchema(schema){
         this.schema = schema;
-        //const query = "CREATE DATABASE IF NOT EXISTS `"+this.name+"` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci"; // Encryption = 'Y'?
-        //const query = "CREATE DATABASE IF NOT EXISTS `"+this.name+"` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"; // Encryption = 'Y'?
-        //await this.query(query);
-
         for (const [name, schema] of Object.entries(this.schema.properties)) {
             await this.item(name).setSchema(schema);
         }

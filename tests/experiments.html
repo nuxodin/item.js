@@ -11,30 +11,6 @@
 
 <script type=module>
 
-import { Item, effect } from '../item.js';
 
-
-class PrimitiveItem extends Item {
-    static isPrimitive() { return true; }
-}
-
-function eventSignal(target, eventName) {
-    const signal = new PrimitiveItem();
-    target.addEventListener(eventName, e => signal.value = e);
-    return signal;
-}
-
-// ussage
-const inputEvent = eventSignal(myInput, 'input');
-
-effect(() => {
-    myOutput.value = inputEvent.value?.target?.value ?? '';
-});
 
 </script>
-
-<label>
-    <input id="myInput" value="input">
-    <br>
-    <output id="myOutput"></output>
-</label>

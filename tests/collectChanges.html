@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Test</title>
+    <script type="module" src="https://cdn.jsdelivr.net/gh/u1ui/u1/auto.js"></script>
+    <link rel=stylesheet href="https://cdn.jsdelivr.net/gh/u1ui/classless.css/simple.css">
+<body>
+
+<h1>Test</h1>
+
+<script type=module>
+
+import {item} from "../item.js";
+import {collectChanges} from "../tools/collectChanges.js";
+
+const obj = {
+    watching: {
+        key: 'myItem',
+        data: {
+            a: 1,
+            b: 2,
+            c: 3,
+        }
+    }
+};
+
+const myItem = item(obj).item('watching');
+
+const {getAndReset} = collectChanges(myItem);
+
+inpEl.value = JSON.stringify(myItem, null, 2);
+
+inpEl.addEventListener('change',e=>{
+    const data = JSON.parse(e.target.value);
+    myItem.value = data;
+});
+
+collectEl.addEventListener('click',e=>{
+    const changes = getAndReset();
+    changesEl.innerHTML = JSON.stringify(changes, null, 2);
+});
+
+</script>
+
+<div>
+
+    <label>
+        <h2>Data</h2>
+        <textarea id="inpEl" style="width:100%; height:10rem"></textarea>
+    </label>
+
+    <br>
+    <br>
+    <br>
+
+    <button id=collectEl>collect changes</button>
+
+    <pre id=changesEl></pre>
+
+</div>
