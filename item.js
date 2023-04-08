@@ -203,7 +203,10 @@ function triggerEffectsFor(signal) {
 // proxy
 const proxyHandler = {
     get: function(target, property, receiver){
-        if (typeof property === 'symbol') return Reflect.get(target, property, receiver);
+        if (typeof property === 'symbol') {
+            if (typeof target[property] === 'function') return target[property].bind(target);
+            return Reflect.get(target, property, receiver);
+        }
         if (property === '$item') return target;
 
         const item = target.item(property);
