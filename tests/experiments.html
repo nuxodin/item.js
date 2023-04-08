@@ -10,7 +10,7 @@
 
 <script type=module>
 
-import {item} from "../item.js";
+import {item, proxy} from "../item.js";
 
 const i = item({1: "initial 1", 2: "initial 2", 3: "initial 3"});
 
@@ -29,6 +29,13 @@ i.loadAll = async function(){
 
 
 for await (const child of i){
+    console.log(child);
+    if (child.key === '8') break;
+}
+
+const p = proxy(i);
+console.log(p)
+for await (const child of p){
     console.log(child);
     if (child.key === '8') break;
 }
