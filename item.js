@@ -1,3 +1,4 @@
+
 // Item
 export class Item extends EventTarget {
 
@@ -69,6 +70,7 @@ export class Item extends EventTarget {
         }
     }
     item(key){
+        key = String(key);
         if (this.#value == null || typeof this.#value !== 'object') { // item() forces value always to be object
             this.#value = Object.create(null);
             this.#filled = true;
@@ -106,12 +108,27 @@ export class Item extends EventTarget {
     toJSON() { return this.get(); }
     valueOf() { return this.get(); }
     toString() { return String(this.get()); }
+
     get [Symbol.iterator]() {
         this.get(); // trigger getter, for signals and collecting children (too expensive?)
         return function *(){
             for (const key in this.#value) yield this.#value[key];
         }
     }
+
+    // iterate over all items, even if not loaded yet
+    // TODO: add change-event-listener to deliver new items when they are loaded
+    // TODO: wait for new values if its not an object? Or make a separate method for that? because that would also be useful for objects
+    async *[Symbol.asyncIterator]() {
+        const yielded = new Set();
+        for (const item of Object.values(this.#value)) {
+            yielded.add(item);
+            yield item;
+        }
+        await this.loadAll();
+        for (const item of Object.values(this.#value)) if (!yielded.has(item)) yield item;
+    }
+
 
     static isPrimitive(value){
         return value !== Object(value) || 'toJSON' in value || value instanceof Promise;

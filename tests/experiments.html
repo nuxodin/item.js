@@ -4,13 +4,38 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
     <title>Test</title>
-    <script type="module" src="../item.js"></script>
 <body>
 
 <h1>Test</h1>
 
 <script type=module>
 
+import {item} from "../item.js";
 
+const i = item({1: "initial 1", 2: "initial 2", 3: "initial 3"});
+
+i.loadAll = async function(){
+    await delay(500);
+    this.item(1) // this item is already added initially, will not be added looped twice
+    await delay(500);
+    this.item(5)
+    await delay(500);
+    this.item(7)
+    await delay(500);
+    this.item(8)
+    await delay(500);
+    this.item(9)
+}
+
+
+for await (const child of i){
+    console.log(child);
+    if (child.key === '8') break;
+}
+
+
+function delay(ms){
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 </script>
