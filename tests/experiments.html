@@ -27,14 +27,13 @@ i.loadAll = async function(){
     this.item(9)
 }
 
-
 for await (const child of i){
     console.log(child);
     if (child.key === '8') break;
 }
 
 const p = proxy(i);
-console.log(p)
+
 for await (const child of p){
     console.log(child);
     if (child.key === '8') break;
