@@ -151,7 +151,7 @@ db.myTable[1] = {name: 'demo', age: 42};
 effect(() => {
     input.value = mqtt.house1.counters.electricity;
 });
-
+```
 
 ## About
 
