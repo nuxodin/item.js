@@ -103,13 +103,57 @@ a.value = {a: 'Hello', b: 'World'};
 console.log(a.value); // {a: 'HELLO', b: 'WORLD'}
 ```
 
+## See how easy it is to use "item.js" with different drivers
 
-## Alternatives
+```js	
+// indexeddb
+import {IDB} from "../drivers/indexedDb.js";
+const db = IDB().item('db');
+db.open(2, { upgrade(db, oldVersion, newVersion, transaction) { ... } });
 
-https://github.com/dy/signal-struct
+db.item('store').item('1').item('name').value = 'demo';
 
-https://github.com/luisherranz/deepsignal
+// MySQL
+import {Mysql} from "../drivers/sql/Mysql.js";
+const db = new Mysql({host: 'localhost'}).item('db');
+await db.connect();
 
-https://github.com/EthanStandel/deepsignal/tree/main/packages/preact
+db.item('table').item('1').item('name').value = 'demo';
 
-https://github.com/melnikov-s/preact-observables
+// MQTT
+import {mqtt} from "../drivers/mqtt.js";
+const root = await mqtt({url: 'mqtt://mqtt.org:1883'});
+
+root.item('house1').item('counters').item('electricity').value = 876;
+
+// localStorage
+import {getStore} from "../drivers/localStorage.js";
+const store = getStore('demo');
+
+store.item('someItem').value = 'Hello World';
+
+// cookies
+import {cookies} from "../drivers/cookies.js";
+const root = cookies();
+
+root.item('myCookie').value = 'Hello World';
+```
+
+Even easier with with proxies:
+
+```js
+
+const db = proxy(dbItem);
+
+db.myTable[1] = {name: 'demo', age: 42};
+
+// and react to changes
+effect(() => {
+    input.value = mqtt.house1.counters.electricity;
+});
+
+
+## About
+
+- MIT License, Copyright (c) 2022 <u1> (like all repositories in this organization) <br>
+- Suggestions, ideas, finding bugs and making pull requests make us very happy. ♥
