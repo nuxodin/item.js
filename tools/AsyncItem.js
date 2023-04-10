@@ -15,9 +15,6 @@ export class AsyncItem extends Item {
     createGetter() { throw new Error('createGetter not implemented'); }
     createSetter(value) { throw new Error('createSetter not implemented (value: ' + value + ')'); }
 
-    //async loadKeys() { throw new Error('loadKeys not implemented'); }
-    //async loadItems() { throw new Error('loadItems not implemented'); }
-
     $get() {
         return this.master.get();
     }
@@ -25,28 +22,9 @@ export class AsyncItem extends Item {
         return this.master.set(value);
     }
 
-
     ChildClass = AsyncChild;
 }
 
-// TODO?: new AsyncChild, no need for separate AsyncDataPoints?
-// export class AsyncChild extends Item {
-//     $get() {
-//         return this.parent.value.then(row => {
-//             row ??= Object.create(null);
-//             return row[this.key];
-//         });
-//     }
-//     $set(value) {
-//         return this.parent.value.then( row => {
-//             row ??= Object.create(null);
-//             row[this.key] = value;
-//             // structuredClone is needed to make the row a new object.
-//             // TODO: we need to deep compare the old and new row to avoid unnecessary updates
-//             return this.parent.value = structuredClone(row);
-//         });
-//     }
-// }
 
 export class AsyncChild extends AsyncItem {
     constructor(parent, key) {
@@ -67,6 +45,14 @@ export class AsyncChild extends AsyncItem {
             // TODO: we need to deep compare the old and new row to avoid unnecessary updates
             return this.parent.set( structuredClone(row) );
         });
+    }
+    async remove(){
+        const row = await this.parent.get();
+        if (row) {
+            delete row[this.key];
+            await this.parent.set( structuredClone(row) );
+        }
+        super.remove();
     }
 }
 

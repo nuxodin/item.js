@@ -232,7 +232,37 @@
             let i = proxy({a: {c:3}});
             chai.expect(i.a).to.equal(i.a);
         });
-    })
+        it('delete trap', () => {
+            let i = proxy({a: 1, b: 2});
+            delete i.a;
+            chai.expect(i.a).to.equal(undefined);
+        });
+        it('iterator', () => {
+            let i = proxy({a: 1, b: 2});
+            const result = [];
+            for (let item of i) {
+                result.push(item.key);
+            }
+            chai.expect(result).to.deep.equal(['a', 'b']);
+        });
+        it('async iterator', async () => {
+            const i = item({a: 1, b: 2});
+            i.loadItems = async function () {
+                await new Promise(resolve => setTimeout(resolve, 50))
+                this.item('a').value = 2;
+                await new Promise(resolve => setTimeout(resolve, 50))
+                this.item('c').value = 3;
+            };
+            const p = proxy(i);
+            const result = [];
+            for await (let item of p) {
+                result.push(item.key);
+            }
+            chai.expect(result).to.deep.equal(['a', 'b', 'c']);
+        });
+
+    });
+
 
 
     // describe('async', () => {

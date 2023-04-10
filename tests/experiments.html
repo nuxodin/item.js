@@ -14,7 +14,7 @@ import {item, proxy} from "../item.js";
 
 const i = item({1: "initial 1", 2: "initial 2", 3: "initial 3"});
 
-i.loadAll = async function(){
+i.loadItems = async function(){
     await delay(500);
     this.item(1) // this item is already added initially, will not be added looped twice
     await delay(500);

@@ -125,9 +125,10 @@ export class Item extends EventTarget {
             yielded.add(item);
             yield item;
         }
-        await this.loadAll();
+        await this.loadItems();
         for (const item of Object.values(this.#value)) if (!yielded.has(item)) yield item;
     }
+    loadItem = null; // can be overwritten by child class
 
 
     static isPrimitive(value){

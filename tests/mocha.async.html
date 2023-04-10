@@ -152,7 +152,7 @@
         it('asyncItem delete property', async () => {
             await delay(100);
             asyncItem.item('c').remove();
-            await delay(40);
+            await delay(140);
             chai.expect(asyncRootValue).to.deep.equal({b:'new value'});
         });
 
