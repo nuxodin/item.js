@@ -155,6 +155,13 @@
             await delay(140);
             chai.expect(asyncRootValue).to.deep.equal({b:'new value'});
         });
+        it('asyncItem set object', async () => {
+            await delay(100);
+            asyncItem.value = {b:'new value2', c:'new value2'};
+            const c = await asyncItem.item('c').value;
+            chai.expect(c).to.equal('new value2');
+            console.log(asyncItem)
+        });
 
         /*
         it('asyncItem get child value', async () => {
