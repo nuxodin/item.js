@@ -58,7 +58,7 @@ Deno.test("database query error", async () => {
     try {
         await db.query("x y z");
         assertEquals(true, false);
-    } catch(e) {
+    } catch {
         assertEquals(true, true);
     }
     db.close();
