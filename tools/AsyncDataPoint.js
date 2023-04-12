@@ -108,8 +108,6 @@ export class AsyncDataPoint {
 
 
 
-// helper functions
-
 /**
  * Adds state and value properties to a Promise, making it transparent.
  * @param {Promise} promise - The Promise to make transparent.

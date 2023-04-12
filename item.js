@@ -1,5 +1,9 @@
 
-// Item
+/**
+ * Class representing an item.
+ * @extends EventTarget
+ */
+
 export class Item extends EventTarget {
 
     #value;
@@ -51,7 +55,7 @@ export class Item extends EventTarget {
         const oldValue = this.#value;
         if (this.constructor.isPrimitive(value)) {
             if (!this.#filled || oldValue !== value) { // TODO: we shoul use deepEqual as "primitive" can be an object
-                this.#value = value;
+                this.#value = value; // structuralClone(value); // TODO: should we clone the value? or should we just use the reference? (if its an object)
                 this.#filled = true;
                 if (!this.#isGetting) {
                     dispatchEvent(this, 'change', { item: this, oldValue, value });
@@ -64,12 +68,6 @@ export class Item extends EventTarget {
             if (this.#value && Object(this.#value)) { // remove keys that are not in value
                 for (const key in this.#value) if (!(key in value)) this.#value[key].remove();
             }
-
-
-            //for (const [key, val] of Object.entries(value)) this.item(key).set(val);
-            // if (this.#value && Object(this.#value)) { // remove keys that are not in value
-            //     for (const [key, item] of Object.entries(this.#value)) if (!(key in value)) item.remove();
-            // }
         }
     }
     item(key){
@@ -115,11 +113,8 @@ export class Item extends EventTarget {
     valueOf() { return this.get(); }
     toString() { return this.get()+'' } // if its an object, this.key would be better
 
-    get [Symbol.iterator]() {
-        this.get(); // trigger getter, for signals and collecting children (too expensive?)
-        return function *(){
-            for (const key in this.#value) yield this.#value[key];
-        }
+    *[Symbol.iterator]() {
+        for (const key in this.get()) yield this.#value[key];
     }
 
     // iterate over all items, even if not loaded yet
@@ -144,7 +139,13 @@ export class Item extends EventTarget {
     ChildClass = this.constructor.ChildClass;
 }
 
-export const item = (...args) => {
+
+/**
+ * Create a new Item instance.
+ * @param {any} [value] - The initial value.
+ * @return {Item} A new Item instance.
+ */
+export function item(...args) {
     const v = new Item();
     if (args.length > 0) v.set(args[0]);
     return v;
@@ -155,6 +156,11 @@ export const item = (...args) => {
 const relatedEffects = new WeakMap();
 let currentEffect = null;
 
+/**
+ * Execute the provided function and re-execute it when dependencies change.
+ * @param {function} fn - A function that executes imeediately and collects the containing items.
+ * @return {function} A function to dispose the effect.
+ */
 export function effect(fn){
     const outer = currentEffect;
     if (outer) {
@@ -168,6 +174,11 @@ export function effect(fn){
     return () => fn.disposed = true
 }
 
+/**
+ * Create a computed item based on the provided calculation function.
+ * @param {function} calc - The calculation function.
+ * @return {Item} A new computed item.
+ */
 export function computed(calc){
     const signal = item();
     effect(()=>signal.set(calc())); // todo: only primitive?
@@ -241,7 +252,13 @@ const toProxy = (item) => {
 }
 
 
-// helpers
+/**
+ * Dispatch a custom event on the item and its ancestors.
+ * @param {Item} item - The item to dispatch the event on.
+ * @param {string} eventName - The name of the event. eventName+"In" will be dispatched on the ancestors. (bubbles)
+ * @param {Object} detail - The event details.
+ * @return {Object} An object containing a `defaultPrevented` property.
+ */
 export function dispatchEvent(item, eventName, detail){
 
     const options = {detail, cancelable: true};
