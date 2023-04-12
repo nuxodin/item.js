@@ -17,7 +17,6 @@ export function syncToServer(item, {url, delay=100}){
             });
         }, delay);
     }});
-
 }
 
 
