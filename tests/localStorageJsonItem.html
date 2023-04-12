@@ -10,11 +10,12 @@
 
 <script type=module>
 
-import {proxy, effect} from "../item.js";
+import {effect} from "../item.js";
 import {jsonItem} from "../drivers/localStorage.js";
 
 
-const track = window.track = proxy(await jsonItem('track'));
+const track = window.track = (await jsonItem('track')).proxy;
+console.log(track)
 
 ++track.visits;
 track.lastVisit = new Date().toISOString();
@@ -27,7 +28,7 @@ addEventListener('beforeunload', () => {
 
 
 effect(() => {
-    output.innerHTML = JSON.stringify(track.$item, null, 2);
+    output.innerHTML = JSON.stringify(track.$item.value, null, 2);
 });
 
 </script>

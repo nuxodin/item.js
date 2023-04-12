@@ -75,15 +75,9 @@ a.item('b').value = 2; // triggers 'changeIn' event on 'a' (bubbles up)
 
 ## Proxy
 ```js
-import { proxy } from '../item.js';
-
-const i = item({a: 1});
-const p = proxy(i);
+const p = item({a: 1}).proxy;
 p.a === 1; // equals `i.item('a').value === 1`
 p.a = 2;
-
-// you can also use `proxy` to create a proxy of a plain object
-const p = proxy({a: 1});
 ```
 
 ## Extend from Item
@@ -143,7 +137,7 @@ Even easier with with proxies:
 
 ```js
 
-const db = proxy(dbItem);
+const db = dbItem.proxy;
 
 db.myTable[1] = {name: 'demo', age: 42};
 

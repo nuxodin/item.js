@@ -12,9 +12,9 @@
 
 <script type=module>
 import {getStore} from "../drivers/localStorage.js";
-import {effect, proxy} from "../item.js";
+import {effect} from "../item.js";
 
-window.ls = proxy(getStore());
+window.ls = getStore().proxy;
 
 effect(()=>{
     sayHi.innerHTML = 'Hi '+ls.firstname+' '+ls.lastname+'!';

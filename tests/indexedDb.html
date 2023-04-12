@@ -54,9 +54,8 @@ db2.open(15, {
     }
 });
 
-import {proxy} from "../item.js";
 
-db2 = proxy(db2);
+db2 = db2.proxy;
 
 db2.user.hans = 'value1';
 db2.user.urs = 'value1';

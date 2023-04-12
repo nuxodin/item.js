@@ -19,7 +19,7 @@
     </script>
 
     <script type=module>
-    import {item, proxy} from '../item.js';
+    import {item} from '../item.js';
 
     describe('primitive value', () => {
         it('access item.value', () => {
@@ -213,32 +213,32 @@
 
     describe('proxy', () => {
         it('set and get deep item', () => {
-            let i = proxy({a:1, b:{b1:2}});
+            let i = item({a:1, b:{b1:2}}).proxy;
             i.b.b1 = 3;
             chai.expect(i.b.b1).to.equal(3);
         });
         // it('TODO: try to proxify a non object should throw', () => {
-        //     let i = proxy(1);
+        //     let i = item(1).proxy;
         //     console.log(i)
         //     i.a = 3;
         //     console.log(i.a)
         // });
         it('delete property', () => {
-            let i = proxy({a:1, b:2});
+            let i = item({a:1, b:2}).proxy;
             delete i.a;
             chai.expect(i.a).to.equal(undefined);
         });
         it('reuse proxies', () => {
-            let i = proxy({a: {c:3}});
+            let i = item({a: {c:3}}).proxy;
             chai.expect(i.a).to.equal(i.a);
         });
         it('delete trap', () => {
-            let i = proxy({a: 1, b: 2});
+            let i = item({a: 1, b: 2}).proxy;
             delete i.a;
             chai.expect(i.a).to.equal(undefined);
         });
         it('iterator', () => {
-            let i = proxy({a: 1, b: 2});
+            let i = item({a: 1, b: 2}).proxy;
             const result = [];
             for (let item of i) {
                 result.push(item.key);
@@ -253,7 +253,8 @@
                 await new Promise(resolve => setTimeout(resolve, 50))
                 this.item('c').value = 3;
             };
-            const p = proxy(i);
+
+            const p = i.proxy;
             const result = [];
             for await (let item of p) {
                 result.push(item.key);
