@@ -10,38 +10,77 @@
 
 <script type=module>
 
-import {item, proxy} from "../item.js";
+import {item} from "../item.js";
+import {AsyncItem} from "../tools/asyncItem.js";
 
-const i = item({1: "initial 1", 2: "initial 2", 3: "initial 3"});
 
-i.loadItems = async function(){
-    await delay(500);
-    this.item(1) // this item is already added initially, will not be added looped twice
-    await delay(500);
-    this.item(5)
-    await delay(500);
-    this.item(7)
-    await delay(500);
-    this.item(8)
-    await delay(500);
-    this.item(9)
+const original = {
+    test1: 'test1',
+    test2: 'test2',
+    nested: {
+        test3: 'test3',
+        test4: 'test4',
+    },
 }
 
-for await (const child of i){
-    console.log(child);
-    if (child.key === '8') break;
+class RemoteItem extends AsyncItem {
+    constructor(parent, key) {
+        super(parent, key);
+        if (parent) {
+            if (key === '') throw new Error('key cannot be empty');
+            if (key.startsWith('.')) throw new Error('key cannot start with a dot');
+            if (key.includes('/')) throw new Error('key cannot contain a slash');
+        }
+    }
+    async createGetter() {
+        let current = original;
+        for (const key of this.pathKeys) {
+            current = current[key];
+            if (!current) return undefined;
+        }
+        return Promise.resolve(current);
+    }
+    createSetter(value) {
+        console.log('setter called')
+        if (typeof value === 'string') { // if string its a file
+            return Deno.writeTextFile(this.fsPath, value);
+        }
+        for (const key in value) {
+            this.item(key).set(value[key]);
+        }
+        // todo, await all children setters?
+        return Promise.resolve({});
+    }
+    async loadItems() { // if directory, load all children, todo
+        for await (const dirEntry of Deno.readDir(this.fsPath)) {
+            this.item(dirEntry.name);
+            // this.item(dirEntry.name).type = dirEntry.isDirectory ? 'directory' : 'file';
+        }
+    }
+    then(resolve) {
+        console.log('then called')
+        return this.get().then(resolve);
+    }
+    get fsPath() {
+        if (this.parent == null) return this.fsRootPath;
+        return this.parent.fsPath + '/' + this.pathKeys.join('/');
+    }
+    static isPrimitive(value) {
+        return false;
+    }
+    ChildClass = RemoteItem;
 }
 
-const p = proxy(i);
 
-for await (const child of p){
-    console.log(child);
-    if (child.key === '8') break;
-}
+const i = new RemoteItem();
+console.log(i.item('nested'))
+console.log('create proxy')
+const p = i.proxy
+console.log('await p.nested')
+console.log(await p.nested.xyz.abc)
+console.log('await p.then')
+console.log(await p.then)
 
 
-function delay(ms){
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 </script>

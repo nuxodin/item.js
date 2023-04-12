@@ -3,7 +3,6 @@
 import {collectChanges} from "./collectChanges.js";
 
 export function syncToServer(item, {url, delay=100}){
-
     let waiting = false;
     const getAndReset = collectChanges(item, {onchange:()=>{
         if (waiting) return;

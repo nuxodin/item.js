@@ -6,8 +6,8 @@ export class Item extends EventTarget {
     #parent;
     #key;
     #filled = false;
-    #isgetting = false;
-    #issetting = false;
+    #isGetting = false;
+    #isSetting = false;
 
     constructor(parent, key){
         super();
@@ -20,26 +20,23 @@ export class Item extends EventTarget {
     get parent(){ return this.#parent }
     get filled(){ return this.#filled }
 
-    set value(value){
-        this.set(value);
-    }
-    get value(){
-        return this.get();
-    }
+    set value(value){ this.set(value); }
+    get value(){ return this.get(); }
+
     get(){
-        if (this.#isgetting) throw new Error('circular get');
-        this.#isgetting = true;
+        if (this.#isGetting) throw new Error('circular get');
+        this.#isGetting = true;
         dispatchEvent(this, 'get', { item: this, value:this.#value });
         registerCurrentEffectFor(this);
-        this.#isgetting = false;
+        this.#isGetting = false;
         return this.$get();
     }
     set(value){
-        if (this.#issetting) throw new Error('circular set');
-        this.#issetting = true;
+        if (this.#isSetting) throw new Error('circular set');
+        this.#isSetting = true;
         const obj = dispatchEvent(this, 'set', { item:this, oldValue:this.#value , value });
         const result = !obj.defaultPrevented ? this.$set(value) : null;
-        this.#issetting = false;
+        this.#isSetting = false;
         return result;
     }
     $get(){
@@ -56,17 +53,23 @@ export class Item extends EventTarget {
             if (!this.#filled || oldValue !== value) { // TODO: we shoul use deepEqual as "primitive" can be an object
                 this.#value = value;
                 this.#filled = true;
-                if (!this.#isgetting) {
+                if (!this.#isGetting) {
                     dispatchEvent(this, 'change', { item: this, oldValue, value });
                 } else {
                     console.warn('just for your info: set while getting dont trigger change');
                 }
             }
         } else {
-            for (const key of Object.keys(value)) this.item(key).set(value[key]);
+            for (const key in value) this.item(key).set(value[key]);
             if (this.#value && Object(this.#value)) { // remove keys that are not in value
-                for (const key of Object.keys(this.#value)) if (!(key in value)) this.#value[key].remove();
+                for (const key in this.#value) if (!(key in value)) this.#value[key].remove();
             }
+
+
+            //for (const [key, val] of Object.entries(value)) this.item(key).set(val);
+            // if (this.#value && Object(this.#value)) { // remove keys that are not in value
+            //     for (const [key, item] of Object.entries(this.#value)) if (!(key in value)) item.remove();
+            // }
         }
     }
     item(key){
@@ -83,7 +86,7 @@ export class Item extends EventTarget {
         }
         return this.#value[key];
     }
-    remove(){ // beta?
+    remove(){
         if (this.#parent) {
             delete this.#parent.#value[this.#key];
             dispatchEvent(this.#parent, 'change', { item: this.#parent, remove: this });
@@ -91,6 +94,9 @@ export class Item extends EventTarget {
             throw new Error('cannot remove root item');
         }
     }
+    has(key){ return key in this.#value; }
+
+    get proxy(){ return toProxy(this); }
 
     // path
     get path() {
@@ -107,7 +113,7 @@ export class Item extends EventTarget {
 
     toJSON() { return this.get(); }
     valueOf() { return this.get(); }
-    toString() { return String(this.get()); }
+    toString() { return this.get()+'' } // if its an object, this.key would be better
 
     get [Symbol.iterator]() {
         this.get(); // trigger getter, for signals and collecting children (too expensive?)
@@ -121,15 +127,14 @@ export class Item extends EventTarget {
     // TODO: wait for new values if its not an object? Or make a separate method for that? because that would also be useful for objects
     async *[Symbol.asyncIterator]() {
         const yielded = new Set();
-        for (const item of Object.values(this.#value)) {
+        for (const item of Object.values(this.#value??{})) {
             yielded.add(item);
             yield item;
         }
         await this.loadItems();
         for (const item of Object.values(this.#value)) if (!yielded.has(item)) yield item;
     }
-    loadItem = null; // can be overwritten by child class
-
+    loadItems(){ throw new Error('not implemented'); } // can be overwritten by child class
 
     static isPrimitive(value){
         return value !== Object(value) || 'toJSON' in value || value instanceof Promise;
@@ -182,14 +187,12 @@ function batch(effect) {
         batches = null; // restart collecting
     });
 }
-
 function registerCurrentEffectFor(signal) {
     if (currentEffect) {
         if (!relatedEffects.has(signal)) relatedEffects.set(signal, new Set());
         relatedEffects.get(signal).add(currentEffect);
     }
 }
-
 function triggerEffectsFor(signal) {
     const effects = relatedEffects.get(signal);
     if (effects) {
@@ -204,26 +207,26 @@ function triggerEffectsFor(signal) {
 // proxy
 const proxyHandler = {
     get: function(target, property, receiver){
+        if (target.master && property === 'then') { // instanceof AsyncItem, make it a thenable, would be great if it can be handled by a proxy-trap
+            return (onFulfilled, onRejected) => target.get().then(onFulfilled, onRejected);
+        }
+        if (property === '$item') return target;
+
         if (typeof property === 'symbol') {
             if (typeof target[property] === 'function') return target[property].bind(target);
             return Reflect.get(target, property, receiver);
         }
-        if (property === '$item') return target;
 
         const item = target.item(property);
-
-        // todo: accessing item.value here is not good, it will trigger a get event (E.g. fetch data)
-        const value = item.get();
-        if (item.constructor.isPrimitive(value)) {
-            return value;
-        } else {
-            return toProxy(item);
-        }
+        const value = item.get(); // TODO?: Is accessing item.get() here good? it will trigger a get event (E.g. fetch data)
+        return item.constructor.isPrimitive(value) ? value : toProxy(item);
     },
-    set: function(target, property, value, receiver){
-        if (typeof property === 'symbol') return Reflect.set(target, property, value, receiver);
+    set: function(target, property, value){
         target.item(property).set(value);
         return true;
+    },
+    has: function(target, property){
+        return target.has(property);
     },
     deleteProperty: function(target, property){
         target.item(property).remove();
@@ -237,15 +240,12 @@ const toProxy = (item) => {
     return cachedProxies.get(item);
 }
 
-export function proxy(arg){
-    if (arg instanceof Item) return toProxy(arg);
-    else return toProxy(item(arg));
-}
-
 
 // helpers
 export function dispatchEvent(item, eventName, detail){
+
     const options = {detail, cancelable: true};
+
     const event = new CustomEvent(eventName, options);
     item.dispatchEvent(event);
 
@@ -255,6 +255,7 @@ export function dispatchEvent(item, eventName, detail){
         current.dispatchEvent(eventIn);
         current = current.parent;
     }
+
     return {
         defaultPrevented: eventIn.defaultPrevented || event.defaultPrevented,
     }
