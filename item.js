@@ -47,7 +47,7 @@ export class Item extends EventTarget {
         if (this.constructor.isPrimitive(this.#value)) {
             return this.#value;
         } else {
-            const value = this.#value ??= Object.create(null); // if undefined, create object (todo? should always be object)
+            const value = this.#value ??= Object.create(null); // if undefined, create object
             return Object.fromEntries(Object.entries(value).map(([key, {value}]) => [key, value]));
         }
     }
@@ -93,6 +93,7 @@ export class Item extends EventTarget {
         }
     }
     has(key){ return key in this.#value; }
+    //asyncHas(key){ return Promise.resolve(key in this.#value) }
 
     get proxy(){ return toProxy(this); }
 
@@ -113,22 +114,19 @@ export class Item extends EventTarget {
     valueOf() { return this.get(); }
     toString() { return this.get()+'' } // if its an object, this.key would be better
 
+    // iterator
+    // iterators should probably trigger "get", but not compute the value
     *[Symbol.iterator]() {
         for (const key in this.get()) yield this.#value[key];
     }
-
-    // iterate over all items, even if not loaded yet
-    // TODO: add change-event-listener to deliver new items when they are loaded
-    // TODO: wait for new values if its not an object? Or make a separate method for that? because that would also be useful for objects
     async *[Symbol.asyncIterator]() {
-        const yielded = new Set();
-        for (const item of Object.values(this.#value??{})) {
-            yielded.add(item);
-            yield item;
-        }
-        await this.loadItems();
-        for (const item of Object.values(this.#value)) if (!yielded.has(item)) yield item;
+        for (const item of Object.values(this.#value ?? {})) yield item;
+        const iterator = asyncIteratorFromEventTarget(this, 'change');
+        this.loadItems().then(() => iterator.return());
+        for await (const {detail:{add}} of iterator) if (add) yield add;
     }
+
+
     loadItems(){ throw new Error('not implemented'); } // can be overwritten by child class
 
     static isPrimitive(value){
@@ -236,8 +234,10 @@ const proxyHandler = {
         target.item(property).set(value);
         return true;
     },
-    has: function(target, property){
-        return target.has(property);
+    has: (target, property) => target.has(property),
+    ownKeys: (target)=> Reflect.ownKeys(target.get()),
+    getOwnPropertyDescriptor: (target, property)=>{
+        return { configurable: true, enumerable: true, get: ()=>target.get(property), set: (value)=>target.set(property, value) };
     },
     deleteProperty: function(target, property){
         target.item(property).remove();
@@ -275,5 +275,29 @@ export function dispatchEvent(item, eventName, detail){
 
     return {
         defaultPrevented: eventIn.defaultPrevented || event.defaultPrevented,
+    }
+}
+
+
+
+
+function* asyncIteratorFromEventTarget(eventTarget, eventName) {
+    const queue = [];
+    let resolve;
+    const eventHandler = event => {
+        if (resolve) {
+            resolve({ value: event });
+            resolve = null;
+        } else {
+            queue.push(event);
+        }
+    };
+    eventTarget.addEventListener(eventName, eventHandler);
+    try {
+        while (true) {
+            yield queue.length ? queue.shift() : new Promise(res => { resolve = res; }).then(res => res.value);
+        }
+    } finally {
+        eventTarget.removeEventListener(eventName, eventHandler);
     }
 }

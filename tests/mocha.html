@@ -193,13 +193,8 @@
             let changeTriggered = false;
             let setTriggered = false;
 
-            i.addEventListener('set', e => {
-                setTriggered = true;
-            });
-
-            i.addEventListener('change', e => {
-                changeTriggered = true;
-            });
+            i.addEventListener('set', e => setTriggered = true );
+            i.addEventListener('change', e => changeTriggered = true );
 
             date.setFullYear(2000);
 
@@ -212,30 +207,37 @@
 
 
     describe('proxy', () => {
-        it('set and get deep item', () => {
-            let i = item({a:1, b:{b1:2}}).proxy;
-            i.b.b1 = 3;
-            chai.expect(i.b.b1).to.equal(3);
-        });
         // it('TODO: try to proxify a non object should throw', () => {
         //     let i = item(1).proxy;
         //     console.log(i)
         //     i.a = 3;
         //     console.log(i.a)
         // });
+        it('set and get deep item', () => {
+            let i = item({a:1, b:{b1:2}}).proxy;
+            i.b.b1 = 3;
+            chai.expect(i.b.b1).to.equal(3);
+        });
+        it('Object.keys', () => {
+            let i = item({a:1, b:{b1:2}}).proxy;
+            chai.expect(Object.keys(i)).to.deep.equal(['a', 'b']);
+        });
+        it('Object.getOwnPropertyNames', () => {
+            let i = item({a:1, b:{b1:2}}).proxy;
+            chai.expect(Object.getOwnPropertyNames(i)).to.deep.equal(['a', 'b']);
+        });
+        it('JSON.stringify', () => {
+            let i = item({a:1, b:{b1:2}}).proxy;
+            chai.expect(JSON.stringify(i)).to.equal('{"a":1,"b":{"b1":2}}');
+        });
         it('delete property', () => {
             let i = item({a:1, b:2}).proxy;
             delete i.a;
-            chai.expect(i.a).to.equal(undefined);
+            chai.expect('a' in i).to.equal(false);
         });
         it('reuse proxies', () => {
             let i = item({a: {c:3}}).proxy;
             chai.expect(i.a).to.equal(i.a);
-        });
-        it('delete trap', () => {
-            let i = item({a: 1, b: 2}).proxy;
-            delete i.a;
-            chai.expect(i.a).to.equal(undefined);
         });
         it('iterator', () => {
             let i = item({a: 1, b: 2}).proxy;
@@ -249,17 +251,19 @@
             const i = item({a: 1, b: 2});
             i.loadItems = async function () {
                 await new Promise(resolve => setTimeout(resolve, 50))
-                this.item('a').value = 2;
+                this.item('a').value = 2; // does not trigger add as it is already there
                 await new Promise(resolve => setTimeout(resolve, 50))
                 this.item('c').value = 3;
+                await new Promise(resolve => setTimeout(resolve, 50))
+                this.item('d').value = 3;
+                queueMicrotask(() => this.item('e').value = 4) // not included as it is added after loadItems is finished
             };
-
             const p = i.proxy;
             const result = [];
             for await (let item of p) {
                 result.push(item.key);
             }
-            chai.expect(result).to.deep.equal(['a', 'b', 'c']);
+            chai.expect(result).to.deep.equal(['a', 'b', 'c', 'd']);
         });
 
     });
