@@ -3,7 +3,7 @@ import { AsyncItem } from '../tools/AsyncItem.js';
 
 
 export async function mqtt(options){
-    const client = new Client(options); // Deno and Node.js
+    const client = new Client(options);
     await client.connect();
     //await client.subscribe(options.subscribe || '#');
 

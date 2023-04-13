@@ -18,7 +18,6 @@ export function attachSchema(rootItem, schema) {
 
 
 
-
 // import { errors } from '../../jema.js/schema.js';
 
 // export function attachSchema(rootItem, schema) {
