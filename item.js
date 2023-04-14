@@ -3,7 +3,6 @@
  * Class representing an item.
  * @extends EventTarget
  */
-
 export class Item extends EventTarget {
 
     #value;
@@ -119,13 +118,14 @@ export class Item extends EventTarget {
     *[Symbol.iterator]() {
         for (const key in this.get()) yield this.#value[key];
     }
+
     async *[Symbol.asyncIterator]() {
         for (const item of Object.values(this.#value ?? {})) yield item;
-        const iterator = asyncIteratorFromEventTarget(this, 'change');
-        this.loadItems().then(() => iterator.return());
+        const abortCtrl = new AbortController();
+        const iterator = asyncIteratorFromEventTarget(this, 'change', { signal:abortCtrl.signal });
+        this.loadItems().then(() => abortCtrl.abort());
         for await (const {detail:{add}} of iterator) if (add) yield add;
     }
-
 
     loadItems(){ throw new Error('not implemented'); } // can be overwritten by child class
 
@@ -279,25 +279,40 @@ export function dispatchEvent(item, eventName, detail){
 }
 
 
-
-
-function* asyncIteratorFromEventTarget(eventTarget, eventName) {
+/**
+ * Creates a async iterator from an event target.
+ * @param {EventTarget} eventTarget - The event target.
+ * @param {string} eventName - The name of the event.
+ * @param {Object} [options] - The event listener options.
+ * @return {Generator} A generator that yields events.
+ * @example
+ * const abortCtrl = new AbortController();
+ * for await (const event of asyncIteratorFromEventTarget(document, 'click', {signal: abortCtrl.signal})) {
+ *    console.log(event);
+ * }
+ * setTimeout(() => abortCtrl.abort(), 1000);
+ */
+function* asyncIteratorFromEventTarget(eventTarget, eventName, options) {
     const queue = [];
+    let stopAfterQueue = false;
     let resolve;
     const eventHandler = event => {
-        if (resolve) {
-            resolve({ value: event });
-            resolve = null;
-        } else {
-            queue.push(event);
-        }
+        resolve ? resolve(event) : queue.push(event);
+        resolve = null;
     };
-    eventTarget.addEventListener(eventName, eventHandler);
+    eventTarget.addEventListener(eventName, eventHandler, options);
+    options?.signal?.addEventListener('abort', () => stopAfterQueue = true);
     try {
         while (true) {
-            yield queue.length ? queue.shift() : new Promise(res => { resolve = res; }).then(res => res.value);
+            if (queue.length) {
+                yield queue.shift();
+            } else if (stopAfterQueue) {
+                return;
+            } else {
+                yield new Promise(res => resolve = res);
+            }
         }
     } finally {
-        eventTarget.removeEventListener(eventName, eventHandler);
+        eventTarget.removeEventListener(eventName, eventHandler, options);
     }
 }

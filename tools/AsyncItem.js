@@ -41,12 +41,12 @@ export class AsyncChild extends AsyncItem {
         this.master.options = this.parent.master.options; // same options as parent
     }
     async createGetter() {
-        const row = await this.parent.get();
+        let row = await this.parent.get();
         row ??= Object.create(null);
         return row[this.key];
     }
     async createSetter(value) { // setters in AsyncChilds must first get the value to modify it
-        const row = await this.parent.get()
+        let row = await this.parent.get()
         row ??= Object.create(null);
         row[this.key] = value;
         // structuredClone is needed to make the row a new object.
