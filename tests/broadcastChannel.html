@@ -22,15 +22,18 @@ sessionStorage.setItem('myId', myId);
 
 
 document.addEventListener('mousemove', e => {
-    console.log('mousemove');
     bcItem.item(myId).value = {x: e.clientX, y: e.clientY};
 });
 
-bcItem.addEventListener('changeIn', (e) => {
-    const item = e.detail.item;
+bcItem.addEventListener('changeIn', ({detail}) => {
+    if (detail.add) return;
+    if (detail.remove) return;
+
+    const item = detail.item;
     const id = item.parent.key;
 
     if (!document.getElementById(id)) {
+        console.log(id)
         const div = document.createElement('div');
         div.id = id;
         document.body.appendChild(div);
