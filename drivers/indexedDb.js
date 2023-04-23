@@ -16,7 +16,6 @@ class Db extends Item {
         const db = await this.dbPromise;
         for (const store of db.objectStoreNames) this.item(store);
     }
-
     ChildClass = Table;
 }
 
