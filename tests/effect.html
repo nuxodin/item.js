@@ -38,7 +38,7 @@ effect(()=>{
 
 });
 
-effect(()=>{
+const sumdispose = effect(()=>{
 
     log("sum only in effect should trigger. value:" + sum.value);
 
@@ -70,8 +70,12 @@ setTimeout(()=>{
     itm.item('deeper').value = 4;
 }, 50);
 
+
 setTimeout(()=>{
-    log("<br>new values after 100ms<br>");
+    log("<br>new values after 100ms");
+    log("sum is not triggered, because the effect is disposed<br>");
+
+    sumdispose();
 
     itm.item('inner').value = 5;
     itm.item('outer').value = 5;
