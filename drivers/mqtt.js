@@ -33,6 +33,7 @@ export async function mqtt(options){
         remove(){ throw new Error('cannot remove mqtt item'); }
         ChildClass = MQTTItem;
     }
+    
     const root = new MQTTItem();
     return root;
     //await client.disconnect();
