@@ -22,13 +22,6 @@ import { item } from '../item.js';
 ```js
 const a = item(1);
 a.value === 1; // true
-a.value = 2;
-a.value === 2; // true
-
-const c = item(); // no argument (not filled)
-c.filled === false;
-c.value = undefined;
-c.filled === true; // true
 
 // using object
 const a = item({b: 1});
