@@ -36,7 +36,7 @@ By using a proxy, you can interact directly with your item as if it were a regul
 
 ```javascript
 const proxiedItem = myItem.proxy;
-myItem.nested.key = 'newValue';
+proxiedItem.nested.key = 'newValue';
 ```
 
 ## Effect
