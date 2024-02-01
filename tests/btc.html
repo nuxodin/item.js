@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Test</title>
+    <script src="https://cdn.jsdelivr.net/gh/nuxodin/lazyfill@main/mod.min.js"></script>
+    <link rel=stylesheet href="http://gcdn.li/u1ui/base.css/full.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/variables.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/classless.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/more.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/simple.css">
+<body>
+
+
+<h1>Bitcoin Wallet Balance Tracker</h1>
+
+<script type=module>
+
+import {effect} from '../item.js';
+import {wallets} from "../drivers/btc.js";
+import 'https://unpkg.com/uhtml@3.2.2/async';
+const {render, html} = uhtml;
+
+const wallet = wallets().proxy;
+
+wallet['bc1qxq47p758tf7kg8fvv47ug66fdur9fcnqskwv4d'];
+wallet['bc1qnjc76s3z7tsel80c8g4c55mf3ar4jym6hhm9wk'];
+
+effect(() => {
+    render(table, html`
+        <thead>
+            <tr>
+                <th> Wallet
+                <th> Value
+        <tbody>
+            ${[...wallet].map(item => {
+                return html`
+                    <tr>
+                        <td> ${item.key}
+                        <td> ${item.item('balance').value}
+                `;
+            })}
+    `);
+});
+
+</script>
+
+<table id=table></table>
+
