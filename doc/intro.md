@@ -1,7 +1,7 @@
 
 # Introduction
 
-This library provides a flexible and extensible implementation for reactive data structures.
+This library provides a flexible and extensible implementation for reactive data and data structures.
 
 # Basic Usage
 
@@ -13,7 +13,7 @@ const myItem = item('initial value');
 console.log(myItem.value); // Accessing the value
 ```
 
-# Primitive Values
+## Primitive Values
 
 Primitive values (e.g., `string`, `number`, `boolean`) are stored directly and updated upon changes.
 
@@ -21,7 +21,7 @@ Primitive values (e.g., `string`, `number`, `boolean`) are stored directly and u
 myItem.value = 123; // Sets a primitive value
 ```
 
-# Structured Data
+## Structured Data
 
 For structured data (e.g., objects or arrays), the library allows creating nested items that can be individually observed and manipulated:
 
@@ -30,7 +30,7 @@ myItem.value = { nested: { key: 'value' } }; // Creates a nested item
 console.log(myItem.item('nested').item('key').value); // Accessing nested values
 ```
 
-# Proxy
+## Proxy
 
 By using a proxy, you can interact directly with your item as if it were a regular JavaScript object
 
@@ -39,7 +39,7 @@ const proxiedItem = myItem.proxy;
 myItem.nested.key = 'newValue';
 ```
 
-# Effect
+## Effect
 
 The `effect` function allows defining side effects that are automatically re-executed when the observed data changes. This is useful for reactivity:
 
@@ -47,7 +47,7 @@ The `effect` function allows defining side effects that are automatically re-exe
 effect(() => console.log(myItem.value)); // Re-executes when `myItem.value` changes
 ```
 
-# Events
+## Events
 
 Changes to items trigger `change` events, allowing subscribers to react to modifications. It also supports `get` and `set` events for more finely controlled interactions.
 
@@ -56,6 +56,6 @@ myItem.addEventListener('change', () => console.log('Item changed'));
 ```
 
 
-# Conclusion
+## Conclusion
 
 This library simplifies working with reactive data in JavaScript by providing a robust API for creating, observing, and reacting to changes in data structures. It encourages the development of declarative and reactive code that is easy to read and maintain.
