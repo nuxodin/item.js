@@ -3,6 +3,10 @@ import { AsyncItem } from '../tools/AsyncItem.js';
 
 
 class BalanceItem extends AsyncItem {
+    constructor(parent, key) {
+        super(parent, key);
+        this.asyncHandler.options.cacheDuration = 10000;
+    }
     async createGetter() {
         try {
             const response = await fetch(`https://blockchain.info/balance?active=${this.parent.key}`);
@@ -34,7 +38,7 @@ class WalletItem extends Item {
     //     socket.addEventListener('message', (event) => {
     //         const parsedData = JSON.parse(event.data);
     //         if (parsedData.op === 'utx') {
-    //             this.item('balance').master.setFromMaster(parsedData.x.balance / 100000000);
+    //             this.item('balance').asyncHandler.setFromMaster(parsedData.x.balance / 100000000);
     //         }
     //     });
     //     socket.addEventListener('error', (error) => console.error('WebSocket Error:', error) );

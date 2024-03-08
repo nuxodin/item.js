@@ -214,13 +214,21 @@ function triggerEffectsFor(signal) {
 }
 
 // proxy
+// todo? should proxy[iterator] iterate over item
 const proxyHandler = {
     get: function(target, property, receiver){
-        if (target.master && property === 'then') { // instanceof AsyncItem, make it a thenable, would be great if it can be handled by a proxy-trap
+        if (target.asyncHandler && property === 'then') { // instanceof AsyncItem, make it a thenable, would be great if it can be handled by a proxy-trap
             return (onFulfilled, onRejected) => target.get().then(onFulfilled, onRejected);
         }
         if (property === '$item') return target;
 
+        // if (property === Symbol.iterator) { // also loop proxys
+        //     return function* () {
+        //         for (const key in target.get()) {
+        //             yield receiver[key];
+        //         }
+        //     }
+        // }
         if (typeof property === 'symbol') {
             if (typeof target[property] === 'function') return target[property].bind(target);
             return Reflect.get(target, property, receiver);

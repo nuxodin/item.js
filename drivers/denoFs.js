@@ -17,7 +17,7 @@ export function denoFs(rootPath, options) {
                     if (event.kind === 'modify') {
                         // todo, only make this if item is already accessed?
                         const contents = await Deno.readTextFile(targetItem.fsPath);
-                        targetItem.master.setFromMaster(contents);
+                        targetItem.asyncHandler.setFromMaster(contents);
                     }
                     //if (event.kind === 'create') {}
                     if (event.kind === 'remove') {

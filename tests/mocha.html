@@ -247,6 +247,14 @@
             }
             chai.expect(result).to.deep.equal(['a', 'b']);
         });
+        // it('iterator todo?', () => {
+        //     let i = item({a: 1, b: 2}).proxy;
+        //     const result = [];
+        //     for (let item of i) {
+        //         result.push(item);
+        //     }
+        //     chai.expect(result).to.deep.equal([1, 2]);
+        // });
         it('async iterator', async () => {
             const i = item({a: 1, b: 2});
             i.loadItems = async function () {
@@ -260,7 +268,6 @@
             const p = i.proxy;
             const result = [];
             for await (let item of p) {
-                console.log(item.key)
                 result.push(item.key);
             }
             chai.expect(result).to.deep.equal(['a', 'b', 'c', 'd']);

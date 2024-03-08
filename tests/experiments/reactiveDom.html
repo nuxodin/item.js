@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Test</title>
+    <script src="https://cdn.jsdelivr.net/gh/nuxodin/lazyfill@main/mod.min.js"></script>
+    <link rel=stylesheet href="http://gcdn.li/u1ui/base.css/full.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/variables.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/classless.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/more.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/simple.css">
+<body>
+
+
+<script type=module>
+
+import {item, effect} from "../../item.js";
+
+
+function reactiveInnerHTML(el, item) {
+    if (typeof el === 'string') el = document.createElement(el);
+    let modifiedByObserver = false;
+    let modifiedByItem = false;
+    effect(() => {
+        if (modifiedByObserver) return;
+        modifiedByItem = true;
+        console.log('item > innerHTML');
+        el.innerHTML = item.get();
+        queueMicrotask(() => modifiedByItem = false);
+    });
+    const mutationObserver = new MutationObserver(() => {
+        if (modifiedByItem) return;
+        modifiedByObserver = true;
+        console.log('innerHTML > item');
+        item.set(el.innerHTML);
+        queueMicrotask(() => modifiedByObserver = false);
+    });
+    mutationObserver.observe(el, {childList: true, subtree: true, characterData: true});
+    return el;
+}
+
+function reactiveInputValue(el, item) {
+    if (typeof el === 'string') el = document.createElement(el);
+    let modifiedByObserver = false;
+    let modifiedByItem = false;
+    effect(() => {
+        if (modifiedByObserver) return;
+        modifiedByItem = true;
+        console.log('item > value');
+        el.value = item.get();
+        queueMicrotask(() => modifiedByItem = false);
+    });
+    el.oninput = () => {
+        if (modifiedByItem) return;
+        modifiedByObserver = true;
+        console.log('value > item');
+        item.set(el.value);
+        queueMicrotask(() => modifiedByObserver = false);
+    };
+    return el;
+}
+
+// not tested
+// function reactiveAttribute(el, attr, item){
+//     let modifiedByObserver = false;
+//     let modifiedByItem = false;
+//     effect(() => {
+//         if (modifiedByObserver) return;
+//         modifiedByItem = true;
+//         el.setAttribute(attr, item.get());
+//         queueMicrotask(() => modifiedByItem = false);
+//     });
+//     const mutationObserver = new MutationObserver(() => {
+//         if (modifiedByItem) return;
+//         modifiedByObserver = true;
+//         item.set(el.getAttribute(attr));
+//         queueMicrotask(() => modifiedByObserver = false);
+//     });
+//     mutationObserver.observe(el, {attributes: true});
+//     return el;
+// }
+
+
+const i = item('this element is <b>contenteditable</b>');
+
+reactiveInnerHTML(testEl, i);
+reactiveInputValue(codeEl, i);
+setEl.onclick = () => i.set('item.value = ' + Math.random());
+
+</script>
+
+<main>
+    <div id=testEl contenteditable></div>
+
+    <button id=setEl>set item</button>
+
+    <br>
+
+    <textarea id=codeEl style="width:100%; min-height:9rem;"></textarea>
+</main>

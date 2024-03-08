@@ -10,11 +10,11 @@ await item.set(value) // await is optional, use it if you want to wait for the s
 export class AsyncItem extends Item {
     constructor(parent, key) {
         super(parent, key);
-        this.master = new AsyncDataPoint({
+        this.asyncHandler = new AsyncDataPoint({
             get: () => this.createGetter(),
             set: (value, abortSignal) => this.createSetter(value, abortSignal)
         });
-        this.master.onchange = ({value, oldValue}) => {
+        this.asyncHandler.onchange = ({value, oldValue}) => {
             dispatchEvent(this, 'change', { item: this, value, oldValue });
         }
     }
@@ -22,11 +22,23 @@ export class AsyncItem extends Item {
     createSetter(value) { throw new Error(`createSetter not implemented (value: ${value})`); }
 
     $get() {
-        return this.master.get();
+        return this.asyncHandler.get();
     }
     $set(value) {
-        return this.master.set(value);
+        return this.asyncHandler.set(value);
     }
+
+    // get recentValue() { // TODO: this would be very handy, if we know that the value is recent (e.g. in effect-fn)
+    //     this.get(); // trigger getter to make sure it registers the signal
+    //     return this.asyncHandler.recentValue;
+    // }
+
+    get master() {
+        console.warn('master is deprecated, use asyncHandler instead')
+        return this.asyncHandler;
+    }
+
+
     // static ChildClass is set after its class definition
 }
 
@@ -38,7 +50,7 @@ Same for remove.
 export class AsyncChild extends AsyncItem {
     constructor(parent, key) {
         super(parent, key);
-        this.master.options = this.parent.master.options; // same options as parent
+        this.asyncHandler.options = this.parent.asyncHandler.options; // same options as parent
     }
     async createGetter() {
         let row = await this.parent.get();

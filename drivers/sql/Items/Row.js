@@ -92,7 +92,7 @@ export class Row extends Item {
 
         // needed?
         // for (const name in values) {
-        //     this.item(name).master.setFromMaster(values[name]);
+        //     this.item(name).asyncHandler.setFromMaster(values[name]);
         // }
         return done;
     }

@@ -37,9 +37,9 @@
 
     const asyncItem = new AsyncItem();
 
-    asyncItem.master.options.trustSendingValue = true;
-    asyncItem.master.options.cacheDuration = 100;
-    asyncItem.master.options.setDebouncePeriod = 5;
+    asyncItem.asyncHandler.options.trustSendingValue = true;
+    asyncItem.asyncHandler.options.cacheDuration = 100;
+    asyncItem.asyncHandler.options.setDebouncePeriod = 5;
 
     asyncItem.createGetter = async function(...args){
         getterRequested++;

@@ -19,13 +19,35 @@
 
 import {effect} from '../item.js';
 import {wallets} from "../drivers/btc.js";
-import 'https://unpkg.com/uhtml@3.2.2/async';
-const {render, html} = uhtml;
+//import 'https://unpkg.com/uhtml@3.2.2/async';
+//const {render, html} = uhtml;
+
+import {render, html, htmlFor} from 'https://unpkg.com/uhtml@4.4.7/keyed.js';
+
 
 const wallet = wallets().proxy;
 
+
 wallet['bc1qxq47p758tf7kg8fvv47ug66fdur9fcnqskwv4d'];
 wallet['bc1qnjc76s3z7tsel80c8g4c55mf3ar4jym6hhm9wk'];
+
+
+function reactiveInnerHTML(el, item) {
+    if (typeof el === 'string') el = document.createElement(el);
+    let selfModify = false;
+    effect(() => {
+        selfModify = true;
+        el.innerHTML = item.value.value ?? 'loading...';
+        selfModify = false;
+        //item.value.then(value => el.innerHTML = value);
+    });
+    const mutationObserver = new MutationObserver(() => {
+        if (selfModify) return;
+        item.value = el.innerHTML;
+    });
+    mutationObserver.observe(el, {childList: true, subtree: true});
+    return el;
+}
 
 effect(() => {
     render(table, html`
@@ -34,17 +56,27 @@ effect(() => {
                 <th> Wallet
                 <th> Value
         <tbody>
-            ${[...wallet].map(item => {
-                return html`
-                    <tr>
-                        <td> ${item.key}
-                        <td> ${item.item('balance').value}
-                `;
-            })}
+            <tr>
+                <td> <input id=inp style="width:100%">
+                <td> <button onclick="${()=>{wallet[inp.value]; inp.value=''}}">add</button></td>
+            </tr>
+        ${[...wallet].map(item => {
+            console.log('item', item.key, item.item('balance').value.value, item.item('balance').value.state, );
+            return html`
+                <tr>
+                    <td> ${item.key}
+                    <td> ${reactiveInnerHTML('td', item.item('balance'))}
+            `;
+        })}
     `);
 });
 
+
 </script>
 
-<table id=table></table>
+<div>
+    
+</div>
+<table id=table>
+</table>
 

@@ -33,8 +33,8 @@ export function cookies(){
             await cookieStore.getAll(options).then( cookies => {
                 cookies.forEach(c => {
                     const item = root.item(c.name);
-                    item.master.cacheDuration = 10000; // hold for 10 seconds in cache
-                    item.master.setFromMaster(c.value);
+                    item.asyncHandler.cacheDuration = 10000; // hold for 10 seconds in cache
+                    item.asyncHandler.setFromMaster(c.value);
                     result[c.name] = item;
                 });
             });
@@ -46,7 +46,7 @@ export function cookies(){
                 root.item(c.name).remove(); // remove from master?
             });
             e.changed.forEach(c => {
-                root.item(c.name).master.setFromMaster(c.value); // triggers item change
+                root.item(c.name).asyncHandler.setFromMaster(c.value); // triggers item change
             });
         });
 

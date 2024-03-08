@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Test</title>
+</head>
+<body>
+<h1>Test</h1>
+
+<button id=btn>requestDevice()</button>
+
+licht ein: <input type=checkbox id=check>
+
+<script type="module">
+
+import {requestDevice} from './bluetooth.js';
+import {effect} from '../../item.js';
+
+
+let redLight = null;
+
+btn.addEventListener('click', async e=>{
+    requestDevice({acceptAllDevices: true,optionalServices: ['0000bcde-0000-1000-8000-00805f9b34fb'],})
+        .then(device=>{
+            alert('connected');
+            redLight = device.item('0000bcde-0000-1000-8000-00805f9b34fb').item('0000abcd-0000-1000-8000-00805f9b34fb');    
+            effect(()=>{
+                redLight.get().then(value=>{
+                    check.checked = value;
+                });
+            });
+        }).catch(error=>{
+            alert('failed: ' + error);
+        });
+
+});
+
+check.addEventListener('change', e=>{
+    if (!redLight) {
+        alert('connect first!');
+    } else {
+        const x = redLight.set(check.checked);
+        console.log(x)
+        //redLight.value = check.checked;
+    }
+});
+
+
+
+
+/*
+window.onButtonClick = async function() {
+
+    let options = {
+        acceptAllDevices: true,
+        optionalServices: ['battery_service', '12345678-1234-1234-1234-123456789abc', 0xBCDE],
+    };
+
+    console.log('Requesting Bluetooth Device...');
+    console.log('with ' + JSON.stringify(options));
+    const device = await requestDevice(options);
+
+
+    try {
+        await device.loadAll();
+    } catch (error) {
+        console.log(error);
+    }
+
+    for (const service of device) {
+        try {
+            await service.loadAll();
+        } catch (error) {
+            console.log(error);
+        }
+        console.log(service);
+        for (const characteristic of service) {
+            let value;
+            try {
+                value = await characteristic.value;
+            } catch (error) {
+                console.log(error)
+            }
+            console.log(characteristic)
+        }
+    }
+}
+*/
+</script>

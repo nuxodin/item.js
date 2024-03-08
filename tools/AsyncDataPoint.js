@@ -73,10 +73,14 @@ export class AsyncDataPoint {
     // set value without saving it to the master
     // this is useful if the value comes from the master through an other channel
     // for example a cookechange event, or a fs-watch event
-    // what would be a better name?
+    // what would be a better name? e.g. setReceivedValue, setReceived
     setFromMaster(value) {
         this.#cacheGetter(transparentPromiseResolve(value));
     }
+    // get recentValue() {
+    //     return this.#getter?.value; // what should we do if there is no recent value yet?
+    // }
+
     get() {
         if (this.#setter?.state === 'pending' && this.options.trustSendingValue) return Promise.resolve(this.#expectedValue); // trust sending value
         // TODO?: wait for setter to be done if not trustSendingValue?
