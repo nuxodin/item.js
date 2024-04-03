@@ -105,6 +105,8 @@ class Characteristic extends AsyncItem {
             buffer = new Uint8Array([value]);
         } else if (typeof value === 'boolean') {
             buffer = new Uint8Array([value ? 1 : 0]);
+        } else if (value == null) {
+            buffer = new Uint8Array([0]);
         } else if (typeof value === 'string') {
             buffer = new TextEncoder().encode(value);
         } else if (Array.isArray(value)) {

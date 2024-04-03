@@ -4,87 +4,126 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
     <title>Test</title>
+    <script src="https://cdn.jsdelivr.net/gh/nuxodin/lazyfill@main/mod.min.js"></script>
+    <link rel=stylesheet href="http://gcdn.li/u1ui/base.css/full.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/variables.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/classless.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/more.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/simple.css">    
 </head>
 <body>
-<h1>Test</h1>
 
-<button id=btn>requestDevice()</button>
+<section>
+    <h1>Test</h1>
 
-licht ein: <input type=checkbox id=check>
+    <button id=puckBtn>connect puck.js</button><br>
+    <label>
+        Rote LED: <input type=checkbox id=check value="1">
+    </label>
 
-<script type="module">
+    <script type=module>
 
-import {requestDevice} from './bluetooth.js';
-import {effect} from '../../item.js';
+    import {requestDevice} from './bluetooth.js';
+    import {createInputItem} from '../htmlForm.js';
+
+    puckBtn.addEventListener('click', async e=>{
+        requestDevice({ acceptAllDevices: true, services: ['0000bcde-0000-1000-8000-00805f9b34fb'] })
+            .then(initDevice)
+            .catch(error=>alert('failed: ' + error));
+    });
 
 
-let redLight = null;
+    const checkRed = createInputItem(check);
 
-btn.addEventListener('click', async e=>{
-    requestDevice({acceptAllDevices: true,optionalServices: ['0000bcde-0000-1000-8000-00805f9b34fb'],})
-        .then(device=>{
-            alert('connected');
-            redLight = device.item('0000bcde-0000-1000-8000-00805f9b34fb').item('0000abcd-0000-1000-8000-00805f9b34fb');    
-            effect(()=>{
-                redLight.get().then(value=>{
-                    check.checked = value;
-                });
+    function initDevice(device) {
+        alert('connected');
+        
+        const redLight = device.item('0000bcde-0000-1000-8000-00805f9b34fb').item('0000abcd-0000-1000-8000-00805f9b34fb');
+        
+        sync(redLight, checkRed);
+    }
+
+
+
+
+    /* helper */
+    async function sync(...items) {
+        // get value from master (first item) and set it to all others
+        const master = items[0];
+        const val = await master.get();
+        for (const other of items) {
+            if (other === master) continue;
+            other.set(val);
+        }
+        // set value from any to all others
+        for (const item of items) {
+            item.addEventListener('change', async e => {
+                for (const other of items) {
+                    if (other === item) continue;
+                    const value = await item.get();
+                    other.set(value);
+                }
             });
-        }).catch(error=>{
-            alert('failed: ' + error);
-        });
-
-});
-
-check.addEventListener('change', e=>{
-    if (!redLight) {
-        alert('connect first!');
-    } else {
-        const x = redLight.set(check.checked);
-        console.log(x)
-        //redLight.value = check.checked;
-    }
-});
-
-
-
-
-/*
-window.onButtonClick = async function() {
-
-    let options = {
-        acceptAllDevices: true,
-        optionalServices: ['battery_service', '12345678-1234-1234-1234-123456789abc', 0xBCDE],
-    };
-
-    console.log('Requesting Bluetooth Device...');
-    console.log('with ' + JSON.stringify(options));
-    const device = await requestDevice(options);
-
-
-    try {
-        await device.loadAll();
-    } catch (error) {
-        console.log(error);
+        }
     }
 
-    for (const service of device) {
+
+
+    /* read device */
+
+    import {dump} from 'https://cdn.jsdelivr.net/gh/nuxodin/dump.js@x/mod.min.js';
+
+    connBtn.onclick = async function() {
+
+        let options = {
+            acceptAllDevices: true,
+    //        optionalServices: ['battery_service', '12345678-1234-1234-1234-123456789abc', 0xBCDE],
+            services: ['0000fee0-0000-1000-8000-00805f9b34fb', '00002a2b-0000-1000-8000-00805f9b34fb', '0000180d-0000-1000-8000-00805f9b34fb'],
+        };
+
+        console.log('Requesting Bluetooth Device...');
+        console.log('with ' + JSON.stringify(options));
+        const device = await requestDevice(options);
+
+        console.log(device.realDevice);
+
         try {
-            await service.loadAll();
+            await device.loadAll();
         } catch (error) {
             console.log(error);
         }
-        console.log(service);
-        for (const characteristic of service) {
-            let value;
+
+        for (const service of device) {
             try {
-                value = await characteristic.value;
+                await service.loadAll();
             } catch (error) {
-                console.log(error)
+                console.log(error);
             }
-            console.log(characteristic)
+            console.log(service);
+            for (const characteristic of service) {
+                let value;
+                try {
+                    value = await characteristic.value;
+                } catch (error) {
+                    console.log(error)
+                }
+                console.log(characteristic)
+            }
         }
+        effect(()=>{
+            connData.innerHTML = dump(device.get());
+        });
+        
     }
-}
-*/
-</script>
+
+    </script>
+
+    <br><br>    
+    <button id=connBtn>connect</button>
+    <div id=connData></div>
+    <script>
+
+
+    </script>
+
+</section>

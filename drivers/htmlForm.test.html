@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">    
+    <title>Test</title>
+    <script src="https://cdn.jsdelivr.net/gh/nuxodin/lazyfill@main/mod.min.js"></script>
+    <link rel=stylesheet href="http://gcdn.li/u1ui/base.css/full.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/variables.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/classless.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/more.css">
+    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/simple.css">    
+
+<body>
+
+<h1>Test</h1>
+<section>
+
+    <form>
+        <label>
+            Name
+            <input name=name type=text>
+        </label><br>
+        <label>
+            Checkbox
+            <input name=checkbox type=checkbox>
+        </label><br>
+        <label>
+            Radio 1
+            <input name=radio type=radio value=1>
+        </label><br>
+        <label>
+            Radio 2
+            <input name=radio type=radio value=2>
+        </label><br>
+        <label>
+            Select
+            <select name=select>
+                <option value=1>1
+                <option value=2>2
+                <option value=3>3
+            </select>
+        </label><br>
+        <label>
+            Range
+            <input name=range type=range>
+        </label><br>
+        <label>
+            Date
+            <input name=date type=date>
+        </label><br>
+        <button name=submit value=submitValue>Submit</button>
+    </form>
+
+
+    <br><br>
+
+    <input id=singleItem placeholder=singleItem>
+
+    <br><br>
+
+    <div id=dataOut></div>
+
+    <script type=module>
+
+    import {createFormItem, createInputItem} from "./htmlForm.js";
+    import {effect} from "../item.js";
+    import {dump} from 'https://cdn.jsdelivr.net/gh/nuxodin/dump.js@x/mod.min.js';
+
+    const formItem = createFormItem(document.querySelector('form'));
+    const single = createInputItem(singleItem);
+
+
+    effect(() => {
+        console.log('changed formItem');
+        single.value = formItem.item('name').value;
+        dataOut.innerHTML = dump(formItem.value);
+    });
+
+    effect(() => {
+        console.log('changed single');
+        formItem.item('name').value = single.value;
+    });
+
+
+    setTimeout(() => {
+        formItem.set({
+            name:'test',
+            range: 50,
+        })    
+    }, 2000);
+
+
+    </script>
+</section>
