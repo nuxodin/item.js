@@ -84,7 +84,6 @@ Deno.test("database table", async () => {
     const row = await table.insert({name: 'Tobias', age: 42});
     assertEquals( row.key, '1' );
 
-
     const values = table.item(1).item('name').get();
     const values2 = table.item(1).item('age').get();
     console.log(await Promise.all([values, values2])); // generates only one query

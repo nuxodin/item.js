@@ -1,6 +1,5 @@
 /*
-Ussage:
-
+// Ussage:
 const datapoint = new AsyncDataPoint({
     get: () => fetch('https://example.com/todos/1').then(res => res.json()),
     set: value => fetch('https://example.com/todos/1', {method: 'PUT', body: JSON.stringify(value)}).then(res => res.json())
@@ -8,19 +7,16 @@ const datapoint = new AsyncDataPoint({
 datapoint.set({title: 'foo', completed: true});
 datapoint.get().then(value => console.log(value));
 
-// api
+// API
 datapoint.onchange = ({value}) => console.log('value changed', value);
 datapoint.cacheDuration = 1000; // cache for 1 second
 datapoint.trustSendingValue = true; // trust sending value: until the sending is done, the value is the new value, despite the uncertainty that the server will fail
 datapoint.setDebouncePeriod = 5; // debounce period for setter in ms, default 5
-datapoint.setFromMaster({title: 'foo', completed: true}); // set value without saving it to the server
+datapoint.setFromMaster({title: 'foo', completed: true}); // set value without saving it to the server (the value comes from the master through an other channel / trusted source)
 */
 
 export class AsyncDataPoint {
 
-    // trustSendingValue = true;
-    // cacheDuration = 2000; // cache for 2 seconds, false = no cache, true = cache forever
-    // setDebouncePeriod = 5; // debounce period for setter in ms
     createGetter = null; // function that returns a promise
     createSetter = null; // function that returns a promise, if it failed, the promise must be rejected
 

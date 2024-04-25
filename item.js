@@ -53,7 +53,7 @@ export class Item extends EventTarget {
     $set(value){
         const oldValue = this.#value;
         if (this.constructor.isPrimitive(value)) {
-            if (!this.#filled || oldValue !== value) { // TODO: we shoul use deepEqual as "primitive" can be an object
+            if (!this.#filled || !this.constructor.equals(oldValue, value)) {
                 this.#value = value; // structuralClone(value); // TODO: should we clone the value? or should we just use the reference? (if its an object)
                 this.#filled = true;
                 if (!this.#isGetting) {
@@ -84,15 +84,11 @@ export class Item extends EventTarget {
         return this.#value[key];
     }
     remove(){
-        if (this.#parent) {
-            delete this.#parent.#value[this.#key];
-            dispatchEvent(this.#parent, 'change', { item: this.#parent, remove: this });
-        } else {
-            throw new Error('cannot remove root item');
-        }
+        if (!this.#parent) throw new Error('cannot remove root item');
+        delete this.#parent.#value[this.#key];
+        dispatchEvent(this.#parent, 'change', { item: this.#parent, remove: this });
     }
     has(key){ return key in this.#value; }
-    //asyncHas(key){ return Promise.resolve(key in this.#value) }
 
     get proxy(){ return toProxy(this); }
 
@@ -132,6 +128,9 @@ export class Item extends EventTarget {
     static isPrimitive(value){
         return value !== Object(value) || 'toJSON' in value || value instanceof Promise;
     }
+    static equals(a, b){ // comparison function between old and new value in case of primitive
+        if (Object.is(a, b)) return true; //  // TODO: we shoul use deepEqual as "primitive" can be an object
+    }
 
     static ChildClass;
     ChildClass = this.constructor.ChildClass;
@@ -159,7 +158,7 @@ let currentEffect = null;
  * @param {function} fn - A function that executes imeediately and collects the containing items.
  * @return {function} A function to dispose the effect.
  */
-export function effect(fn){
+export function effect(fn){ // async?
     const outer = currentEffect;
     if (outer) {
         (outer.nested ??= new Set()).add(fn);
@@ -167,7 +166,7 @@ export function effect(fn){
         fn.parent = outer;
     }
     currentEffect = fn;
-    fn();
+    fn(); // await, so that signals in async functions are collected?
     currentEffect = outer;
     return () => fn.disposed = true
 }

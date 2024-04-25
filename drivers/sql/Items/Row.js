@@ -12,8 +12,6 @@ export class Row extends Item {
         for (const field of fields) this.item(field.name);
     }
 
-
-
     // select
     // async selectAll() {
     //     await this.loadItems();
@@ -105,6 +103,7 @@ export class Row extends Item {
     toString() { return this.key; }
     valueOf() { return this.key; }
 
+    static isPrimitive() { return false; }
     static ChildClass = Cell;
 }
 

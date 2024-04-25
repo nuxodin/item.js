@@ -43,7 +43,6 @@
 
     asyncItem.createGetter = async function(...args){
         getterRequested++;
-        console.log('getterRequested')
         await delay(10);
         return asyncRootValue;
     }
@@ -160,7 +159,6 @@
             asyncItem.value = {b:'new value2', c:'new value2'};
             const c = await asyncItem.item('c').value;
             chai.expect(c).to.equal('new value2');
-            console.log(asyncItem)
         });
 
         /*
@@ -232,7 +230,7 @@
 
 
     describe('normal items with promises', () => {
-        it('Promise is promitive', async () => {
+        it('Promise is primitive', async () => {
             const i = item( Promise.resolve(2) );
             const value = await i.value;
             chai.expect(value).to.equal(2);

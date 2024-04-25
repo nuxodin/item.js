@@ -1,0 +1,49 @@
+<!DOCTYPE HTML>
+<html lang=en>
+<head>
+    <meta charset="utf-8">
+    <meta name=viewport content="width=device-width">
+
+    <link href="https://cdn.jsdelivr.net/gh/u2ui/u2@main/el/tree1/tree1.min.css" rel=stylesheet>
+    <script src="https://cdn.jsdelivr.net/gh/u2ui/u2@main/el/tree1/tree1.min.js" type=module async></script>
+
+<body>
+
+<section class=main>
+
+    <u2-tree1 aria-expanded="false" id=treeEl aria-live=off>localStorage
+    </u2-tree1>
+
+</section>
+
+
+<script type=module class=main>
+
+import {getStore} from "../drivers/localStorage.js";
+
+const store = getStore();
+
+treeEl.addEventListener('u2-tree1-expand', event => {
+    if (!event.load) return;
+    const treeItem = event.target;
+
+    let item = store;
+    const path = treeItem.path();
+    path.shift(); // first is root
+
+    for (const parent of path) {
+        item = item.item(parent.getAttribute('name'));
+    }
+
+    event.load(async (treeEl) => {
+        await item.loadItems();
+        for (const child of item) {
+            treeEl.innerHTML += 
+            `<u2-tree1 aria-expanded=false aria-live=off name="${child.key}">
+                ${child.key}
+            </u2-tree1>`;
+        }
+    });
+});
+    
+</script>

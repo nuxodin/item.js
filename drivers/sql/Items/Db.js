@@ -42,5 +42,6 @@ export class Db extends Item {
         }
     }
 
+    static isPrimitive() { return false; }
     static ChildClass = Table;
 }

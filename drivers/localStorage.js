@@ -15,6 +15,12 @@ export function getStore(){
         addEventListener('storage', e => { // does not trigger on source window!
             root.item(e.key).value = e.newValue;
         });
+        root.loadItems = function(){
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                root.item(key);
+            }
+        }
     }
     return root;
 }

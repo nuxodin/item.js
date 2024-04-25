@@ -8,7 +8,7 @@ export const Table = class extends Item {
         this._fields = {};
     }
     async loadItems() {
-        const rows = await this.parent.query("SELECT * FROM "+this.key);b // todo, just get primaries?
+        const rows = await this.parent.query("SELECT * FROM "+this.key); // todo, just get primaries?
         for (const data of rows) {
             const id = await this.rowId(data);
             const row = this.item(id);
@@ -23,28 +23,28 @@ export const Table = class extends Item {
     }
 
 
-    async ensure(filter) {
-        console.error('used?')
-        const rows = await this.rows(filter);
-        for (const row of rows) return row; // return first
-        return this.insert(filter); // else insert, todo: filter?
-    }
-    async rows(filter /* limit? */) {
-        console.error('used?')
-        const where = await this.objectToWhere(filter); // todo
-        const all = await this.parent.query("SELECT * FROM "+this.key+" WHERE " + where);
-        const rows = [];
-        for (const data of all) {
-            const id = await this.rowId(data);
-            const row = this.item(id);
-            for (const i in data) {
-                console.log('asyncHandler?');
-                row.cell(i).setFromMaster(data[i]); // todo: asyncHandler??
-            }
-            rows.push( row );
-        }
-        return rows;
-    }
+    // async ensure(filter) {
+    //     console.error('used?')
+    //     const rows = await this.rows(filter);
+    //     for (const row of rows) return row; // return first
+    //     return this.insert(filter); // else insert, todo: filter?
+    // }
+    // async rows(filter /* limit? */) {
+    //     console.error('used?')
+    //     const where = await this.objectToWhere(filter); // todo
+    //     const all = await this.parent.query("SELECT * FROM "+this.key+" WHERE " + where);
+    //     const rows = [];
+    //     for (const data of all) {
+    //         const id = await this.rowId(data);
+    //         const row = this.item(id);
+    //         for (const i in data) {
+    //             console.log('asyncHandler?');
+    //             row.cell(i).setFromMaster(data[i]); // todo: asyncHandler??
+    //         }
+    //         rows.push( row );
+    //     }
+    //     return rows;
+    // }
 
 
     field(name) {
@@ -190,5 +190,6 @@ export const Table = class extends Item {
     */
 
 
+    static isPrimitive() { return false; }
     static ChildClass = Row;
 };

@@ -69,6 +69,22 @@
             let i = item(date);
             chai.expect(i.value).to.equal(date);
         });
+
+        it('0 not equals -0', () => {
+            let i = item(0);
+            let changed = false;
+            i.addEventListener('change', e => changed = true);
+            i.value = -0;
+            chai.expect(changed).to.equal(true);
+        });
+        it('NaN equals NaN', () => {
+            let i = item(NaN);
+            let changed = false;
+            i.addEventListener('change', e => changed = true);
+            i.value = NaN;
+            chai.expect(changed).to.equal(false);
+        });
+
     });
 
     describe('object value', () => {

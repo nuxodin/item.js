@@ -1,6 +1,7 @@
 import { Item } from '../../item.js';
 import { Db } from "./Items/Db.js";
-import { Client } from "https://deno.land/x/mysql@v2.10.0/mod.ts"; // Warning: v2.11.0 has a breaking bug!
+//import { Client } from "https://deno.land/x/mysql@v2.10.0/mod.ts"; // Warning: v2.11.0 has a breaking bug!
+import { Client } from "https://deno.land/x/mysql@v2.12.1/mod.ts"; // Warning: v2.11.0 has a breaking bug!
 
 class MysqlDb extends Db {
     async connect(){
