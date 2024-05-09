@@ -166,8 +166,8 @@ export function effect(fn){ // async?
         fn.parent = outer;
     }
     currentEffect = fn;
-    fn(); // await, so that signals in async functions are collected?
-    currentEffect = outer;
+    try { fn(); } // await, so that signals in async functions are collected?
+    finally { currentEffect = outer; }
     return () => fn.disposed = true
 }
 
@@ -190,7 +190,8 @@ function batch(effect) {
         batches.forEach(fn => {
             if (batches.has(fn?.parent)) return; // its parent has also to run, so it will run anyway
             currentEffect = fn; // effect() called inside fn(callback) has to know his parent effect
-            fn(); // TODO? fn(fn) to rerun effect? https://github.com/nuxodin/item.js/issues/2
+            // todo? try
+            fn(); // TODO? fn({rerun:fn}) to rerun effect? https://github.com/nuxodin/item.js/issues/2
         });
         batches = null; // restart collecting
     });

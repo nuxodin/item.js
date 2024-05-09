@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Test</title>
+    <script src="https://cdn.jsdelivr.net/gh/nuxodin/lazyfill@main/mod.min.js"></script>
+
+    <link rel=stylesheet href="http://gcdn.li/u2ui/u2/css/classless/full.css">
+    <link rel=stylesheet href="http://gcdn.li/u2ui/u2/css/classless/simple.css">
+
+<body>
+
+
+<section>
+    <h1>Html Attributes Test</h1>
+
+    <figure style="padding:2rem">
+        <input type="text" name="xyz" id="testElement" value="" placeholder="Name">
+    </figure>
+
+    <br><br>
+
+    <table id="table"></table>
+
+    <script type=module>
+    import {effect} from '../item.js';
+    import {render, html, htmlFor} from 'https://unpkg.com/uhtml@4.4.7/keyed.js';
+
+    import {attributes} from "./htmlElementAttributes.js";
+
+    const root = attributes(testElement);
+
+    effect(() => {
+        render(table, html`
+            <thead>
+                <tr>
+                    <th> Name
+                    <th> Value
+            <tbody>
+                <tr>
+                    <td> <input id=inp style="width:100%">
+                    <td> <button onclick="${()=>{root.item(inp.value).set(''); inp.value=''}}">add</button></td>
+                </tr>
+            ${[...root].map(item => {
+                return html`
+                    <tr>
+                        <td> ${item.key}
+                        <td> <input oninput="${({target})=>{item.set(target.value)  }}" .value="${item.value}">
+                        <td> <button onclick="${()=>{item.remove()}}">delete</button>
+                `;
+            })}
+        `);
+    });
+
+    </script>
+    
+</section>

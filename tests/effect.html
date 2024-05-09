@@ -28,6 +28,13 @@ effect(()=>{
 
     effect(()=>{
 
+        // try {
+        //     effect(()=>log("error:" + itm.item('outer').value + asdf))
+        // } catch(e){
+        //     log("error in effect:" + e.message);
+        // }
+
+
         effect(()=>{
             log("deeper effect (bevore inner), value:" + itm.item('deeper').value);
         });
