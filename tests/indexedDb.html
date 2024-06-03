@@ -31,7 +31,7 @@ db1.item('store1').value = {item3: 'value3', item4: 'value4'}; // add multiple i
 
 //setTimeout(async () => {
     // bug: the random value is the old one, because they are save together in one transaction
-    // but until the transaction is finished, the value should be the new one?? (trustSendingValue)
+    // but until the transaction is finished, the value should be the new one?? (optimisticUpdate)
     const valItem1 = db1.item('store1').item('rand').value;
     const valItem2 = db1.item('store1').item('item2').value;
     const valItem2again = db1.item('store1').item('item2').value; // get value again, db query executes only once

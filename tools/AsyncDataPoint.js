@@ -10,7 +10,7 @@ datapoint.get().then(value => console.log(value));
 // API
 datapoint.onchange = ({value}) => console.log('value changed', value);
 datapoint.cacheDuration = 1000; // cache for 1 second
-datapoint.trustSendingValue = true; // trust sending value: until the sending is done, the value is the new value, despite the uncertainty that the server will fail
+datapoint.optimisticUpdate = true; // trust sending value: until the sending is done, the value is the new value, despite the uncertainty that the server will fail
 datapoint.setDebouncePeriod = 5; // debounce period for setter in ms, default 5
 datapoint.setFromMaster({title: 'foo', completed: true}); // set value without saving it to the server (the value comes from the master through an other channel / trusted source)
 */
@@ -27,7 +27,7 @@ export class AsyncDataPoint {
 
     constructor({get, set}) {
         this.options = {};
-        this.options.trustSendingValue ??= true;
+        this.options.optimisticUpdate ??= true;
         this.options.cacheDuration ??= 2000; // cache for 2 seconds, false = no cache, true = cache forever
         this.options.setDebouncePeriod ??= 5; // debounce period for setter in ms
 
@@ -78,8 +78,8 @@ export class AsyncDataPoint {
     // }
 
     get() {
-        if (this.#setter?.state === 'pending' && this.options.trustSendingValue) return Promise.resolve(this.#expectedValue); // trust sending value
-        // TODO?: wait for setter to be done if not trustSendingValue?
+        if (this.#setter?.state === 'pending' && this.options.optimisticUpdate) return Promise.resolve(this.#expectedValue); // trust sending value
+        // TODO?: wait for setter to be done if not optimisticUpdate?
         if (!this.#getter) this.#cacheGetter(this.#createGetter());
         return this.#getter;
     }

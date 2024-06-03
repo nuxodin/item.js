@@ -5,7 +5,16 @@ export async function jsonDataItem(jsonItem) {
     const root = item();
     const json = await jsonItem.value;
 
-    root.value = json === undefined ? null : JSON.parse(json);
+    if (json === undefined) {
+        root.set(null)
+    } else {
+        try {
+            root.set(JSON.parse(json));
+        } catch (e) {
+            console.error('jsonDataItem: invalid JSON', e);
+            root.set(null);
+        }
+    }
 
     let timeout = null; // debounced
     root.addEventListener('changeIn', () => {

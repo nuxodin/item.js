@@ -37,7 +37,7 @@
 
     const asyncItem = new AsyncItem();
 
-    asyncItem.asyncHandler.options.trustSendingValue = true;
+    asyncItem.asyncHandler.options.optimisticUpdate = true;
     asyncItem.asyncHandler.options.cacheDuration = 100;
     asyncItem.asyncHandler.options.setDebouncePeriod = 5;
 
