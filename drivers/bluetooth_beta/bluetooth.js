@@ -57,7 +57,7 @@ class Service extends Item {
 class Characteristic extends AsyncItem {
     constructor(parent, key) {
         super(parent, key);
-        this.asyncHandler.options.cacheDuration = 10000;
+        this.asyncHandler.options.ttl = 10000;
     }
     async connect(){
         if (!this.realCharacteristic) {
@@ -75,7 +75,7 @@ class Characteristic extends AsyncItem {
         this.realCharacteristic.startNotifications();
         this.realCharacteristic.addEventListener('characteristicvaluechanged',e=>{
             let value = e.target.value.getUint8(0);
-            this.asyncHandler.setFromMaster(value);
+            this.asyncHandler.setLocal(value);
         });
         return this.realCharacteristic;
     }

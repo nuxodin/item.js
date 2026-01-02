@@ -1,18 +1,18 @@
 /*
-// Ussage:
+// Usage:
 const datapoint = new AsyncDataPoint({
     get: () => fetch('https://example.com/todos/1').then(res => res.json()),
     set: value => fetch('https://example.com/todos/1', {method: 'PUT', body: JSON.stringify(value)}).then(res => res.json())
 });
-datapoint.set({title: 'foo', completed: true});
+datapoint.set({title: 'foo', completed: true}); // Returns promise - or undefined if value is already the same - do not rely on return value
 datapoint.get().then(value => console.log(value));
 
 // API
 datapoint.onchange = ({value}) => console.log('value changed', value);
-datapoint.cacheDuration = 1000; // cache for 1 second
-datapoint.optimisticUpdate = true; // trust sending value: until the sending is done, the value is the new value, despite the uncertainty that the server will fail
+datapoint.ttl = 1000; // cache for 1 second
+datapoint.optimistic = true; // trust sending value: until the sending is done, the value is the new value, despite the uncertainty that the server will fail
 datapoint.setDebouncePeriod = 5; // debounce period for setter in ms, default 5
-datapoint.setFromMaster({title: 'foo', completed: true}); // set value without saving it to the server (the value comes from the master through an other channel / trusted source)
+datapoint.setLocal({title: 'foo', completed: true}); // set value without saving it to the server (the value comes from the master through an other channel / trusted source)
 */
 
 export class AsyncDataPoint {
@@ -25,27 +25,54 @@ export class AsyncDataPoint {
     #getter = null; // current/cached getter promise
     #cacheGetterTimeout = null;
 
-    constructor({get, set}) {
-        this.options = {};
-        this.options.optimisticUpdate ??= true;
-        this.options.cacheDuration ??= 2000; // cache for 2 seconds, false = no cache, true = cache forever
-        this.options.setDebouncePeriod ??= 5; // debounce period for setter in ms
-
+    constructor({get, set, ...options}) {
+        this.options = {
+            optimistic: true,
+            ttl: 2000,
+            setDebouncePeriod: 5,
+            getRetry: 2,
+            getRetryDelay: 1000,
+            setRetry: 1,
+            setRetryDelay: 1000,
+            ...options
+        };
         this.createGetter = get;
         this.createSetter = set;
     }
+
     #createGetter() {
-        const promise = this.createGetter();
+        const {getRetry, getRetryDelay} = this.options;
+        const promise = retryAsync(
+            () => this.createGetter(), 
+            getRetry, 
+            getRetryDelay
+        );
         makePromiseTransparent(promise);
         return promise;
     }
+
+    // #createSetter(value) {
+    //     const promise = abortablePromise((resolve, reject) => {
+    //         return this.createSetter(value, promise.controller.signal).then(resolve, reject);
+    //     }, this.options.setDebouncePeriod);
+    //     makePromiseTransparent(promise);
+    //     return promise;
+    // }
+
     #createSetter(value) {
+        const {setRetry, setRetryDelay, setDebouncePeriod} = this.options;        
         const promise = abortablePromise((resolve, reject) => {
-            return this.createSetter(value, promise.controller.signal).then(resolve, reject);
-        }, this.options.setDebouncePeriod);
+            retryAsync(
+                () => this.createSetter(value, promise.controller.signal),
+                setRetry,
+                setRetryDelay
+            ).then(resolve, reject);
+        }, setDebouncePeriod);
+        
         makePromiseTransparent(promise);
         return promise;
     }
+
     #cacheGetter(promise){
         // trigger onchange if the value changes
         // note: triggers also if the getter is no more cached as we dont know if the value has changed
@@ -53,10 +80,16 @@ export class AsyncDataPoint {
         promise.then(value => {
             if (this.#getter !== promise) return; // promise is outdated
             const oldValue = oldGetter?.value;
-            if (oldValue !== value) this.onchange?.({value, oldValue}); // TODO: would not trigger if its the same object but modified!
+            if (oldValue !== value) { // isEqual?
+                try {
+                    this.onchange?.({value, oldValue});
+                } catch (err) {
+                    console.error('AsyncDataPoint onchange error:', err);
+                }
+            }
         });
 
-        const duration = this.options.cacheDuration;
+        const duration = this.options.ttl;
         if (!duration) return;
         if (typeof duration === 'number') {
             clearTimeout(this.#cacheGetterTimeout);
@@ -69,34 +102,43 @@ export class AsyncDataPoint {
     // set value without saving it to the master
     // this is useful if the value comes from the master through an other channel
     // for example a cookechange event, or a fs-watch event
-    // what would be a better name? e.g. setReceivedValue, setReceived
-    setFromMaster(value) {
+    setLocal(value) {
         this.#cacheGetter(transparentPromiseResolve(value));
     }
-    // get recentValue() {
-    //     return this.#getter?.value; // what should we do if there is no recent value yet?
-    // }
+    get recentValue() {
+        return this.#getter?.value;
+    }
 
     get() {
-        if (this.#setter?.state === 'pending' && this.options.optimisticUpdate) return Promise.resolve(this.#expectedValue); // trust sending value
-        // TODO?: wait for setter to be done if not optimisticUpdate?
+        if (this.#setter?.state === 'pending') {
+            if (this.options.optimistic) {
+                return Promise.resolve(this.#expectedValue); // trust sending value
+            } else {
+                // todo: options for setter method to return the final value?
+                return this.#setter.then(() => this.get()); // wait for setter to be done
+            }
+        }
         if (!this.#getter) this.#cacheGetter(this.#createGetter());
         return this.#getter;
     }
     set(value) {
-        if (this.#setter?.state === 'pending' && this.#expectedValue === value) return; // ignore if sending value is the same
-        if (this.#getter?.state === 'fulfilled' && this.#getter.value === value) return; // ignore if latest getter value is the same
-        this.#expectedValue = value;
-        //this.#setter?.abort(); // abort previous setter
+        // Already setting this value
+        if (this.#setter?.state === 'pending' && isEqual(this.#expectedValue, value)) return this.#setter;
+
         this.#setter?.controller.abort(); // abort previous setter
+
+        // ignore if latest getter value is the same
+        // Value already set (no-op). Returns undefined to avoid falsy issues (value could be 0, false, etc.)
+        if (this.#getter?.state === 'fulfilled' && isEqual(this.#getter.value, value)) return;
+        
+        this.#expectedValue = value;
         const promise = this.#createSetter(value);
         const handleResult = data => {
             if (this.#setter !== promise) return; // promise is outdated
             if (data instanceof Error) {
-                console.error('setter rejected: ', data);
                 this.#getter = null; // clear getter cache
             } else {
-                this.#cacheGetter(transparentPromiseResolve(value));
+                this.setLocal(value);
             }
             this.#setter = null;
             this.#expectedValue = null;
@@ -104,6 +146,24 @@ export class AsyncDataPoint {
         promise.then(handleResult, handleResult);
         return this.#setter = promise;
     }
+
+    dispose() {
+        clearTimeout(this.#cacheGetterTimeout);
+        this.#setter?.controller.abort();
+        this.#setter = null;
+        this.#getter = null;
+        this.#expectedValue = null;
+        this.#cacheGetterTimeout = null;
+        this.onchange = null;
+    }
+    getDebugState() {
+        return {
+            getter: this.#getter,
+            setter: this.#setter,
+            expectedValue: this.#expectedValue
+        };
+    }
+
 }
 
 
@@ -132,7 +192,7 @@ function makePromiseTransparent(promise) {
         },
         reason => {
             promise.state = 'rejected';
-            promise.value = reason;
+            promise.reason = reason;
         }
     );
 }
@@ -160,10 +220,48 @@ function abortablePromise(fn, ms=1) { // delayed and therfore abortable within m
     const controller = new AbortController();
     const promise = new Promise((resolve, reject) => {
         setTimeout(() => {
-            if (controller.signal.aborted) return resolve(null);
+            if (controller.signal.aborted) return reject(new Error('aborted'));
             fn(resolve, reject);
         }, ms);
     });
     promise.controller = controller;
     return promise;
+}
+
+/**
+ * Retries an async operation with exponential backoff.
+ * @param {Function} fn - The async function to retry.
+ * @param {Number} maxAttempts - Maximum number of attempts.
+ * @param {Number} baseDelay - Base delay in milliseconds for exponential backoff.
+ * @returns {Promise} - The result of the operation.
+ */
+async function retryAsync(fn, maxAttempts = 3, baseDelay = 1000) {
+    let lastError;
+    
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+            return await fn();
+        } catch (error) {
+            lastError = error;
+            
+            if (attempt < maxAttempts - 1) {
+                const delay = baseDelay * Math.pow(2, attempt);
+                console.warn(`Retry attempt ${attempt + 1}/${maxAttempts} failed, retrying in ${delay}ms...`, error);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+    }
+    
+    throw lastError;
+}
+
+function isEqual(a, b) {
+    if (a === b) return true;
+    if (typeof a !== 'object' || typeof b !== 'object') return false;
+    if (a == null || b == null) return false;
+    try {
+        return JSON.stringify(a) === JSON.stringify(b);
+    } catch {
+        return false; // Bei Circular References -> ungleich behandeln
+    }
 }

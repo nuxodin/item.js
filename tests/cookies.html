@@ -4,21 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
     <title>Test</title>
-    <script src="https://cdn.jsdelivr.net/gh/nuxodin/lazyfill@main/mod.min.js"></script>
-    <link rel=stylesheet href="http://gcdn.li/u1ui/base.css/full.css">
-    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/variables.css">
-    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/classless.css">
-    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/more.css">
-    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/simple.css">
+    <script type=module async src="https://cdn.jsdelivr.net/gh/u2ui/u2@main/u2/auto.js"></script>
+    <link rel=stylesheet href="https://cdn.jsdelivr.net/gh/u2ui/u2@main/css/classless/simple.css">
 <body>
 
 <script type=module>
 
 import {effect} from '../item.js';
 import {cookies} from "../drivers/cookies.js";
-import 'https://unpkg.com/uhtml@3.2.2/async';
-const {render, html} = uhtml;
-
+import { render, html } from "https://esm.sh/uhtml@4";
 
 
 const betterCookies = cookies();
@@ -30,14 +24,14 @@ effect(() => {
             <tr>
                 <th> Name
                 <th> Value
-                <th> <button onclick="${()=>{let name=prompt('cookie name'); if(name)betterCookies.item(name).value=''}}">add</button>
+                <th width=10> <button onclick="${()=>{let name=prompt('cookie name'); if(name)betterCookies.item(name).value=''}}">add</button>
         <tbody>
             ${[...betterCookies].map(item => {
                 return html`
                     <tr>
                         <td> ${item.key}
-                        <td> <input .value="${item.value}" oninput=${(e)=>item.value=e.target.value}>
-                        <td> <button onclick="${()=>item.remove()}">✖</button>
+                        <td> <input .value="${item.value??''}" oninput=${(e)=>{item.value=e.target.value}}>
+                        <td> <button onclick="${()=>item.remove()}" class=u2-unstyle u2-confirm="delete Cookie?">✖</button>
                 `;
             })}
     `);

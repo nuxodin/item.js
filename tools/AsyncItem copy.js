@@ -3,7 +3,7 @@ import { AsyncDataPoint } from "./AsyncDataPoint.js";
 
 /*
 A AsyncItem is a Item that can be get and set asynchronously.
-When you get the value of a AsyncItem, it will first trigger the getter return undefined.
+When you get (or set) the value of a AsyncItem, it will return a Promise.
 value = await item.get()
 await item.set(value) // await is optional, use it if you want to wait for the set to finish
 */
@@ -15,23 +15,24 @@ export class AsyncItem extends Item {
             set: (value, abortSignal) => this.createSetter(value, abortSignal)
         });
         this.asyncHandler.onchange = ({value, oldValue}) => {
-            this.$set(value); // make sure the item's value is updated
-            // needed, but why? $set should trigger change if needed, but #value is not handled by item base class!
             dispatchEvent(this, 'change', { item: this, value, oldValue });
         }
     }
-
+    
     createGetter() { throw new Error('createGetter not implemented'); }
     createSetter(value) { throw new Error(`createSetter not implemented (value: ${value})`); }
 
     $get() {
-        this.asyncHandler.get(); // trigger getter
-        //return super.$get(); does not work, why?
-        return this.asyncHandler.recentValue;
+        return this.asyncHandler.get();
     }
     $set(value) {
         return this.asyncHandler.set(value);
     }
+
+    // get recentValue() { // TODO: this would be very handy, if we know that the value is recent (e.g. in effect-fn)
+    //     this.get(); // trigger getter to make sure it registers the signal
+    //     return this.asyncHandler.recentValue;
+    // }
 
     // static ChildClass is set after its class definition
 }

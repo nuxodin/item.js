@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width">
+    <title>AsyncDataPoint Demo</title>
+    <script type="module" async src="https://cdn.jsdelivr.net/gh/u2ui/u2@main/u2/auto.js"></script>
+    <style>
+        body { margin: 20px; background: #f5f5f5; font-family: monospace; }
+        .container { display: flex; gap: 20px; flex-wrap: wrap; }
+        .panel { background: white; border: 2px solid #333; padding: 15px; border-radius: 5px; }
+        button { margin: 5px; padding: 8px 15px; cursor: pointer; font-size: 14px; border: none; color: white; }
+        button:active { transform: scale(0.95); }
+        .set { background: #4CAF50; }
+        .get { background: #2196F3; }
+        .fail { background: #f44336; }
+        
+        .state-row { display: flex; align-items: center; margin: 8px 0; gap: 10px; }
+        .label { width: 10rem; font-weight: bold; }
+        .value { padding: 5px 10px; background: #e0e0e0; border-radius: 3px; min-width: 10rem; }
+        
+        .timeline { height: 30px; background: #ddd; border-radius: 5px; position: relative; overflow: hidden; margin-top: 10px; }
+        .timeline-bar { position: absolute; height: 100%; width: 0; }
+        .cache-bar { background: linear-gradient(90deg, #4CAF50, #81C784); }
+        .debounce-bar { background: linear-gradient(90deg, #FF9800, #FFB74D); }
+        
+        .log { background: #1e1e1e; color: #0f0; padding: 10px; border-radius: 5px; height: 300px; overflow-y: auto; font-size: 12px; }
+        .log-set { color: #4CAF50; }
+        .log-get { color: #2196F3; }
+        .log-error { color: #f44336; }
+        .log-change { color: #FF9800; }
+        
+        .status { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-left: 10px; }
+        .status.pending { background: #FF9800; animation: pulse 1s infinite; }
+        .status.fulfilled { background: #4CAF50; }
+        .status.rejected { background: #f44336; }
+        
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        
+        .settings { margin-top: 15px; padding: 10px; background: #f9f9f9; border-radius: 5px; }
+        input[type="number"] { width: 80px; padding: 5px; }
+        input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>AsyncDataPoint Demo</h1>
+    
+    <div class="container">
+        <div class="panel">
+            <h3>Controls</h3>
+            <div>
+                <button class="set" onclick="demo.set('alice')">Set "alice" (1s duration)</button>
+                <button class="set" onclick="demo.set('bob')">Set "bob" (2s dureation)</button>
+                <button class="fail" onclick="demo.set('fail')">Set "fail"</button>
+            </div>
+            <div>
+                <button class="get" onclick="demo.get()">Get</button>
+                <button class="fail" onclick="demo.getFail()">Get fail</button>
+            </div>
+            <div style="margin-top: 15px;">
+                <button onclick="demo.setLocal('charlie')">setLocal("charlie")</button>
+            </div>
+            
+            <div class="settings">
+                <h4 style="margin: 0 0 10px 0;">Settings</h4>
+                <u2-fields>
+                        Optimistic:
+                        <input type="checkbox" id="optimistic" checked onchange="demo.updateOptions()">
+                        TTL (ms):
+                        <input type="number" id="ttl" value="8000" onchange="demo.updateOptions()">
+                        Debounce (ms):
+                        <input type="number" id="debounce" value="1000" onchange="demo.updateOptions()">
+                </u2-fields>
+            </div>
+        </div>
+        
+        <div class="panel">
+            <h3>State</h3>
+            <div id="state"></div>
+            <h4 id="cache-title">Cache TTL (2000ms)</h4>
+            <div class="timeline"><div class="timeline-bar cache-bar" id="cache-bar"></div></div>
+            <h4 id="debounce-title">Debounce (1000ms)</h4>
+            <div class="timeline"><div class="timeline-bar debounce-bar" id="debounce-bar"></div></div>
+            
+            <h4>GET Request (1s)</h4>
+            <div class="timeline"><div class="timeline-bar" id="get-bar" style="background: linear-gradient(90deg, #2196F3, #64B5F6);"></div></div>
+            
+            <h4>SET Request (1s)</h4>
+            <div class="timeline"><div class="timeline-bar" id="set-bar" style="background: linear-gradient(90deg, #4CAF50, #81C784);"></div></div>
+        </div>
+        
+        <div class="panel" style="flex: 1; min-width: 400px;">
+            <h3>Log</h3>
+            <div class="log" id="log"></div>
+        </div>
+    </div>
+    
+    <script type="module">
+import {AsyncDataPoint} from './AsyncDataPoint.js';
+
+class Demo {
+    constructor() {
+        this.serverValue = 'initial';
+        this.datapoint = new AsyncDataPoint({
+            get: () => this.mockGet(),
+            set: (value) => this.mockSet(value),
+            optimistic: true,
+            ttl: 8000,
+            setDebouncePeriod: 2000
+        });
+        
+        this.datapoint.onchange = ({value, oldValue}) => 
+            this.log(`CHANGE: ${oldValue} → ${value}`, 'change');
+        
+        this.cacheStart = 0;
+        this.lastGetter = null;
+        this.debounceStart = 0;
+        this.lastSetter = null;
+        this.getRequestStart = 0;
+        this.setRequestStart = 0;
+        this.startMonitoring();
+        this.log('Demo initialized');
+    }
+    
+    updateOptions() {
+        const opts = this.datapoint.options;
+        ['optimistic', 'ttl', 'debounce'].forEach(key => {
+            const el = document.getElementById(key);
+            opts[key === 'debounce' ? 'setDebouncePeriod' : key] = 
+                el.type === 'checkbox' ? el.checked : parseInt(el.value);
+        });
+        
+        document.getElementById('cache-title').textContent = `Cache TTL (${opts.ttl}ms)`;
+        document.getElementById('debounce-title').textContent = `Debounce (${opts.setDebouncePeriod}ms)`;
+        
+        this.log(`Options: optimistic=${opts.optimistic}, ttl=${opts.ttl}ms, debounce=${opts.setDebouncePeriod}ms`, 'change');
+    }
+    
+    async mockGet() {
+        this.getRequestStart = Date.now();
+        this.log('GET request...', 'get');
+        await new Promise(r => setTimeout(r, 1000));
+        this.getRequestStart = 0;
+        if (this.getWillFail === true) {
+            throw new Error('Server error');
+        }
+        this.log(`GET response: "${this.serverValue}"`, 'get');
+        return this.serverValue;
+    }
+    
+    async mockSet(value) {
+        if (value === 'fail') {
+            this.setRequestStart = Date.now();
+            this.log(`SET "${value}" → REJECTED`, 'error');
+            await new Promise(r => setTimeout(r, 1000));
+            this.setRequestStart = 0;
+            throw new Error('Server rejected');
+        }
+        this.setRequestStart = Date.now();
+        this.log(`SET request: "${value}"`, 'set');
+        const duration = value === 'alice' ? 1000 : 2000;
+        await new Promise(r => setTimeout(r, duration));
+        this.setRequestStart = 0;
+        this.serverValue = value;
+        this.log('SET response: OK', 'set');
+        return value;
+    }
+    
+    async _get() {
+        try {
+            const value = await this.datapoint.get();
+            this.log(`get() returned: "${value}"`, 'get');
+        } catch (err) {
+            this.log(`get() error: ${err.message}`, 'error');
+        }
+    }
+    get() {
+        this.getWillFail = false;
+        this._get();
+    }
+    getFail() {
+        this.getWillFail = true;
+        this._get();
+    }
+    
+    set(value) {
+        this.log(`set("${value}") called`, 'set');
+        this.datapoint.set(value);
+    }
+    
+    setLocal(value) {
+        this.log(`setLocal("${value}") called`, 'change');
+        this.datapoint.setLocal(value);
+    }
+    
+    log(message, type = '') {
+        const time = new Date().toLocaleTimeString('de-DE', {
+            hour12: false, hour: '2-digit', minute: '2-digit', 
+            second: '2-digit', fractionalSecondDigits: 3
+        });
+        const log = document.getElementById('log');
+        log.innerHTML += `<div class="log-${type}">[${time}] ${message}</div>`;
+        log.scrollTop = log.scrollHeight;
+    }
+    
+    startMonitoring() {
+        setInterval(() => {
+            const state = this.datapoint.getDebugState();
+            const opts = this.datapoint.options;
+            
+            // Update state display
+            document.getElementById('state').innerHTML = `
+                <div class="state-row">
+                    <span class="label">Getter:</span>
+                    <span class="value">${state.getter ? `${state.getter.state} <span class="status ${state.getter.state}"></span>` : 'null'}</span>
+                </div>
+                <div class="state-row">
+                    <span class="label">Setter:</span>
+                    <span class="value">${state.setter ? `${state.setter.state} <span class="status ${state.setter.state}"></span>` : 'null'}</span>
+                </div>
+                <div class="state-row">
+                    <span class="label">Current Value:</span>
+                    <span class="value">${this.datapoint.recentValue !== undefined ? `"${this.datapoint.recentValue}"` : 'undefined'}</span>
+                </div>
+                <div class="state-row">
+                    <span class="label">Expected Value:</span>
+                    <span class="value">${state.expectedValue !== null ? `"${state.expectedValue}"` : 'null'}</span>
+                </div>`;
+            
+            // Animate cache TTL (counts down)
+            if (state.getter?.state === 'fulfilled') {
+                if (state.getter !== this.lastGetter) {
+                    this.cacheStart = Date.now();
+                    this.lastGetter = state.getter;
+                }
+                const percent = Math.min(100, ((Date.now() - this.cacheStart) / opts.ttl) * 100);
+                document.getElementById('cache-bar').style.width = (100 - percent) + '%';
+            } else {
+                this.cacheStart = 0;
+                this.lastGetter = null;
+                document.getElementById('cache-bar').style.width = '0%';
+            }
+            
+            // Animate debounce (counts up during pending, resets on new setter)
+            if (state.setter?.state === 'pending') {
+                // New setter detected - reset timer
+                if (state.setter !== this.lastSetter) {
+                    this.debounceStart = Date.now();
+                    this.lastSetter = state.setter;
+                }
+                const elapsed = Date.now() - this.debounceStart;
+                const percent = Math.min(100, (elapsed / opts.setDebouncePeriod) * 100);
+                document.getElementById('debounce-bar').style.width = percent + '%';
+            } else {
+                this.debounceStart = 0;
+                this.lastSetter = null;
+                document.getElementById('debounce-bar').style.width = '0%';
+            }
+            
+            // Animate GET request (1000ms)
+            if (this.getRequestStart > 0) {
+                const elapsed = Date.now() - this.getRequestStart;
+                const percent = Math.min(100, (elapsed / 1000) * 100);
+                document.getElementById('get-bar').style.width = percent + '%';
+            } else {
+                document.getElementById('get-bar').style.width = '0%';
+            }
+            
+            // Animate SET request (1000ms)
+            if (this.setRequestStart > 0) {
+                const elapsed = Date.now() - this.setRequestStart;
+                const percent = Math.min(100, (elapsed / 1000) * 100);
+                document.getElementById('set-bar').style.width = percent + '%';
+            } else {
+                document.getElementById('set-bar').style.width = '0%';
+            }
+        }, 50);
+    }
+}
+
+window.demo = new Demo();
+    </script>

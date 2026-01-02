@@ -292,25 +292,184 @@
     });
 
 
+describe('promise handling', () => {
+    
+    it('pending state is true when promise assigned', () => {
+        let i = item();
+        i.value = Promise.resolve(42);
+        chai.expect(i.pending).to.equal(true);
+    });
 
-    // describe('async', () => {
-    //     it('item.await to resolve all promises (primitive)', async () => {
-    //         const i = item(Promise.resolve(2));
-    //         const value = await i.await;
-    //         chai.expect(value).to.equal(2);
-    //     });
-    //     it('item.await to resolve all promises (object)', async () => {
-    //         const i = item({a:1, b:Promise.resolve(2)});
-    //         const value = await i.await;
-    //         chai.expect(value).to.deep.equal({a:1, b:2});
-    //     });
-    //     it('item.await to resolve all promises (object)', async () => {
-    //         const i = item({a:1, b:Promise.resolve({c:3})});
-    //         const value = await i.await;
-    //         console.log(i.item('b').item('c').value)
-    //         chai.expect(value).to.deep.equal({a:1, b:{c:3}});
-    //     });
-    // })
+    it('pending state is false after promise resolves', async () => {
+        let i = item();
+        i.value = Promise.resolve(42);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        chai.expect(i.pending).to.equal(false);
+    });
+
+    it('value is set after promise resolves', async () => {
+        let i = item();
+        i.value = Promise.resolve(42);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        chai.expect(i.value).to.equal(42);
+    });
+
+    it('error is undefined initially', () => {
+        let i = item();
+        i.value = Promise.resolve(42);
+        chai.expect(i.error).to.equal(undefined);
+    });
+
+    it('error is set when promise rejects', async () => {
+        let i = item();
+        const testError = new Error('test error');
+        i.value = Promise.reject(testError);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        chai.expect(i.error).to.equal(testError);
+    });
+
+    it('pending is false after promise rejects', async () => {
+        let i = item();
+        i.value = Promise.reject(new Error('test'));
+        await new Promise(resolve => setTimeout(resolve, 0));
+        chai.expect(i.pending).to.equal(false);
+    });
+
+    it('value remains old value after promise rejects', async () => {
+        let i = item(100);
+        i.value = Promise.reject(new Error('test'));
+        await new Promise(resolve => setTimeout(resolve, 0));
+        chai.expect(i.value).to.equal(100);
+    });
+
+    it('change event triggers after promise resolves', async () => {
+        let i = item();
+        let changeTriggered = false;
+        i.addEventListener('change', () => changeTriggered = true);
+        i.value = Promise.resolve(42);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        chai.expect(changeTriggered).to.equal(true);
+    });
+
+    it('change event triggers after promise rejects', async () => {
+        let i = item(100);
+        let changeTriggered = false;
+        i.addEventListener('change', () => changeTriggered = true);
+        i.value = Promise.reject(new Error('test'));
+        await new Promise(resolve => setTimeout(resolve, 0));
+        chai.expect(changeTriggered).to.equal(true);
+    });
+
+    it('promise property returns the current promise', () => {
+        let i = item();
+        const p = Promise.resolve(42);
+        i.value = p;
+        chai.expect(i.promise).to.equal(p);
+    });
+
+    it('promise property is undefined after resolve', async () => {
+        let i = item();
+        i.value = Promise.resolve(42);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        chai.expect(i.promise).to.equal(undefined);
+    });
+
+    it('promise property is undefined after reject', async () => {
+        let i = item();
+        i.value = Promise.reject(new Error('test'));
+        await new Promise(resolve => setTimeout(resolve, 0));
+        chai.expect(i.promise).to.equal(undefined);
+    });
+
+    it('race condition: old promise ignored when new promise set', async () => {
+        let i = item();
+        let resolve1, resolve2;
+        const p1 = new Promise(r => resolve1 = r);
+        const p2 = new Promise(r => resolve2 = r);
+        
+        i.value = p1;
+        i.value = p2; // überschreibt p1
+        
+        resolve1(100); // sollte ignoriert werden
+        await new Promise(resolve => setTimeout(resolve, 0));
+        
+        resolve2(200);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        
+        chai.expect(i.value).to.equal(200);
+    });
+
+    it('promise resolves to object: only changed properties trigger change', async () => {
+        let i = item({a: 1, b: 2});
+        let changes = [];
+        
+        i.item('a').addEventListener('change', e => changes.push('a'));
+        i.item('b').addEventListener('change', e => changes.push('b'));
+        
+        i.value = Promise.resolve({a: 1, b: 3}); // a bleibt gleich, b ändert sich
+        await new Promise(resolve => setTimeout(resolve, 0));
+        
+        chai.expect(changes).to.deep.equal(['b']);
+    });
+
+    it('promise resolves to object: properties are set correctly', async () => {
+        let i = item({a: 1, b: 2});
+        i.value = Promise.resolve({a: 10, b: 20, c: 30});
+        await new Promise(resolve => setTimeout(resolve, 0));
+        
+        chai.expect(i.value).to.deep.equal({a: 10, b: 20, c: 30});
+    });
+
+    it('filled is true after promise resolves', async () => {
+        let i = item();
+        chai.expect(i.filled).to.equal(false);
+        i.value = Promise.resolve(42);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        chai.expect(i.filled).to.equal(true);
+    });
+
+    it('error is cleared when new promise is set', () => {
+        let i = item();
+        i.value = Promise.reject(new Error('first'));
+        i.value = Promise.resolve(42);
+        chai.expect(i.error).to.equal(undefined);
+    });
+
+    it('error is cleared when promise resolves successfully', async () => {
+        let i = item();
+        i.value = Promise.reject(new Error('test'));
+        await new Promise(resolve => setTimeout(resolve, 0));
+        chai.expect(i.error).to.not.equal(undefined);
+        
+        i.value = Promise.resolve(42);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        chai.expect(i.error).to.equal(undefined);
+    });
+
+    it('change event contains correct oldValue after promise resolves', async () => {
+        let i = item(100);
+        let eventDetail;
+        i.addEventListener('change', e => eventDetail = e.detail);
+        
+        i.value = Promise.resolve(200);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        
+        chai.expect(eventDetail.oldValue).to.equal(100);
+        chai.expect(eventDetail.value).to.equal(200);
+    });
+
+    it('change event contains correct oldValue after promise rejects', async () => {
+        let i = item(100);
+        let eventDetail;
+        i.addEventListener('change', e => eventDetail = e.detail);
+        
+        i.value = Promise.reject(new Error('test'));
+        await new Promise(resolve => setTimeout(resolve, 0));
+        
+        chai.expect(eventDetail.oldValue).to.equal(100);
+        chai.expect(eventDetail.value).to.equal(100); // bleibt gleich bei error
+    });
+});
 
     </script>
     <script class="mocha-exec" type=module>

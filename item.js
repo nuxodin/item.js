@@ -12,6 +12,14 @@ export class Item extends EventTarget {
     #isGetting = false;
     #isSetting = false;
 
+    // Promise states
+    #pending = false;
+    #error;
+    #promise;
+    get pending() { return this.#pending; } // todo? registerCurrentEffectFor(this) ?
+    get error() { return this.#error; } // todo? registerCurrentEffectFor(this) ?
+    get promise() { return this.#promise; } // todo? registerCurrentEffectFor(this) ?
+
     constructor(parent, key){
         super();
         this.#parent = parent;
@@ -52,6 +60,35 @@ export class Item extends EventTarget {
     }
     $set(value){
         const oldValue = this.#value;
+
+        if (value instanceof Promise) { // todo? handle all thenables?
+            const thisPromise = this.#promise = value;
+            this.#pending = true;
+            this.#error = undefined;
+            //this.#filled = false; todo? should filled be false while pending?
+            
+            //dispatchEvent(this, 'change', { item: this, oldValue, value: this.#value }); // todo? pending state changed
+            
+            value.then(
+                resolved => {
+                    if (this.#promise !== thisPromise) return; // wurde überschrieben
+                    this.#filled = true;
+                    this.#pending = false;
+                    this.#promise = undefined;
+                    this.$set(resolved);
+                },
+                error => {
+                    if (this.#promise !== thisPromise) return;
+                    this.#error = error;
+                    this.#pending = false;
+                    this.#promise = undefined;
+                    dispatchEvent(this, 'change', { item: this, oldValue, value: this.#value });
+                }
+            );
+
+            return;
+        }
+
         if (this.constructor.isPrimitive(value)) {
             if (!this.#filled || !this.constructor.equals(oldValue, value)) {
                 this.#value = value; // structuralClone(value); // TODO: should we clone the value? or should we just use the reference? (if its an object)
@@ -126,7 +163,8 @@ export class Item extends EventTarget {
     loadItems(){ throw new Error('not implemented'); } // can be overwritten by child class
 
     static isPrimitive(value){
-        return value !== Object(value) || 'toJSON' in value || value instanceof Promise;
+        return value !== Object(value) || 'toJSON' in value;
+        //return value !== Object(value) || 'toJSON' in value || value instanceof Promise;
     }
     static equals(a, b){ // comparison function between old and new value in case of primitive
         if (Object.is(a, b)) return true; //  // TODO: we shoul use deepEqual as "primitive" can be an object

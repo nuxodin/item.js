@@ -37,8 +37,8 @@
 
     const asyncItem = new AsyncItem();
 
-    asyncItem.asyncHandler.options.optimisticUpdate = true;
-    asyncItem.asyncHandler.options.cacheDuration = 100;
+    asyncItem.asyncHandler.options.optimistic = true;
+    asyncItem.asyncHandler.options.ttl = 100;
     asyncItem.asyncHandler.options.setDebouncePeriod = 5;
 
     asyncItem.createGetter = async function(...args){

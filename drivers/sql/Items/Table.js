@@ -13,7 +13,7 @@ export const Table = class extends Item {
             const id = await this.rowId(data);
             const row = this.item(id);
             for (const field in data) {
-                row.item(field).asyncHandler.setFromMaster(data[field]);
+                row.item(field).asyncHandler.setLocal(data[field]);
             }
         }
     }
@@ -39,7 +39,7 @@ export const Table = class extends Item {
     //         const row = this.item(id);
     //         for (const i in data) {
     //             console.log('asyncHandler?');
-    //             row.cell(i).setFromMaster(data[i]); // todo: asyncHandler??
+    //             row.cell(i).setLocal(data[i]); // todo: asyncHandler??
     //         }
     //         rows.push( row );
     //     }

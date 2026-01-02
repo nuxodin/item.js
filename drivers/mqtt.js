@@ -13,7 +13,7 @@ export async function mqtt(options){
         const text = decoder.decode(payload);
         const pathArray = topic.split('/');
         const targetItem = root.walkPathKeys(pathArray);
-        targetItem.asyncHandler.setFromMaster(text);
+        targetItem.asyncHandler.setLocal(text);
     });
 
     class MQTTItem extends AsyncItem {
