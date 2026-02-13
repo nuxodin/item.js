@@ -34,6 +34,38 @@ b.pathKeys; // ['b'];
 a.walkPathKeys(['a', 'b', 'c']); // equals b.item('a').item('b').item('c');
 ```
 
+## Automatic property creation (Autovivification)
+Nested properties are created on-the-fly when accessed. You don't need to manually initialize intermediate objects.
+`````js
+const a = item({});
+a.item('xyz').item('next').value = 123; // a.value becomes {xyz: {next: 123}}
+`````
+
+## Promise handling
+
+`item.js` supports assigning promises directly with automatic state tracking.
+```js
+const i = item();
+i.value = Promise.resolve(42);
+i.value === undefined;
+i.pending === true;        // while pending
+i.promise;                 // returns assigned promise or Promise.resolve(this.value)
+await i.promise;
+i.value === 42;            // resolved value
+```
+
+### Properties
+
+- **`pending`**: `true` while promise is pending
+- **`error`**: Error object on rejection, `undefined` otherwise  
+- **`filled`**: `true` after successful resolution
+
+### Behavior
+
+- On rejection: previous value is preserved, error is stored
+- Change events / effects: fire after resolution or rejection
+- Error clearing: automatic when new promise is set or resolves successfully
+
 ## Effect
 ```js
 // effect

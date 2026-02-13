@@ -18,47 +18,49 @@ export class Item extends EventTarget {
     #promise;
     get pending() { return this.#pending; } // todo? registerCurrentEffectFor(this) ?
     get error() { return this.#error; } // todo? registerCurrentEffectFor(this) ?
-    get promise() { return this.#promise; } // todo? registerCurrentEffectFor(this) ?
+    get promise() {
+        return this.#pending ? this.#promise : Promise.resolve(this.get());
+    }
 
-    constructor(parent, key){
+    constructor(parent, key) {
         super();
         this.#parent = parent;
         this.#key = key;
-        this.addEventListener('change', () => triggerEffectsFor(this) ); // the method that triggers the change effect can be overwritten by a child class, therefore we use the event
+        this.addEventListener('change', () => triggerEffectsFor(this)); // the method that triggers the change effect can be overwritten by a child class, therefore we use the event
     }
 
-    get key(){ return this.#key }
-    get parent(){ return this.#parent }
-    get filled(){ return this.#filled }
+    get key() { return this.#key }
+    get parent() { return this.#parent }
+    get filled() { return this.#filled }
 
-    set value(value){ this.set(value); }
-    get value(){ return this.get(); }
+    set value(value) { this.set(value); }
+    get value() { return this.get(); }
 
-    get(){
+    get() {
         if (this.#isGetting) throw new Error('circular get');
         this.#isGetting = true;
-        dispatchEvent(this, 'get', { item: this, value:this.#value });
+        dispatchEvent(this, 'get', { item: this, value: this.#value });
         registerCurrentEffectFor(this);
         this.#isGetting = false;
         return this.$get();
     }
-    set(value){
+    set(value) {
         if (this.#isSetting) throw new Error('circular set');
         this.#isSetting = true;
-        const obj = dispatchEvent(this, 'set', { item:this, oldValue:this.#value , value });
+        const obj = dispatchEvent(this, 'set', { item: this, oldValue: this.#value, value });
         const result = !obj.defaultPrevented ? this.$set(value) : null;
         this.#isSetting = false;
         return result;
     }
-    $get(){
+    $get() {
         if (this.constructor.isPrimitive(this.#value)) {
             return this.#value;
         } else {
             const value = this.#value ??= Object.create(null); // if undefined, create object
-            return Object.fromEntries(Object.entries(value).map(([key, {value}]) => [key, value]));
+            return Object.fromEntries(Object.entries(value).map(([key, { value }]) => [key, value]));
         }
     }
-    $set(value){
+    $set(value) {
         const oldValue = this.#value;
 
         if (value instanceof Promise) { // todo? handle all thenables?
@@ -66,9 +68,9 @@ export class Item extends EventTarget {
             this.#pending = true;
             this.#error = undefined;
             //this.#filled = false; todo? should filled be false while pending?
-            
+
             //dispatchEvent(this, 'change', { item: this, oldValue, value: this.#value }); // todo? pending state changed
-            
+
             value.then(
                 resolved => {
                     if (this.#promise !== thisPromise) return; // wurde überschrieben
@@ -106,7 +108,7 @@ export class Item extends EventTarget {
             }
         }
     }
-    item(key){
+    item(key) {
         key = String(key);
         if (this.#value == null || typeof this.#value !== 'object') { // item() forces value always to be object
             this.#value = Object.create(null);
@@ -115,36 +117,37 @@ export class Item extends EventTarget {
         if (!(key in this.#value)) {
             const Klass = this.ChildClass ?? this.constructor;
             const item = new Klass(this, key);
-            dispatchEvent(this, 'change', { item: this, add:item });
+            dispatchEvent(this, 'change', { item: this, add: item });
             this.#value[key] = item;
         }
         return this.#value[key];
     }
-    remove(){
+    remove() {
         if (!this.#parent) throw new Error('cannot remove root item');
         delete this.#parent.#value[this.#key];
         dispatchEvent(this.#parent, 'change', { item: this.#parent, remove: this });
     }
-    has(key){ return key in this.#value; }
+    has(key) { return key in this.#value; }
 
-    get proxy(){ return toProxy(this); }
+    get proxy() { return toProxy(this); }
 
     // path
-    get path() {
+    get path() { // other name? chain, lineage
         if (this.#parent == null) return [this];
         return [...this.#parent.path, this];
     }
-    get pathKeys() {
+    get pathKeys() { // other name? keys, path, segments
         return this.path.slice(1).map(item => item.key);
     }
-    walkPathKeys(keys) {
+    walkPathKeys(keys) { // other name? getIn, at, navigate, itemAt
         if (keys.length === 0) return this;
         return this.item(keys[0]).walkPathKeys(keys.slice(1));
     }
+    // todo: get root?
 
     toJSON() { return this.get(); }
     valueOf() { return this.get(); }
-    toString() { return this.get()+'' } // if its an object, this.key would be better
+    toString() { return this.get() + '' } // if its an object, this.key would be better
 
     // iterator
     // iterators should probably trigger "get", but not compute the value
@@ -155,18 +158,18 @@ export class Item extends EventTarget {
     async *[Symbol.asyncIterator]() {
         for (const item of Object.values(this.#value ?? {})) yield item;
         const abortCtrl = new AbortController();
-        const iterator = asyncIteratorFromEventTarget(this, 'change', { signal:abortCtrl.signal });
+        const iterator = asyncIteratorFromEventTarget(this, 'change', { signal: abortCtrl.signal });
         this.loadItems().then(() => abortCtrl.abort());
-        for await (const {detail:{add}} of iterator) if (add) yield add;
+        for await (const { detail: { add } } of iterator) if (add) yield add;
     }
 
-    loadItems(){ throw new Error('not implemented'); } // can be overwritten by child class
+    loadItems() { throw new Error('not implemented'); } // can be overwritten by child class
 
-    static isPrimitive(value){
+    static isPrimitive(value) {
         return value !== Object(value) || 'toJSON' in value;
         //return value !== Object(value) || 'toJSON' in value || value instanceof Promise;
     }
-    static equals(a, b){ // comparison function between old and new value in case of primitive
+    static equals(a, b) { // comparison function between old and new value in case of primitive
         if (Object.is(a, b)) return true; //  // TODO: we shoul use deepEqual as "primitive" can be an object
     }
 
@@ -196,11 +199,11 @@ let currentEffect = null;
  * @param {function} fn - A function that executes imeediately and collects the containing items.
  * @return {function} A function to dispose the effect.
  */
-export function effect(fn){ // async?
+export function effect(fn) { // async?
     const outer = currentEffect;
     if (outer) {
         (outer.nested ??= new Set()).add(fn);
-        if (fn.parent && fn.parent !== outer) throw('effect(cb) callbacks should not be reused for other effects');
+        if (fn.parent && fn.parent !== outer) throw ('effect(cb) callbacks should not be reused for other effects');
         fn.parent = outer;
     }
     currentEffect = fn;
@@ -214,9 +217,9 @@ export function effect(fn){ // async?
  * @param {function} calc - The calculation function.
  * @return {Item} A new computed item.
  */
-export function computed(calc){
+export function computed(calc) {
     const signal = item();
-    effect(()=>signal.set(calc())); // todo: only primitive?
+    effect(() => signal.set(calc())); // todo: only primitive?
     return signal;
 }
 
@@ -254,10 +257,10 @@ function triggerEffectsFor(signal) {
 // proxy
 // todo? should proxy[iterator] iterate over item
 const proxyHandler = {
-    get: function(target, property, receiver){
-        if (target.asyncHandler && property === 'then') { // instanceof AsyncItem, make it a thenable, would be great if it can be handled by a proxy-trap
-            return (onFulfilled, onRejected) => target.get().then(onFulfilled, onRejected);
-        }
+    get: function (target, property, receiver) {
+        // if (target.asyncHandler && property === 'then') { // instanceof AsyncItem, make it a thenable, would be great if it can be handled by a proxy-trap
+        //     return (onFulfilled, onRejected) => target.get().then(onFulfilled, onRejected);
+        // }
         if (property === '$item') return target;
 
         // if (property === Symbol.iterator) { // also loop proxys
@@ -276,16 +279,16 @@ const proxyHandler = {
         const value = item.get(); // TODO?: Is accessing item.get() here good? it will trigger a get event (E.g. fetch data)
         return item.constructor.isPrimitive(value) ? value : toProxy(item);
     },
-    set: function(target, property, value){
+    set: function (target, property, value) {
         target.item(property).set(value);
         return true;
     },
     has: (target, property) => target.has(property),
-    ownKeys: (target)=> Reflect.ownKeys(target.get()),
-    getOwnPropertyDescriptor: (target, property)=>{
-        return { configurable: true, enumerable: true, get: ()=>target.get(property), set: (value)=>target.set(property, value) };
+    ownKeys: (target) => Reflect.ownKeys(target.get()),
+    getOwnPropertyDescriptor: (target, property) => {
+        return { configurable: true, enumerable: true, get: () => target.get(property), set: (value) => target.set(property, value) };
     },
-    deleteProperty: function(target, property){
+    deleteProperty: function (target, property) {
         target.item(property).remove();
         return true;
     },
@@ -305,9 +308,9 @@ const toProxy = (item) => {
  * @param {Object} detail - The event details.
  * @return {Object} An object containing a `defaultPrevented` property.
  */
-export function dispatchEvent(item, eventName, detail){
+export function dispatchEvent(item, eventName, detail) {
 
-    const options = {detail, cancelable: true};
+    const options = { detail, cancelable: true };
 
     const event = new CustomEvent(eventName, options);
     item.dispatchEvent(event);

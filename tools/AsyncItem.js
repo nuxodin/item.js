@@ -2,10 +2,17 @@ import { Item, dispatchEvent } from "../item.js";
 import { AsyncDataPoint } from "./AsyncDataPoint.js";
 
 /*
-A AsyncItem is a Item that can be get and set asynchronously.
-When you get the value of a AsyncItem, it will first trigger the getter return undefined.
-value = await item.get()
-await item.set(value) // await is optional, use it if you want to wait for the set to finish
+AsyncItem is an Item that supports asynchronous get/set operations.
+Access patterns:
+    • item.$get() returns the last known value synchronously (undefined while pending).
+    • item.promise returns a Promise for the current value (waits if pending).
+    • When the value resolves, a 'change' event is triggered.
+    • Use effects or event listeners to react to changes.
+
+Example:
+        item.addEventListener('change', ({detail}) => console.log(detail.value));
+        item.$get(); // returns undefined while pending, then the resolved value
+        await item.promise; // always resolves to the current value
 */
 export class AsyncItem extends Item {
     constructor(parent, key) {
@@ -24,9 +31,11 @@ export class AsyncItem extends Item {
     createGetter() { throw new Error('createGetter not implemented'); }
     createSetter(value) { throw new Error(`createSetter not implemented (value: ${value})`); }
 
+    get promise() {
+        return this.asyncHandler.get();
+    }
     $get() {
         this.asyncHandler.get(); // trigger getter
-        //return super.$get(); does not work, why?
         return this.asyncHandler.recentValue;
     }
     $set(value) {

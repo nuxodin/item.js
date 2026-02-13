@@ -36,7 +36,12 @@ treeEl.addEventListener('u2-tree1-expand', event => {
     }
 
     event.load(async (treeEl) => {
-        await item.loadItems();
+        try {
+            await item.loadItems();
+        } catch (err) {
+            // treeEl.innerHTML = `<span style="color:red">Error: ${err.message}</span>`;
+            // return;
+        }
         for (const child of item) {
             treeEl.innerHTML += 
             `<u2-tree1 aria-expanded=false aria-live=off name="${child.key}">

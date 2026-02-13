@@ -22,8 +22,13 @@
 <script type=module>
 
 import {effect} from '../item.js';
-import 'https://unpkg.com/uhtml@3.2.2/async';
-const {render, html} = uhtml;
+
+//import 'https://unpkg.com/uhtml@3.2.2/async';
+//const {render, html} = uhtml;
+
+import { render, html } from "https://esm.sh/uhtml@4";
+
+
 
 
 
@@ -84,7 +89,6 @@ const effectFn = async ()=>{
             <form onsubmit="${(e)=>{e.preventDefault(); const data={}; for(const field of fields) data[field.name]=e.target[field.name].value; store.item(data.id).value=data;}}">
                 <table style="width:auto">
                     ${fields.map(field => {
-                        //if(field.autoIncrement) return html``;
                         return html`<tr><td> ${field.name} <td> <input name="${field.name}">`;
                     })}
                 </table>
@@ -102,7 +106,7 @@ const effectFn = async ()=>{
                         field => html`<th> ${field.name} `
                     )}
                     <th> Value
-                    <th style="width:2rem"> <button onclick="${()=>{let name=prompt('cookie name'); if(name)store.item().value={id:11}; }}">add</button>
+                    <th style="width:2rem"> <button onclick="${()=>{let name=prompt('add'); if(name)store.item().value={id:11}; }}">add</button>
             <tbody>
                 ${[...store].map(item => {
                     return html`
@@ -115,7 +119,7 @@ const effectFn = async ()=>{
                                     return html`<td> <input .value="${cell.value}" onchange="${(e)=>cell.value=e.target.value}">`
                                 }
                             )}
-                            <td> <textarea .value="${item.value.then(v=>JSON.stringify(v, null, 2))}" onchange=${(e)=> {const v=JSON.parse(e.target.value); item.value=v} }></textarea>
+                            <td> <textarea .value="${item.value}" onchange=${(e)=> {const v=JSON.parse(e.target.value); item.value=v} }></textarea>
                             <td> <button u1-confirm onclick="${()=>item.remove()}">✖</button>
                     `;
                 })}

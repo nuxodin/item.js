@@ -367,19 +367,6 @@ describe('promise handling', () => {
         chai.expect(i.promise).to.equal(p);
     });
 
-    it('promise property is undefined after resolve', async () => {
-        let i = item();
-        i.value = Promise.resolve(42);
-        await new Promise(resolve => setTimeout(resolve, 0));
-        chai.expect(i.promise).to.equal(undefined);
-    });
-
-    it('promise property is undefined after reject', async () => {
-        let i = item();
-        i.value = Promise.reject(new Error('test'));
-        await new Promise(resolve => setTimeout(resolve, 0));
-        chai.expect(i.promise).to.equal(undefined);
-    });
 
     it('race condition: old promise ignored when new promise set', async () => {
         let i = item();

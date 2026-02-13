@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+  <meta charset="UTF-8">
+  <title>HTTP Router & Client Tests</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 1rem;
+      max-width: 900px;
+    }
+
+    h1 {
+      font-size: 1.2rem;
+    }
+
+    button {
+      padding: 0.4rem 0.8rem;
+      margin-right: 0.5rem;
+      margin-bottom: 0.5rem;
+      cursor: pointer;
+    }
+
+    #log {
+      font-family: monospace;
+      font-size: 0.85rem;
+      white-space: pre-wrap;
+      background: #f5f5f5;
+      padding: 0.8rem;
+      margin-top: 1rem;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+
+    .pass {
+      color: green;
+    }
+
+    .fail {
+      color: red;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>HTTP Router & Client Tests</h1>
+  <p>Server muss laufen: <code>deno run -A server.ts</code></p>
+  <button id="runAll">Alle Tests</button>
+  <button id="runRouter">Nur httpRouter</button>
+  <button id="runClient">Nur httpClient</button>
+  <div id="log"></div>
+
+  <script type="module">
+    const API = 'http://' + location.host + ':3750/api';
+    const logEl = document.getElementById('log');
+
+    function log(msg, cls = '') {
+      const p = document.createElement('div');
+      p.className = cls;
+      p.textContent = msg;
+      logEl.appendChild(p);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function clearLog() {
+      logEl.innerHTML = '';
+    }
+
+    let passed = 0;
+    let failed = 0;
+
+    function assert(cond, msg) {
+      if (cond) {
+        passed++;
+        log('  ✓ ' + msg, 'pass');
+        return true;
+      }
+      failed++;
+      log('  ✗ ' + msg, 'fail');
+      return false;
+    }
+
+    function assertEq(a, b, msg) {
+      const ok = JSON.stringify(a) === JSON.stringify(b);
+      assert(ok, msg + ` (got ${JSON.stringify(a)}, expected ${JSON.stringify(b)})`);
+      return ok;
+    }
+
+    async function testRouter() {
+      log('\n--- httpRouter Tests ---');
+      const req = async (method, path, body) => {
+        const opts = { method, headers: body != null ? { 'Content-Type': 'application/json' } : {} };
+        if (body != null) opts.body = JSON.stringify(body);
+        const res = await fetch(API + path, opts);
+        const text = await res.text();
+        return { status: res.status, data: text ? JSON.parse(text) : null };
+      };
+
+      let r;
+
+      r = await req('GET', '/users/44/name');
+      assertEq(r.data, 'Alice', 'GET /users/44/name');
+      assert(r.status === 200, 'Status 200');
+
+      r = await req('PUT', '/users/44/name', 'Alice Smith');
+      assertEq(r.data, 'Alice Smith', 'PUT /users/44/name');
+      r = await req('PUT', '/users/44/name', 'Alice');
+      assertEq(r.data, 'Alice', 'PUT revert');
+
+      r = await req('PATCH', '/config', { theme: 'light' });
+      assert(r.data.theme === 'light' && r.data.lang === 'en', 'PATCH merge');
+      r = await req('PATCH', '/config', { theme: 'dark' });
+      assertEq(r.data.theme, 'dark', 'PATCH revert');
+
+      r = await req('OPTIONS', '/users');
+      assert(r.data.methods?.includes('GET'), 'OPTIONS returns methods');
+
+      r = await req('POST', '/items', { key: 'new1', value: { x: 1 } });
+      assert(r.status === 201 && r.data.key === 'new1', 'POST create');
+      assertEq(r.data.value, { x: 1 }, 'POST value');
+
+      r = await req('DELETE', '/items/new1');
+      assert(r.status === 204, 'DELETE returns 204');
+      r = await req('GET', '/items');
+      assert(!r.data.new1, 'DELETE removes item');
+
+      r = await req('GET', '/nonexistent');
+      assert(r.status === 400, 'GET invalid path returns 400');
+    }
+
+    const { createItemClient } = await import('../httpClient.js');
+    window.client = createItemClient(API);
+
+    async function testClient() {
+      log('\n--- httpClient Tests ---');
+
+
+      const root = await client.get();
+      assert(typeof root === 'object' && root.users != null, 'Client GET root');
+
+      const name = await client.item('users').item('44').item('name').promise;
+      assertEq(name, 'Alice', 'Client lazy load name');
+
+      const usersItem = client.item('users').item('44');
+      usersItem.set({ name: 'Alice X', age: 30 });
+      const updated = await usersItem.promise;
+      assertEq(updated.name, 'Alice X', 'Client PUT');
+      usersItem.set({ name: 'Alice', age: 30 });
+
+      log('  (remove test skipped - needs server sync)');
+    }
+
+    async function runTests(which) {
+      clearLog();
+      passed = failed = 0;
+      log('Tests starten...');
+
+      try {
+        if (which === 'router' || which === 'all') await testRouter();
+        if (which === 'client' || which === 'all') await testClient();
+
+        log('\n' + (failed ? `\n${passed} bestanden, ${failed} fehlgeschlagen` : `\n✓ ${passed} Tests bestanden`), failed ? 'fail' : 'pass');
+      } catch (err) {
+        log('\nFehler: ' + err.message, 'fail');
+        console.error(err);
+      }
+    }
+
+    document.getElementById('runAll').onclick = () => runTests('all');
+    document.getElementById('runRouter').onclick = () => runTests('router');
+    document.getElementById('runClient').onclick = () => runTests('client');
+  </script>
+</body>
+
+</html>

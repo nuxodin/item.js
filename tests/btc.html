@@ -4,12 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
     <title>Test</title>
-    <script src="https://cdn.jsdelivr.net/gh/nuxodin/lazyfill@main/mod.min.js"></script>
-    <link rel=stylesheet href="http://gcdn.li/u1ui/base.css/full.css">
-    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/variables.css">
-    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/classless.css">
-    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/more.css">
-    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/simple.css">
+    <script type=module async src="https://cdn.jsdelivr.net/gh/u2ui/u2@main/u2/auto.js"></script>
+    <link rel=stylesheet href="https://cdn.jsdelivr.net/gh/u2ui/u2@main/css/classless/simple.css">
 <body>
 
 
@@ -17,37 +13,17 @@
 
 <script type=module>
 
-import {effect} from '../item.js';
-import {wallets} from "../drivers/btc.js";
-//import 'https://unpkg.com/uhtml@3.2.2/async';
-//const {render, html} = uhtml;
-
-import {render, html, htmlFor} from 'https://unpkg.com/uhtml@4.4.7/keyed.js';
+import { effect } from '../item.js';
+import { wallets } from "../drivers/btc.js";
+import { render, html } from "https://esm.sh/uhtml@4";
 
 
 const wallet = wallets().proxy;
 
+wallet['bc1q8yj0herd4r4yxszw3nkfvt53433thk0f5qst4g'];
+wallet['34xp4vRoCGJym3xR7yCVPFHoCNxv4Twseo'];
+wallet['bc1qysj2w7xsw09datsy9mt9x50jn7qjd6qde6d66qm3ce0a4y9uzdpqcavdr0'];
 
-wallet['bc1qxq47p758tf7kg8fvv47ug66fdur9fcnqskwv4d'];
-wallet['bc1qnjc76s3z7tsel80c8g4c55mf3ar4jym6hhm9wk'];
-
-
-function reactiveInnerHTML(el, item) {
-    if (typeof el === 'string') el = document.createElement(el);
-    let selfModify = false;
-    effect(() => {
-        selfModify = true;
-        el.innerHTML = item.value.value ?? 'loading...';
-        selfModify = false;
-        //item.value.then(value => el.innerHTML = value);
-    });
-    const mutationObserver = new MutationObserver(() => {
-        if (selfModify) return;
-        item.value = el.innerHTML;
-    });
-    mutationObserver.observe(el, {childList: true, subtree: true});
-    return el;
-}
 
 effect(() => {
     render(table, html`
@@ -61,11 +37,10 @@ effect(() => {
                 <td> <button onclick="${()=>{wallet[inp.value]; inp.value=''}}">add</button></td>
             </tr>
         ${[...wallet].map(item => {
-            console.log('item', item.key, item.item('balance').value.value, item.item('balance').value.state, );
             return html`
                 <tr>
                     <td> ${item.key}
-                    <td> ${reactiveInnerHTML('td', item.item('balance'))}
+                    <td align=right> <u2-number value="${item.item('balance').value}" digits="8"></u2-number>
             `;
         })}
     `);
@@ -74,9 +49,5 @@ effect(() => {
 
 </script>
 
-<div>
-    
-</div>
-<table id=table>
-</table>
+<table id=table></table>
 
