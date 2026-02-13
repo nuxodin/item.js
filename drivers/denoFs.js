@@ -13,7 +13,7 @@ export function denoFs(rootPath, options) {
                     // get the path relative to the root
                     const relativePath = path.substring(rootPath.length + 1);
                     const pathArray = relativePath.split(/[\\\/]/);
-                    const targetItem = relativePath === '' ? root : root.walkPathKeys(pathArray);
+                    const targetItem = relativePath === '' ? root : root.walkKeys(pathArray);
                     if (event.kind === 'modify') {
                         // todo, only make this if item is already accessed?
                         const contents = await Deno.readTextFile(targetItem.fsPath);

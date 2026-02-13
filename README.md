@@ -29,9 +29,9 @@ a.value // {b: 1}
 const b = a.item('b'); // property 'b' is also an "Item"
 b.parent === a;
 b.key === 'b';
+b.keys; // ['b'];
 b.path; // equals [a, b]
-b.pathKeys; // ['b'];
-a.walkPathKeys(['a', 'b', 'c']); // equals b.item('a').item('b').item('c');
+a.walkKeys(['a', 'b', 'c']); // equals b.item('a').item('b').item('c');
 ```
 
 ## Automatic property creation (Autovivification)
@@ -158,7 +158,7 @@ const root = cookies();
 root.item('myCookie').value = 'Hello World';
 ```
 
-Even easier with with proxies:
+Even easier with proxies:
 
 ```js
 

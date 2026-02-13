@@ -37,9 +37,9 @@ import {jsonFile} from "../drivers/denoFs.js";
 const data = await jsonFile(testDirectory+'/test.json');
 
 data.addEventListener('changeIn', ({detail}) => {
-    if (detail.add)    console.log('- added: ' + detail.item.pathKeys.join('.') + ' added ' + detail.add.key);
-    if (detail.remove) console.log('- removed: ' + detail.item.pathKeys.join('.') + ' removed ' + detail.remove.key);
-    if (detail.value)  console.log('- value: ' + detail.item.pathKeys.join('.') + ' = ' + detail.value);
+    if (detail.add)    console.log('- added: ' + detail.item.keys.join('.') + ' added ' + detail.add.key);
+    if (detail.remove) console.log('- removed: ' + detail.item.keys.join('.') + ' removed ' + detail.remove.key);
+    if (detail.value)  console.log('- value: ' + detail.item.keys.join('.') + ' = ' + detail.value);
 });
 console.log('## json: ' + JSON.stringify(data.value, null, 2));
 

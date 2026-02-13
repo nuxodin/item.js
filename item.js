@@ -136,12 +136,20 @@ export class Item extends EventTarget {
         if (this.#parent == null) return [this];
         return [...this.#parent.path, this];
     }
-    get pathKeys() { // other name? keys, path, segments
+    get pathKeys() {
+        console.warn('item.pathKeys is deprecated, use item.keys instead');
+        return this.keys;
+    }
+    get keys() { // other name? keys, path, segments
         return this.path.slice(1).map(item => item.key);
     }
     walkPathKeys(keys) { // other name? getIn, at, navigate, itemAt
+        console.warn('item.walkPathKeys is deprecated, use item.walkKeys instead');
+        return this.walkKeys(keys);
+    }
+    walkKeys(keys) { // other name? getIn, at, navigate, itemAt
         if (keys.length === 0) return this;
-        return this.item(keys[0]).walkPathKeys(keys.slice(1));
+        return this.item(keys[0]).walkKeys(keys.slice(1));
     }
     // todo: get root?
 

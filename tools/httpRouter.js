@@ -30,7 +30,7 @@ export function createItemRouter(rootItem, basePath = '') {
 
       const path = allSegments.slice(prefixLength);
       const method = request.method;
-      const item = rootItem.walkPathKeys(path);
+      const item = rootItem.walkKeys(path);
 
       // OPTIONS: Return schema info
       if (method === 'OPTIONS') {
