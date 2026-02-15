@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+  <meta charset="UTF-8">
+  <title>WebSocket Router & Client Tests</title>
+  <style>
+    body { font-family: sans-serif; margin: 1rem; max-width: 900px; }
+    h1 { font-size: 1.2rem; }
+    button { padding: 0.4rem 0.8rem; margin-right: 0.5rem; margin-bottom: 0.5rem; cursor: pointer; }
+    #log { font-family: monospace; font-size: 0.85rem; white-space: pre-wrap; background: #f5f5f5; padding: 0.8rem; margin-top: 1rem; max-height: 400px; overflow-y: auto; }
+    .pass { color: green; } .fail { color: red; }
+  </style>
+</head>
+
+<body>
+  <h1>WebSocket Router & Client Tests</h1>
+  <p>Server muss laufen: <code>deno run -A server.ts</code></p>
+  <button id="runAll">Alle Tests</button>
+  <div id="log"></div>
+
+  <script type="module">
+    const LOG = document.getElementById('log');
+    function log(msg, cls='') { const d=document.createElement('div'); d.className=cls; d.textContent=msg; LOG.appendChild(d); LOG.scrollTop = LOG.scrollHeight; }
+    function clearLog(){ LOG.innerHTML=''; }
+    let passed=0, failed=0;
+    function assert(cond,msg){ if(cond){ passed++; log('  ✓ '+msg,'pass'); return true } failed++; log('  ✗ '+msg,'fail'); return false }
+    function assertEq(a,b,msg){ const ok = JSON.stringify(a)===JSON.stringify(b); assert(ok, msg + ` (got ${JSON.stringify(a)}, expected ${JSON.stringify(b)})`); return ok }
+
+    const WS = (location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.hostname + ':3755/ws';
+    const { createItemClient } = await import('../wsClient.js');
+    window.client = createItemClient(WS);
+
+    async function testClient() {
+      log('\n--- wsClient Tests ---');
+      const root = await client.promise;
+      assert(typeof root === 'object' && root.users != null, 'Client GET root');
+
+      const name = await client.item('users').item('44').item('name').promise;
+      assertEq(name, 'Alice', 'Client lazy load name');
+
+      const usersItem = client.item('users').item('44');
+      await usersItem.set({ name: 'Alice X', age: 30 });
+      const updated = await usersItem.promise;
+      assertEq(updated.name, 'Alice X', 'Client SET via WS');
+      await usersItem.set({ name: 'Alice', age: 30 });
+
+      // subscribe / server push test
+      const themeItem = client.item('config').item('theme');
+      let pushed;
+      themeItem.addEventListener('change', ({detail}) => pushed = detail.value);
+      // subscribe explicitly so we receive server pushes (and an immediate snapshot)
+      await themeItem.promise;
+      // trigger server-side change (server.ts will change theme after a short delay)
+      await new Promise(r => setTimeout(r, 500));
+      assert(pushed === 'light', 'Server push update received (theme -> light)');
+
+      log('\n(WS router/client tests finished)');
+    }
+
+    async function runTests() {
+      clearLog(); passed = failed = 0; log('Tests starten...');
+      try { await testClient(); log('\n' + (failed ? `${passed} bestanden, ${failed} fehlgeschlagen` : `✓ ${passed} Tests bestanden`), failed ? 'fail' : 'pass'); }
+      catch (err) { log('\nFehler: ' + err.message, 'fail'); console.error(err); }
+    }
+
+    document.getElementById('runAll').onclick = runTests;
+  </script>
+</body>
+
+</html>

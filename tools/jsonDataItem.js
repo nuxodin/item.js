@@ -3,7 +3,7 @@ import { item } from '../item.js';
 export async function jsonDataItem(jsonItem) {
 
     const root = item();
-    const json = await jsonItem.value;
+    const json = await jsonItem.promise;
 
     if (json === undefined) {
         root.set(null)
@@ -27,7 +27,7 @@ export async function jsonDataItem(jsonItem) {
     });
 
     jsonItem.addEventListener('change', async () => { // changes from outside
-        const json = await jsonItem.value;
+        const json = await jsonItem.promise;
         root.value = JSON.parse(json);
     });
     return root;

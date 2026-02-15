@@ -98,8 +98,6 @@ class FsItem extends AsyncItem {
 }
 
 
-//import { jsonDataItem } from '../tools/jsonDataItem.js';
-
 export async function jsonFile(path) {
     const {jsonDataItem} = await import('../tools/jsonDataItem.js');
     const fileItem = denoFs(path, {watch: true})
