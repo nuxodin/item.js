@@ -6,9 +6,6 @@ import { openDB } from 'https://cdn.jsdelivr.net/npm/idb@7.1.1/with-async-ittr/+
 
 
 class Db extends Item {
-    constructor(parent, key) {
-        super(parent, key);
-    }
     open(version, callbacks) {
         this.dbPromise = openDB(this.key, version, callbacks);
     }

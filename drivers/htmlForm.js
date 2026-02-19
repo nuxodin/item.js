@@ -3,9 +3,6 @@
 import { Item } from '../item.js';
 
 class FormItem extends Item {
-    constructor(parent, key) {
-        super(parent, key);
-    }
     setElement(form) {
         this.formElement = form;
     }
