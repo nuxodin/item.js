@@ -11,7 +11,7 @@ export function collectChanges(item, onchange) {
     // we need a wrapper to be able to have a reference even if the root value is not an object
     let wrapper = {};
 
-    const startPathLevel = item.path.length-1;
+    const startPathLevel = item.pathKeys.length;
 
     item.addEventListener('changeIn', e => {
         const {item, value, remove, add} = e.detail;

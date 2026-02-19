@@ -104,15 +104,16 @@ export class Item extends EventTarget {
             }
         } else {
             // todo? patch without removing old keys?
+            this.#value ??= Object.create(null);
+            this.#filled = true;
+
             for (const key in value) this.item(key).set(value[key]);
-            if (this.#value && Object(this.#value)) { // remove keys that are not in value
-                for (const key in this.#value) if (!(key in value)) this.#value[key].remove();
-            }
+            for (const key in this.#value) if (!(key in value)) this.#value[key].remove();
         }
     }
 
-    get path() { // other name? chain, lineage
-        console.error('path used?');
+    get path() { // futue: make .path like .pathKeys  and remove pathKeys.
+        console.warn('.path is deprecated, use .pathKeys instead');
         if (this.#parent == null) return [this];
         return [...this.#parent.path, this];
     }
@@ -298,7 +299,7 @@ const proxyHandler = {
 
         const item = target.item(property);
 
-        if (item.pending) return promise;
+        if (item.pending) return item.promise;
 
         const value = item.get(); // TODO?: Is accessing item.get() here good? it will trigger a get event (E.g. fetch data)
         return item.constructor.isPrimitive(value) ? value : toProxy(item);
@@ -310,9 +311,10 @@ const proxyHandler = {
     has: (target, property) => target.has(property),
     //ownKeys: (target) => Reflect.ownKeys(target.get()),
     ownKeys: (target) => target.keys,
-    getOwnPropertyDescriptor: (target, property) => {
-        return { configurable: true, enumerable: true, get: () => target.get(property), set: (value) => target.set(property, value) };
-    },
+    // needed?
+    // getOwnPropertyDescriptor: (target, property) => {
+    //     return { configurable: true, enumerable: true, get: () => target.get(property), set: (value) => target.set(property, value) };
+    // },
     deleteProperty: function (target, property) {
         target.item(property).remove();
         return true;
