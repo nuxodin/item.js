@@ -192,7 +192,7 @@ export class Item extends EventTarget {
         return value !== Object(value) || 'toJSON' in value;
     }
     static equals(a, b) { // comparison function between old and new value in case of primitive
-        if (Object.is(a, b)) return true; //  // TODO: we shoul use deepEqual as "primitive" can be an object
+        if (Object.is(a, b)) return true; // TODO: we should use deepEqual as "primitive" can be an object
     }
 
     static ChildClass;
@@ -218,7 +218,7 @@ let currentEffect = null;
 
 /**
  * Execute the provided function and re-execute it when dependencies change.
- * @param {function} fn - A function that executes imeediately and collects the containing items.
+ * @param {function} fn - A function that executes immediately and collects the containing items.
  * @return {function} A function to dispose the effect.
  */
 export function effect(fn) { // async?

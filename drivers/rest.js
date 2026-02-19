@@ -24,7 +24,7 @@ export function restApi(url, options={}){
         const headers = new Headers();
         if (options?.auth) {
             const {username, password} = options.auth;
-            headers.append('Authorization', 'Basic' + base64.encode(username + ":" + password));
+            headers.append('Authorization', 'Basic ' + base64.encode(username + ":" + password));
         }
 
         //setTimeout(() => signal.abort(), options?.timeout ?? 10000);

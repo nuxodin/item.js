@@ -4,16 +4,16 @@ const removedSymbol = Symbol('removed');
 // An other variant would be to use structuralClone to clone the object and then compare it with the original
 // This would probably use more memory on big objects but would be simpler, worth it?
 
-export function collectChanges(item, onchange) {
+export function collectChanges(rootItem, onchange) {
     // items can be removed and then added again
     // so on remove we add a symbol to mark it as removed than can be overwritten by a new value
 
     // we need a wrapper to be able to have a reference even if the root value is not an object
     let wrapper = {};
 
-    const startPathLevel = item.pathKeys.length;
+    const startPathLevel = rootItem.pathKeys.length;
 
-    item.addEventListener('changeIn', e => {
+    rootItem.addEventListener('changeIn', e => {
         const {item, value, remove, add} = e.detail;
         if (add) return; // will be handled if the value is set (an other changeIn event)
 

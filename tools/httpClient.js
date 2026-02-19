@@ -32,9 +32,7 @@ class HttpAsyncItem extends AsyncItem {
 
   async loadItems(){
     const data = await httpGet(this.baseUrl);
-    if (Array.isArray(data)) {
-      data.map((info) => this.item(info.key));
-    }
+    data.forEach((info) => this.item(info.key));
   }
 
   remove() {
