@@ -13,6 +13,7 @@ export function getStore(){
             item.value = localStorage.getItem(item.key) ?? ''; // ?? '' to avoid null, is this god or is it needed to be able to check if the item exists?
         });
         addEventListener('storage', e => { // does not trigger on source window!
+            if (e.storageArea !== localStorage) return;
             root.item(e.key).value = e.newValue;
         });
         root.loadItems = function(){

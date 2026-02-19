@@ -21,6 +21,29 @@ export class Item extends EventTarget {
     get promise() {
         return this.#pending ? this.#promise : Promise.resolve(this.get());
     }
+    set promise(promise) {
+        this.#promise = promise;
+        this.#pending = true;
+        this.#error = undefined;
+        this.#filled = false;
+        //dispatchEvent(this, 'change', { item: this, oldValue, value: this.#value }); // todo? pending state changed
+        promise.then(
+            resolved => {
+                if (this.#promise !== promise) return; // wurde überschrieben
+                this.#filled = true;
+                this.#pending = false;
+                this.#promise = undefined;
+                this.$set(resolved);
+            },
+            error => {
+                if (this.#promise !== promise) return;
+                this.#error = error;
+                this.#pending = false;
+                this.#promise = undefined;
+                // some event? dispatchEvent(this, 'change', { item: this, oldValue, value: this.#value });
+            }
+        );
+    }
 
     constructor(parent, key) {
         super();
@@ -64,36 +87,14 @@ export class Item extends EventTarget {
         const oldValue = this.#value;
 
         if (value instanceof Promise) { // todo? handle all thenables?
-            const thisPromise = this.#promise = value;
-            this.#pending = true;
-            this.#error = undefined;
-            //this.#filled = false; todo? should filled be false while pending?
-
-            //dispatchEvent(this, 'change', { item: this, oldValue, value: this.#value }); // todo? pending state changed
-
-            value.then(
-                resolved => {
-                    if (this.#promise !== thisPromise) return; // wurde überschrieben
-                    this.#filled = true;
-                    this.#pending = false;
-                    this.#promise = undefined;
-                    this.$set(resolved);
-                },
-                error => {
-                    if (this.#promise !== thisPromise) return;
-                    this.#error = error;
-                    this.#pending = false;
-                    this.#promise = undefined;
-                    dispatchEvent(this, 'change', { item: this, oldValue, value: this.#value });
-                }
-            );
-
+            console.warn('setting a promise directly on an item is deprecated, use item.promise = promise instead');
+            this.promise = value;
             return;
         }
 
         if (this.constructor.isPrimitive(value)) {
             if (!this.#filled || !this.constructor.equals(oldValue, value)) {
-                this.#value = value; // structuralClone(value); // TODO: should we clone the value? or should we just use the reference? (if its an object)
+                this.#value = value;
                 this.#filled = true;
                 if (!this.#isGetting) {
                     dispatchEvent(this, 'change', { item: this, oldValue, value });
@@ -102,12 +103,25 @@ export class Item extends EventTarget {
                 }
             }
         } else {
+            // todo? patch without removing old keys?
             for (const key in value) this.item(key).set(value[key]);
             if (this.#value && Object(this.#value)) { // remove keys that are not in value
                 for (const key in this.#value) if (!(key in value)) this.#value[key].remove();
             }
         }
     }
+
+    get path() { // other name? chain, lineage
+        console.error('path used?');
+        if (this.#parent == null) return [this];
+        return [...this.#parent.path, this];
+    }
+    get pathKeys() {
+        if (this.#parent == null) return [];
+        return [...this.#parent.pathKeys, this.key];
+    }
+
+    // object related
     item(key) {
         key = String(key);
         if (this.#value == null || typeof this.#value !== 'object') { // item() forces value always to be object
@@ -117,11 +131,19 @@ export class Item extends EventTarget {
         if (!(key in this.#value)) {
             const Klass = this.ChildClass ?? this.constructor;
             const item = new Klass(this, key);
-            dispatchEvent(this, 'change', { item: this, add: item });
             this.#value[key] = item;
+            dispatchEvent(this, 'change', { item: this, add: item });
         }
         return this.#value[key];
     }
+
+    items() {
+        if (!this.filled) return null;
+        const value = this.#value;
+        if (this.constructor.isPrimitive(value)) return null;
+        return Object.values(this.#value);
+    }
+
     remove() {
         if (!this.#parent) throw new Error('cannot remove root item');
         delete this.#parent.#value[this.#key];
@@ -131,31 +153,19 @@ export class Item extends EventTarget {
 
     get proxy() { return toProxy(this); }
 
-    // path
-    get path() { // other name? chain, lineage
-        if (this.#parent == null) return [this];
-        return [...this.#parent.path, this];
-    }
-    get pathKeys() {
-        console.warn('item.pathKeys is deprecated, use item.keys instead');
-        return this.keys;
-    }
-    get keys() { // other name? keys, path, segments
-        return this.path.slice(1).map(item => item.key);
-    }
-    walkPathKeys(keys) { // other name? getIn, at, navigate, itemAt
-        console.warn('item.walkPathKeys is deprecated, use item.walkKeys instead');
-        return this.walkKeys(keys);
-    }
     walkKeys(keys) { // other name? getIn, at, navigate, itemAt
         if (keys.length === 0) return this;
         return this.item(keys[0]).walkKeys(keys.slice(1));
     }
-    // todo: get root?
 
-    toJSON() { return this.get(); }
-    valueOf() { return this.get(); }
-    toString() { return this.get() + '' } // if its an object, this.key would be better
+    get keys(){
+        return Object.keys(this.#value ?? {});
+    }
+
+    // loadItems() {}
+    // can be implemented by child class
+    // it should load the keys of the items, but not necessarily the values
+    // async loadItems() { await getKeys(); for (const key of keys) this.item(key); }
 
     // iterator
     // iterators should probably trigger "get", but not compute the value
@@ -167,15 +177,18 @@ export class Item extends EventTarget {
         for (const item of Object.values(this.#value ?? {})) yield item;
         const abortCtrl = new AbortController();
         const iterator = asyncIteratorFromEventTarget(this, 'change', { signal: abortCtrl.signal });
-        this.loadItems().then(() => abortCtrl.abort());
+        this.loadItems?.().then(() => abortCtrl.abort());
         for await (const { detail: { add } } of iterator) if (add) yield add;
     }
 
-    loadItems() { throw new Error('not implemented'); } // can be overwritten by child class
+    // integration
+    toJSON() { return this.get(); }
+    valueOf() { return this.get(); }
+    toString() { return this.get() + '' } // if its an object, this.key would be better    
+
 
     static isPrimitive(value) {
         return value !== Object(value) || 'toJSON' in value;
-        //return value !== Object(value) || 'toJSON' in value || value instanceof Promise;
     }
     static equals(a, b) { // comparison function between old and new value in case of primitive
         if (Object.is(a, b)) return true; //  // TODO: we shoul use deepEqual as "primitive" can be an object
@@ -284,6 +297,9 @@ const proxyHandler = {
         }
 
         const item = target.item(property);
+
+        if (item.pending) return promise;
+
         const value = item.get(); // TODO?: Is accessing item.get() here good? it will trigger a get event (E.g. fetch data)
         return item.constructor.isPrimitive(value) ? value : toProxy(item);
     },
@@ -292,7 +308,8 @@ const proxyHandler = {
         return true;
     },
     has: (target, property) => target.has(property),
-    ownKeys: (target) => Reflect.ownKeys(target.get()),
+    //ownKeys: (target) => Reflect.ownKeys(target.get()),
+    ownKeys: (target) => target.keys,
     getOwnPropertyDescriptor: (target, property) => {
         return { configurable: true, enumerable: true, get: () => target.get(property), set: (value) => target.set(property, value) };
     },

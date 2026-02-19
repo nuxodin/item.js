@@ -39,18 +39,33 @@ export function createItemWsRouter(rootItem, basePath = '/ws') {
       send(payload);
     };
 
+
+// todo
+// better subscription management: track which clients are subscribed to which items, and only send updates to those clients
+/*
+a.addEventListener('changeIn', (event) => {
+    if (detail.add) console.log(event.target, 'added property', event.detail.add); // child-item
+    if (detail.remove) console.log(event.target, 'removed property', event.detail.remove);
+    if (detail.value !== undefined) console.log(event.target, 'value changed from', event.detail.oldValue, 'to', event.detail.value );
+});
+*/
+
     // Subscribe to item changes
     const subscribe = (item) => {
-      const key = item.keys.join('/');
+      const key = item.pathKeys.join('/');
       if (subscriptions.has(key)) return;
 
       const listener = ({ detail }) => {
-        const data = detail.value;
-        send({
-          type: 'update',
-          path: detail.item.keys,
-          data,
-        });
+        // Simple payloads only — clients apply the exact change locally.
+        const payload = { type: 'update', path: detail.item.pathKeys };
+        if (detail.add) {
+          payload.add = detail.add.key;
+        } else if (detail.remove) {
+          payload.remove = detail.remove.key;
+        } else if (Object.prototype.hasOwnProperty.call(detail, 'value')) {
+          payload.value = detail.value;
+        }
+        send(payload);
       };
 
       item.addEventListener('changeIn', listener);
@@ -58,7 +73,7 @@ export function createItemWsRouter(rootItem, basePath = '/ws') {
     };
 
     const unsubscribe = (item) => {
-      const key = item.keys.join('/');
+      const key = item.pathKeys.join('/');
       const sub = subscriptions.get(key);
       if (sub) {
         sub.item.removeEventListener('changeIn', sub.listener);
@@ -76,6 +91,14 @@ export function createItemWsRouter(rootItem, basePath = '/ws') {
         switch (msg.action) {
           case 'get': {
             const data = await item.promise;
+            respond(id, 'ok', data);
+            if (msg.subscribe) subscribe(item);
+            break;
+          }
+
+          case 'list': {
+            await item.loadItems();
+            const data = item.keys;
             respond(id, 'ok', data);
             if (msg.subscribe) subscribe(item);
             break;

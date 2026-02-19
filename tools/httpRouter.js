@@ -42,9 +42,18 @@ export function createItemRouter(rootItem, basePath = '') {
             }
 
             // GET: Return item value
-            // todo: this gets the full value, mybe we want just the value if primitive or the children if object? or maybe a query param to control this?
+            // todo: this gets the full value, maybe we want just the value if primitive or the children if object? or maybe a query param to control this?
             if (method === 'GET') {
-                const value = await item.promise;
+                try {
+                    await item.loadItems();
+                } catch {}
+                const items = item.items();
+                let value = null;
+                if (items === null) {
+                    value = await item.promise;
+                } else {
+                    value = items.map(item=>({key: item.key}));
+                }
                 return jsonResponse(value);
             }
 
@@ -73,6 +82,8 @@ export function createItemRouter(rootItem, basePath = '') {
             return jsonResponse({ error: 'Method not allowed' }, 405);
 
         } catch (err) {
+            console.log(err);
+            console.log(err.message)
             return jsonResponse({ error: err.message }, 400);
         }
     };

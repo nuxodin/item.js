@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Item.js Playground</title>
+    <!--script type=module async src="https://cdn.jsdelivr.net/gh/u2ui/u2@main/u2/auto.js"></script>
+    <link rel=stylesheet href="https://cdn.jsdelivr.net/gh/u2ui/u2@main/css/classless/simple.css"-->
+    <script type=module src="http://localhost/u2/u2/auto.js"></script>
+    <link rel=stylesheet href="http://localhost/u2/css/classless/simple.css">
+    <style>
+    html { --width: 70rem;}
+    </style>
+
+<body>
+
+<script type=module>
+
+// editor:
+let currentItem = null;
+const editorEl = document.querySelector('#editor');
+const saveBtn = document.querySelector('#saveBtn');
+saveBtn.addEventListener('click', async e=>{
+    try {
+        await currentItem.set(editorEl.value);
+        alert('Saved!');
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+});
+
+// files http:
+import { createItemClient as createHttpClient } from "../../tools/httpClient.js";
+import { createItemClient as createWsClient } from "../../tools/wsClient.js";
+const fs = createHttpClient("http://localhost:3495/files");
+const tree = document.getElementById('filesHttp');
+setTimeout(()=>{
+    tree.bindItem(fs);
+    fs.loadItems();
+    tree.setAttribute('aria-expanded', 'true');
+    tree.addEventListener('u2-tree-select', async (event) => {
+        const treeEl = event.target;
+        const path = [];
+        let current = treeEl;
+        while (current && current.dataset.key) {
+            path.unshift(current.dataset.key);
+            current = current.parentElement.closest('u2-tree');
+        }
+        const item = fs.walkKeys(path);
+        const value = await item.promise;
+        if (typeof value === 'string') {
+            currentItem = item;
+            editorEl.value = value;
+        } else {
+            editorEl.value = '';
+            item.loadItems();
+        }
+    });
+},300)
+
+// files (websocket):
+const fsWs = createWsClient("ws://localhost:3495/ws");
+const treeWs = document.getElementById('filesWs');
+setTimeout(()=>{
+    treeWs.bindItem(fsWs);
+    fsWs.loadItems();
+    treeWs.setAttribute('aria-expanded', 'true');
+    treeWs.addEventListener('u2-tree-select', async (event) => {
+        const treeEl = event.target;
+        const path = [];
+        let current = treeEl;
+        while (current && current.dataset.key) {
+            path.unshift(current.dataset.key);
+            current = current.parentElement.closest('u2-tree');
+        }
+        const item = fsWs.walkKeys(path);
+        const value = await item.promise;
+        if (typeof value === 'string') {
+            currentItem = item;
+            editorEl.value = value;
+        } else {
+            editorEl.value = '';
+            item.loadItems();
+        }
+    });
+},300)
+
+
+
+</script>
+
+<main>
+    <u2-tabs>
+        <h2>Files</h2>
+        <div>
+            <u2-splitpanel style="height:40rem">
+                <div style="flex: 0 1 auto;">
+                    <h3>http</h3>
+                    <u2-tree id="filesHttp">Loading...</u2-tree>
+                    <h3>websockets</h3>
+                    <u2-tree id="filesWs">Loading...</u2-tree>
+                </div>
+                <u2-code id="editor" editable></u2-code>
+            </u2-splitpanel>
+            <button id=saveBtn>Save</button>
+        </div>
+
+        <h2>Cookies</h2>
+        <div>
+            <u2-tree id="cookiesTree" aria-expanded="true"></u2-tree>
+            <script type=module>
+                import { cookies } from "../../drivers/cookies.js";
+                const cookiesTree = document.getElementById('cookiesTree');
+                setTimeout(() => {
+                    const cooks = cookies();
+                    cookiesTree.bindItem(cooks);
+                    cooks.loadItems({ url: location.href });
+                }, 500);
+            </script>
+        </div>
+
+        <h2>About</h2>
+        <div style="padding: 20px;">
+            <h3>Item.js Playground</h3>
+            <p>Test environment for Item.js HTTP system.</p>
+            <h4>Start:</h4>
+            <code>deno run -A server.js</code>
+            <h4>Features:</h4>
+            <ul>
+                <li>Browse real filesystem</li>
+                <li>Edit files</li>
+                <li>Save changes</li>
+            </ul>
+        </div>
+    </u2-tabs>
+</main>
+

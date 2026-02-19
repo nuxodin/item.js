@@ -17,7 +17,7 @@ export function collectChanges(item, onchange) {
         const {item, value, remove, add} = e.detail;
         if (add) return; // will be handled if the value is set (an other changeIn event)
 
-        const relativePath = item.keys.slice(startPathLevel);
+        const relativePath = item.pathKeys.slice(startPathLevel);
         const path = ['changes', ...relativePath];
         const last = path.pop();
 

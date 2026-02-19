@@ -16,7 +16,7 @@ import { render, html } from "https://esm.sh/uhtml@4";
 
 
 const betterCookies = cookies();
-await betterCookies.getAll({ url: location.href }); // fetch it so it's ready for the first render
+await betterCookies.loadItems({ url: location.href }); // fetch it so it's ready for the first render
 
 effect(() => {
     render(table, html`

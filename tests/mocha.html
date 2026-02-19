@@ -117,13 +117,13 @@
             chai.expect(b2.path).to.deep.equal([i,b,b2]);
         });
         it('keys', () => {
-            chai.expect(b2.keys).to.deep.equal(['b', 'b2']);
+            chai.expect(b2.pathKeys).to.deep.equal(['b', 'b2']);
         });
         // it('path as string of item', () => { removed for now
         //     chai.expect(b2.pathString).to.equal('b/b2');
         // });
         it('keys of root', () => {
-            chai.expect(i.keys).to.deep.equal([]);
+            chai.expect(i.pathKeys).to.deep.equal([]);
         });
         it('walkKeys', () => {
             chai.expect(i.walkKeys(['b', 'b2']).value).to.equal(3);

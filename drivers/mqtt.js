@@ -18,16 +18,16 @@ export async function mqtt(options){
 
     class MQTTItem extends AsyncItem {
         createGetter() { // // mqtt does not have a concept of getting a value
-            client.subscribe(this.keys.join('/')); // ok? or should we subscribe to all children?
+            client.subscribe(this.pathKeys.join('/')); // ok? or should we subscribe to all children?
             return Promise.resolve(null);
         }
         createSetter(value) {
             if (!this.constructor.isPrimitive(value)) return Promise.resolve(value);
-            const topic = this.keys.join('/');
+            const topic = this.pathKeys.join('/');
             return client.publish(topic, String(value));
         }
         subscribe(selector='#') {
-            const topic = this.keys.join('/') + '/' + selector;
+            const topic = this.pathKeys.join('/') + '/' + selector;
             return client.subscribe(topic);
         }
         remove(){ throw new Error('cannot remove mqtt item'); }

@@ -34,7 +34,7 @@ class RemoteItem extends AsyncItem {
     }
     async createGetter() {
         let current = original;
-        for (const key of this.keys) {
+        for (const key of this.pathKeys) {
             current = current[key];
             if (!current) return undefined;
         }
@@ -63,7 +63,7 @@ class RemoteItem extends AsyncItem {
     }
     get fsPath() {
         if (this.parent == null) return this.fsRootPath;
-        return this.parent.fsPath + '/' + this.keys.join('/');
+        return this.parent.fsPath + '/' + this.pathKeys.join('/');
     }
     static isPrimitive(value) {
         return false;

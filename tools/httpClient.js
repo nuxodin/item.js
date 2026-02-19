@@ -17,11 +17,24 @@ class HttpAsyncItem extends AsyncItem {
   }
 
   createGetter() {
-    return httpGet(this.baseUrl);
+    return httpGet(this.baseUrl).then((data) => {
+      if (Array.isArray(data)) { // object
+        data.map((info) => this.item(info.key));
+        return Object.fromEntries(this.items().map((item) => [item.key, item.get()]));
+      }
+      return data;
+    });
   }
 
   createSetter(value) {
     return httpPut(this.baseUrl, value);
+  }
+
+  async loadItems(){
+    const data = await httpGet(this.baseUrl);
+    if (Array.isArray(data)) {
+      data.map((info) => this.item(info.key));
+    }
   }
 
   remove() {

@@ -18,7 +18,7 @@ export function broadcastChannelItem({channelName='item.js-default channel',init
         if (byMe) return;
         const {item, value} = e.detail;
         byMe = true;
-        channel.postMessage({path: item.keys, value});
+        channel.postMessage({path: item.pathKeys, value});
         byMe = false;
     });
 

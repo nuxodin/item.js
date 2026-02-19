@@ -1,25 +1,42 @@
 import { AsyncItem } from '../tools/AsyncItem.js';
 import { ensureDir } from "https://deno.land/std@0.182.0/fs/mod.ts";
+import * as p from "https://deno.land/std/path/mod.ts";
 
 export function denoFs(rootPath, options) {
+    // 👉 Root absolut machen
+    const rootAbs = p.resolve(rootPath);
+
     const root = new FsItem();
-    root.fsRootPath = rootPath;
+    root.fsRootPath = rootAbs;
 
     if (options?.watch) {
-        const watcher = Deno.watchFs(rootPath);
+        const watcher = Deno.watchFs(rootAbs);
+
         setTimeout(async () => {
             for await (const event of watcher) {
-                for (const path of event.paths) {
-                    // get the path relative to the root
-                    const relativePath = path.substring(rootPath.length + 1);
-                    const pathArray = relativePath.split(/[\\\/]/);
-                    const targetItem = relativePath === '' ? root : root.walkKeys(pathArray);
+                for (const filePath of event.paths) {
+
+                    // 👉 Immer absolut + sauber normieren
+                    const fileAbs = p.resolve(filePath);
+
+                    // 👉 Sauber relativieren
+                    let relativePath = p.relative(rootAbs, fileAbs);
+                    relativePath = p.normalize(relativePath);
+
+                    // Leere oder ungültige Events ignorieren
+                    if (!relativePath || relativePath === '.' || relativePath.startsWith('../')) {
+                        continue;
+                    }
+
+                    const pathArray = relativePath.split(/[\\\/]/).filter(Boolean);
+
+                    const targetItem = root.walkKeys(pathArray);
+
                     if (event.kind === 'modify') {
-                        // todo, only make this if item is already accessed?
                         const contents = await Deno.readTextFile(targetItem.fsPath);
                         targetItem.asyncHandler.setLocal(contents);
                     }
-                    //if (event.kind === 'create') {}
+
                     if (event.kind === 'remove') {
                         targetItem.remove();
                     }
@@ -36,7 +53,7 @@ class FsItem extends AsyncItem {
         super(parent, key);
         if (parent) {
             if (key === '') throw new Error('key cannot be empty');
-            if (key.startsWith('.')) throw new Error('key cannot start with a dot');
+            if (key === '.' || key === '..') throw new Error('key cannot be . or ..');
             if (key.includes('/')) throw new Error('key cannot contain a slash');
         }
     }
@@ -58,7 +75,8 @@ class FsItem extends AsyncItem {
             // return this;
             const list = Object.create(null);
             for await (const dirEntry of Deno.readDir(this.fsPath)) {
-                list[dirEntry.name] = this.item(dirEntry.name);
+                //list[dirEntry.name] = this.item(dirEntry.name);
+                list[dirEntry.name] = await this.item(dirEntry.name).promise; // ✅ rekursiv!
             }
             return list;
         }
@@ -74,8 +92,9 @@ class FsItem extends AsyncItem {
             const promise = this.item(key).set(value[key]);
             promises.push(promise);
         }
-        // todo, await all children setters?
-        return Promise.resolve(promises);
+        // zzz todo, await all children setters?
+        // zzz return Promise.resolve(promises);
+        return await Promise.all(promises); // ✅ await all
     }
     async loadItems() { // if directory, load all children, todo
         for await (const dirEntry of Deno.readDir(this.fsPath)) {
@@ -88,8 +107,15 @@ class FsItem extends AsyncItem {
         return this.parent.fsPath + '/' + this.key;
     }
     async remove() {
-        super.remove();
-        await Deno.remove(this.fsPath, { recursive: true });
+        try {
+            await Deno.remove(this.fsPath, { recursive: true });
+        } catch (e) {
+            if (!(e instanceof Deno.errors.NotFound)) {
+                throw e; // Re-throw wenn es kein "NotFound" Error ist
+            }
+            // Datei existiert nicht -> OK, weitermachen
+        }
+        if (this.parent) super.remove();
     }
     static isPrimitive() { // as every item can be an object
         return false;

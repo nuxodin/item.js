@@ -17,17 +17,24 @@ class WsAsyncItem extends AsyncItem {
 
   createGetter() {
     this._ensureConnected();
-    return this.getRoot()._ws.request({ action: 'get', path: this.keys, subscribe: true });
+    return this.getRoot()._ws.request({ action: 'get', path: this.pathKeys, subscribe: true });
   }
 
   createSetter(value) {
     this._ensureConnected();
-    return this.getRoot()._ws.request({ action: 'set', path: this.keys, value });
+    return this.getRoot()._ws.request({ action: 'set', path: this.pathKeys, value });
   }
 
   remove() {
     super.remove();
-    return this.getRoot()._ws.request({ action: 'delete', path: this.keys });
+    return this.getRoot()._ws.request({ action: 'delete', path: this.pathKeys });
+  }
+
+  loadItems() {
+    this._ensureConnected();
+    return this.getRoot()._ws.request({ action: 'list', path: this.pathKeys }).then(keys => {
+      for (const key of keys) this.item(key);
+    });
   }
 
   ChildClass = WsAsyncItem;
@@ -82,10 +89,14 @@ function createConnection(wsUrl) {
 
       if (msg.type === 'update' && Array.isArray(msg.path)) {
         const root = window.__ws_item_root;
-        if (root) {
-          try {
-            root.walkKeys(msg.path).asyncHandler.setLocal(msg.data);
-          } catch {}
+        if (!root) return;
+        try {
+          const item = root.walkKeys(msg.path);
+          if (msg.add) item.item(msg.add);
+          if (msg.remove) item.has(msg.remove) && item.item(msg.remove).remove();
+          if (msg.value !== undefined) item.asyncHandler.setLocal(msg.value);
+        } catch (err) {
+          console.error('[ws-client] update handling error', err);
         }
       }
     } catch (err) {

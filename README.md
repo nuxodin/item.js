@@ -1,16 +1,25 @@
 # item.js
 
-Observable datastructures
+**A primitive abstraction layer for reactive data structures**
 
-## Motivation
+## The Problem
 
-`item.js` is designed to provide developers with a consistent API for accessing and manipulating data from various sources. This makes it easier to use and integrate these data sources in your projects.
+Every data source has its own API: Files use `fs.readFile()`, localStorage uses `getItem()`, databases use SQL queries, MQTT uses pub/sub. This means:
+- 🔄 Different APIs for every backend
+- 🎯 No unified reactivity
+- 🔗 Hard to switch or combine data sources
+- 🧩 Complex integration code
 
-### 🎉 Uniform interfaces for diverse structured data!
+## The Solution
 
-We are working on various drivers based on "item.js" to consistently use the same API everywhere.  
-Examples include `file systems`, `MQTT`, `localStorage`, `cookies`,`databases` , and so on.
-<!-- [See this localStorage example]() -->
+`item.js` provides **one uniform API** for all structured data sources.
+```js
+// Same API, different backends:
+fileItem.item('config').item('port').value = 8080;
+dbItem.item('users').item('123').item('name').value = 'Alice';
+mqttItem.item('sensors').item('temp').value = 23.5;
+localStorage.item('theme').value = 'dark';
+```
 
 ## Installation
 
@@ -29,17 +38,11 @@ a.value // {b: 1}
 const b = a.item('b'); // property 'b' is also an "Item"
 b.parent === a;
 b.key === 'b';
-b.keys; // ['b'];
+b.pathKeys; // ['b'];
 b.path; // equals [a, b]
 a.walkKeys(['a', 'b', 'c']); // equals b.item('a').item('b').item('c');
+a.item('c').item('d') // Automatic property creation (Autovivification)
 ```
-
-## Automatic property creation (Autovivification)
-Nested properties are created on-the-fly when accessed. You don't need to manually initialize intermediate objects.
-`````js
-const a = item({});
-a.item('xyz').item('next').value = 123; // a.value becomes {xyz: {next: 123}}
-`````
 
 ## Promise handling
 
@@ -96,6 +99,12 @@ a.addEventListener('changeIn', ({detail}) => {
     console.log(detail.item, detail.oldValue, detail.value);
 });
 a.item('b').value = 2; // triggers 'changeIn' event on 'a' (bubbles up)
+
+// object-related:
+a.addEventListener('changeIn', (event) => {
+    if (detail.add) console.log(event.target, 'added property', event.detail.add); // child-item
+    if (detail.remove) console.log(event.target, 'removed property', event.detail.remove);
+});
 ```
 
 ## Proxy

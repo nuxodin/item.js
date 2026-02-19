@@ -28,7 +28,7 @@ export function cookies(){
     if (!root) {
         root = item();
         root.ChildClass = CookieItem;
-        root.getAll = async function(options) {
+        root.loadItems = async function(options) {
             const result = Object.create(null);
             await cookieStore.getAll(options).then( cookies => {
                 cookies.forEach(c => {
@@ -40,6 +40,11 @@ export function cookies(){
             });
             return result;
         };
+        root.getAll = function(options) {
+            console.warn('cookies.getAll is deprecated, use cookies.loadItems instead');
+            return this.loadItems(options);
+        }
+
 
         cookieStore.addEventListener?.('change', e => { // todo: if two windows open, this will trigger twice
             e.deleted.forEach(c => {

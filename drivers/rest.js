@@ -29,7 +29,7 @@ export function restApi(url, options={}){
 
         //setTimeout(() => signal.abort(), options?.timeout ?? 10000);
 
-        const endPoint = url + '/' + item.keys.join('/');
+        const endPoint = url + '/' + item.pathKeys.join('/');
 
         const response = await fetch(endPoint, {headers, method, body, signal});
         let data = await response.json();

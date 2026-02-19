@@ -1,34 +1,34 @@
 import { item } from '../item.js';
 
 export async function jsonDataItem(jsonItem) {
-
     const root = item();
-    const json = await jsonItem.promise;
-
-    if (json === undefined) {
-        root.set(null)
-    } else {
-        try {
-            root.set(JSON.parse(json));
-        } catch (e) {
-            console.error('jsonDataItem: invalid JSON', e);
+    
+    const syncFromJson = (json) => {
+        if (!json) {
             root.set(null);
+            return;
         }
-    }
-
-    let timeout = null; // debounced
+        root.set(JSON.parse(json));
+    };
+    
+    const syncToJson = () => {
+        jsonItem.value = JSON.stringify(root.value, null, 2);
+    };
+    
+    // Initial sync from file
+    syncFromJson(await jsonItem.promise);
+    
+    // Sync root changes to file (debounced)
+    let debounceTimer = null;
     root.addEventListener('changeIn', () => {
-        if (timeout) return;
-        timeout = setTimeout(() => {
-            clearTimeout(timeout);
-            timeout = null;
-            jsonItem.value = JSON.stringify(root.value, null, 2);
-        },1);
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(syncToJson, 1);
     });
-
-    jsonItem.addEventListener('change', async () => { // changes from outside
-        const json = await jsonItem.promise;
-        root.value = JSON.parse(json);
+    
+    // Sync file changes to root
+    jsonItem.addEventListener('change', async () => {
+        syncFromJson(await jsonItem.promise);
     });
+    
     return root;
 }
