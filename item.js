@@ -103,12 +103,12 @@ export class Item extends EventTarget {
                 }
             }
         } else {
-            // todo? patch without removing old keys?
-            this.#value ??= Object.create(null);
+            
+            if (!this.#value || typeof this.#value !== 'object') this.#value = Object.create(null);
             this.#filled = true;
 
             for (const key in value) this.item(key).set(value[key]);
-            for (const key in this.#value) if (!(key in value)) this.#value[key].remove();
+            for (const key in this.#value) if (!(key in value)) this.#value[key].remove(); // todo? patch without removing old keys?
         }
     }
 

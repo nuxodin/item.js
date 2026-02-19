@@ -1,6 +1,7 @@
+// beta, subject to change or deleted
 
-export function syncWith(item, object={}) {
-    item.addEventListener('changeIn', ({detail}) => {
+export function syncWith(rootItem, object={}) {
+    rootItem.addEventListener('changeIn', ({detail}) => {
         const item = detail.item;
         if (!('value' in detail)) return;
         const keys = item.pathKeys;

@@ -1,7 +1,6 @@
-
+// beta, subject to change or deleted
 
 import { Schema } from '../../jema.js/schema.js';
-
 export function attachSchema(rootItem, schema) {
     schema = new Schema(schema);
     rootItem.schema = schema.schema;
