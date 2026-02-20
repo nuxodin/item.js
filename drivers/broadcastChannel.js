@@ -18,7 +18,7 @@ export function broadcastChannelItem({channelName='item.js-default channel',init
         if (byMe) return;
         const {item, value} = e.detail;
         byMe = true;
-        channel.postMessage({path: item.pathKeys, value});
+        channel.postMessage({path: item.path, value});
         byMe = false;
     });
 
@@ -36,7 +36,7 @@ export function broadcastChannelItem({channelName='item.js-default channel',init
 
         if (data.path) {
             const {path, value} = data;
-            root.walkKeys(path).value = value;
+            root.sub(path).value = value;
         }
     };
     return root;

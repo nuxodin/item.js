@@ -28,12 +28,16 @@ saveBtn.addEventListener('click', async e=>{
         alert('Error: ' + error.message);
     }
 });
-
 // files http:
 import { createItemClient as createHttpClient } from "../../tools/httpClient.js";
 import { createItemClient as createWsClient } from "../../tools/wsClient.js";
 const fs = createHttpClient("http://localhost:3495/files");
 const tree = document.getElementById('filesHttp');
+
+window.files = fs; // for testing in console
+console.log('write files.item("test.html").value = "hello world" in the console to test');
+
+
 setTimeout(()=>{
     tree.bindItem(fs);
     fs.loadItems();
@@ -46,7 +50,7 @@ setTimeout(()=>{
             path.unshift(current.dataset.key);
             current = current.parentElement.closest('u2-tree');
         }
-        const item = fs.walkKeys(path);
+        const item = fs.sub(path);
         const value = await item.promise;
         if (typeof value === 'string') {
             currentItem = item;
@@ -73,7 +77,7 @@ setTimeout(()=>{
             path.unshift(current.dataset.key);
             current = current.parentElement.closest('u2-tree');
         }
-        const item = fsWs.walkKeys(path);
+        const item = fsWs.sub(path);
         const value = await item.promise;
         if (typeof value === 'string') {
             currentItem = item;

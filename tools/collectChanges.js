@@ -11,13 +11,13 @@ export function collectChanges(rootItem, onchange) {
     // we need a wrapper to be able to have a reference even if the root value is not an object
     let wrapper = {};
 
-    const startPathLevel = rootItem.pathKeys.length;
+    const startPathLevel = rootItem.path.length;
 
     rootItem.addEventListener('changeIn', e => {
         const {item, value, remove, add} = e.detail;
         if (add) return; // will be handled if the value is set (an other changeIn event)
 
-        const relativePath = item.pathKeys.slice(startPathLevel);
+        const relativePath = item.path.slice(startPathLevel);
         const path = ['changes', ...relativePath];
         const last = path.pop();
 

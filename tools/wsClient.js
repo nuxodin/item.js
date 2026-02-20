@@ -17,22 +17,22 @@ class WsAsyncItem extends AsyncItem {
 
   createGetter() {
     this._ensureConnected();
-    return this.getRoot()._ws.request({ action: 'get', path: this.pathKeys, subscribe: true });
+    return this.getRoot()._ws.request({ action: 'get', path: this.path, subscribe: true });
   }
 
   createSetter(value) {
     this._ensureConnected();
-    return this.getRoot()._ws.request({ action: 'set', path: this.pathKeys, value });
+    return this.getRoot()._ws.request({ action: 'set', path: this.path, value });
   }
 
   remove() {
     super.remove();
-    return this.getRoot()._ws.request({ action: 'delete', path: this.pathKeys });
+    return this.getRoot()._ws.request({ action: 'delete', path: this.path });
   }
 
   loadItems() {
     this._ensureConnected();
-    return this.getRoot()._ws.request({ action: 'list', path: this.pathKeys }).then(keys => {
+    return this.getRoot()._ws.request({ action: 'list', path: this.path }).then(keys => {
       for (const key of keys) this.item(key);
     });
   }
@@ -91,7 +91,7 @@ function createConnection(wsUrl) {
         const root = window.__ws_item_root;
         if (!root) return;
         try {
-          const item = root.walkKeys(msg.path);
+          const item = root.sub(msg.path);
           if (msg.add) item.item(msg.add);
           if (msg.remove) item.has(msg.remove) && item.item(msg.remove).remove();
           if (msg.value !== undefined) item.asyncHandler.setLocal(msg.value);

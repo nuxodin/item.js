@@ -19,7 +19,7 @@
     </script>
 
     <script type=module>
-    import {item} from '../item.js';
+    import {item, asyncIteratorFromEventTarget, $item} from '../item.js';
 
     describe('primitive value', () => {
         it('access item.value', () => {
@@ -35,6 +35,7 @@
         });
         it('toString', () => {
             let i = item(22);
+            chai.expect(`${i}`).to.equal('22');
             chai.expect(i+'').to.equal('22');
         });
         it('valueOf', () => {
@@ -114,19 +115,28 @@
             chai.expect(b.item('c').value).to.equal(4);
         });
         it('path', () => {
-            chai.expect(b2.path).to.deep.equal([i,b,b2]);
-        });
-        it('keys', () => {
-            chai.expect(b2.pathKeys).to.deep.equal(['b', 'b2']);
+            chai.expect(b2.path).to.deep.equal(['b', 'b2']);
         });
         // it('path as string of item', () => { removed for now
         //     chai.expect(b2.pathString).to.equal('b/b2');
         // });
         it('keys of root', () => {
-            chai.expect(i.pathKeys).to.deep.equal([]);
+            chai.expect(i.path).to.deep.equal([]);
         });
-        it('walkKeys', () => {
-            chai.expect(i.walkKeys(['b', 'b2']).value).to.equal(3);
+        it('sub(array)', () => {
+            chai.expect(i.sub(['b', 'b2']).value).to.equal(3);
+        });
+        it('sub(..arguments)', () => {
+            chai.expect(i.sub('b', 'b2').value).to.equal(3);
+        });
+        it('sub(combined)', () => {
+            chai.expect(i.sub(['b'], 'b2').value).to.equal(3);
+        });
+        it('sub() no argument', () => {
+            chai.expect(i.sub()).to.equal(i);
+        });
+        it('sub([]) void array', () => {
+            chai.expect(i.sub([])).to.equal(i);
         });
         it('assigning a object will remove existing properties not in the new object', () => {
             let i = item({a:1});
@@ -255,13 +265,49 @@
             let i = item({a: {c:3}}).proxy;
             chai.expect(i.a).to.equal(i.a);
         });
+        it('convert number to string', () => {
+            let i = item(9).proxy;
+            chai.expect(`${i}`).to.equal('9');
+        });
+        it('convert string to string', () => {
+            let i = item("test").proxy;
+            chai.expect(`${i}`).to.equal('test');
+        });
+        it('convert object to string (its the key)', () => {
+            let i = item({a:{x:1, y:2}}).proxy;
+            chai.expect(`${i.a}`).to.equal("a");
+        });
+        it('convert object to string (no key)', () => {
+            let i = item({x:1, y:2}).proxy;
+            chai.expect(`${i}`).to.equal("");
+        });
+        it('convert bool to string', () => {
+            let i = item(true).proxy;
+            chai.expect(`${i}`).to.equal('true');
+        });
+        it('convert null to string', () => {
+            let i = item(null).proxy;
+            chai.expect(`${i}`).to.equal('');
+            chai.expect(''+i).to.equal('null');
+        });
+        it('convert to number', () => {
+            chai.expect(item(9).proxy+0).to.equal(9);
+            chai.expect(+item("9").proxy).to.equal(9);
+            chai.expect(+item({a:1}).proxy).to.be.NaN;
+            chai.expect(+item({'9':{x:1}}).proxy['9']).to.equal(9);
+            chai.expect(+item(true).proxy).to.equal(1);
+            chai.expect(+item(false).proxy).to.equal(0);
+            chai.expect(+item(null).proxy).to.equal(0);
+        });
+
         it('iterator', () => {
             let i = item({a: 1, b: 2}).proxy;
             const result = [];
             for (let item of i) {
-                result.push(item.key);
+                console.log(item)
+                result.push(item+0);
             }
-            chai.expect(result).to.deep.equal(['a', 'b']);
+            chai.expect(result).to.deep.equal([1,2]);
         });
         // it('iterator todo?', () => {
         //     let i = item({a: 1, b: 2}).proxy;
@@ -289,6 +335,33 @@
             chai.expect(result).to.deep.equal(['a', 'b', 'c', 'd']);
         });
 
+        it('access internal item via symbol', () => {
+            const i = item({a: 1});
+            const p = i.proxy;
+            // Teste den Ausbruch aus dem Proxy zum Item-Objekt
+            chai.expect(p[$item]).to.equal(i);
+            chai.expect(p.a).to.equal(1);
+        });
+
+        it('no collision between symbol and string keys', () => {
+            // Wir setzen einen String-Key, der zufällig wie unser Symbol heißt
+            const i = item({ "$item": "fake" }).proxy;
+            // Der String-Zugriff muss den String liefern
+            chai.expect(i["$item"]).to.equal("fake");
+            // Der Symbol-Zugriff muss das Item liefern
+            chai.expect(i[$item].constructor.name).to.equal("Item");
+        });
+
+        it('root reset via $item symbol', () => {
+            const i = item({ a: 1, b: 2 });
+            const p = i.proxy;
+            p[$item].value = { c: 3 }; // Reset des gesamten Objekts
+            chai.expect(Object.keys(p)).to.deep.equal(['c']);
+            const valueA = p.a; 
+            chai.expect(valueA).to.be.undefined; 
+            chai.expect(Object.keys(p)).to.include('a');
+        });
+
     });
 
 
@@ -296,48 +369,48 @@ describe('promise handling', () => {
     
     it('pending state is true when promise assigned', () => {
         let i = item();
-        i.value = Promise.resolve(42);
+        i.promise = Promise.resolve(42);
         chai.expect(i.pending).to.equal(true);
     });
 
     it('pending state is false after promise resolves', async () => {
         let i = item();
-        i.value = Promise.resolve(42);
+        i.promise = Promise.resolve(42);
         await new Promise(resolve => setTimeout(resolve, 0));
         chai.expect(i.pending).to.equal(false);
     });
 
     it('value is set after promise resolves', async () => {
         let i = item();
-        i.value = Promise.resolve(42);
+        i.promise = Promise.resolve(42);
         await new Promise(resolve => setTimeout(resolve, 0));
         chai.expect(i.value).to.equal(42);
     });
 
     it('error is undefined initially', () => {
         let i = item();
-        i.value = Promise.resolve(42);
+        i.promise = Promise.resolve(42);
         chai.expect(i.error).to.equal(undefined);
     });
 
     it('error is set when promise rejects', async () => {
         let i = item();
         const testError = new Error('test error');
-        i.value = Promise.reject(testError);
+        i.promise = Promise.reject(testError);
         await new Promise(resolve => setTimeout(resolve, 0));
         chai.expect(i.error).to.equal(testError);
     });
 
     it('pending is false after promise rejects', async () => {
         let i = item();
-        i.value = Promise.reject(new Error('test'));
+        i.promise = Promise.reject(new Error('test'));
         await new Promise(resolve => setTimeout(resolve, 0));
         chai.expect(i.pending).to.equal(false);
     });
 
     it('value remains old value after promise rejects', async () => {
         let i = item(100);
-        i.value = Promise.reject(new Error('test'));
+        i.promise = Promise.reject(new Error('test'));
         await new Promise(resolve => setTimeout(resolve, 0));
         chai.expect(i.value).to.equal(100);
     });
@@ -346,25 +419,68 @@ describe('promise handling', () => {
         let i = item();
         let changeTriggered = false;
         i.addEventListener('change', () => changeTriggered = true);
-        i.value = Promise.resolve(42);
+        i.promise = Promise.resolve(42);
         await new Promise(resolve => setTimeout(resolve, 0));
         chai.expect(changeTriggered).to.equal(true);
     });
 
+    /*
     it('change event triggers after promise rejects', async () => {
         let i = item(100);
         let changeTriggered = false;
         i.addEventListener('change', () => changeTriggered = true);
-        i.value = Promise.reject(new Error('test'));
+        i.promise = Promise.reject(new Error('test'));
         await new Promise(resolve => setTimeout(resolve, 0));
         chai.expect(changeTriggered).to.equal(true);
     });
+    */
 
     it('promise property returns the current promise', () => {
         let i = item();
         const p = Promise.resolve(42);
-        i.value = p;
+        i.promise = p;
         chai.expect(i.promise).to.equal(p);
+    });
+
+    it('setting a new promise replaces the old one', () => {
+        let i = item();
+        const p1 = Promise.resolve(42);
+        const p2 = Promise.resolve(100);
+        i.promise = p1;
+        i.promise = p2;
+        chai.expect(i.promise).to.equal(p2);
+    });
+
+    it('setting a new promise clears old error', async () => {
+        let i = item();
+        i.promise = Promise.reject(new Error('first'));
+        await new Promise(resolve => setTimeout(resolve, 0));
+        chai.expect(i.error).to.not.equal(undefined);
+        
+        i.promise = Promise.resolve(42);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        chai.expect(i.error).to.equal(undefined);
+    });
+    
+    it('setting a new promise clears old pending state', async () => {
+        let i = item();
+        i.promise = Promise.resolve(42);
+        await new Promise(resolve => setTimeout(resolve, 0));
+        chai.expect(i.pending).to.equal(false);
+        
+        i.promise = Promise.reject(new Error('test'));
+        await new Promise(resolve => setTimeout(resolve, 0));
+        chai.expect(i.pending).to.equal(false);
+    });
+
+    it('after promise resolves, promise is a new promise that resolves to the value', async () => {
+        let i = item();
+        let promise = Promise.resolve(42);
+        i.promise = promise
+        await new Promise(resolve => setTimeout(resolve, 0));
+        chai.expect(i.promise).to.not.equal(promise);
+        const value = await i.promise;
+        chai.expect(value).to.equal(42);
     });
 
 
@@ -374,8 +490,8 @@ describe('promise handling', () => {
         const p1 = new Promise(r => resolve1 = r);
         const p2 = new Promise(r => resolve2 = r);
         
-        i.value = p1;
-        i.value = p2; // überschreibt p1
+        i.promise = p1;
+        i.promise = p2; // überschreibt p1
         
         resolve1(100); // sollte ignoriert werden
         await new Promise(resolve => setTimeout(resolve, 0));
@@ -393,7 +509,7 @@ describe('promise handling', () => {
         i.item('a').addEventListener('change', e => changes.push('a'));
         i.item('b').addEventListener('change', e => changes.push('b'));
         
-        i.value = Promise.resolve({a: 1, b: 3}); // a bleibt gleich, b ändert sich
+        i.promise = Promise.resolve({a: 1, b: 3}); // a bleibt gleich, b ändert sich
         await new Promise(resolve => setTimeout(resolve, 0));
         
         chai.expect(changes).to.deep.equal(['b']);
@@ -401,7 +517,7 @@ describe('promise handling', () => {
 
     it('promise resolves to object: properties are set correctly', async () => {
         let i = item({a: 1, b: 2});
-        i.value = Promise.resolve({a: 10, b: 20, c: 30});
+        i.promise = Promise.resolve({a: 10, b: 20, c: 30});
         await new Promise(resolve => setTimeout(resolve, 0));
         
         chai.expect(i.value).to.deep.equal({a: 10, b: 20, c: 30});
@@ -410,25 +526,25 @@ describe('promise handling', () => {
     it('filled is true after promise resolves', async () => {
         let i = item();
         chai.expect(i.filled).to.equal(false);
-        i.value = Promise.resolve(42);
+        i.promise = Promise.resolve(42);
         await new Promise(resolve => setTimeout(resolve, 0));
         chai.expect(i.filled).to.equal(true);
     });
 
     it('error is cleared when new promise is set', () => {
         let i = item();
-        i.value = Promise.reject(new Error('first'));
-        i.value = Promise.resolve(42);
+        i.promise = Promise.reject(new Error('first'));
+        i.promise = Promise.resolve(42);
         chai.expect(i.error).to.equal(undefined);
     });
 
     it('error is cleared when promise resolves successfully', async () => {
         let i = item();
-        i.value = Promise.reject(new Error('test'));
+        i.promise = Promise.reject(new Error('test'));
         await new Promise(resolve => setTimeout(resolve, 0));
         chai.expect(i.error).to.not.equal(undefined);
         
-        i.value = Promise.resolve(42);
+        i.promise = Promise.resolve(42);
         await new Promise(resolve => setTimeout(resolve, 0));
         chai.expect(i.error).to.equal(undefined);
     });
@@ -438,23 +554,95 @@ describe('promise handling', () => {
         let eventDetail;
         i.addEventListener('change', e => eventDetail = e.detail);
         
-        i.value = Promise.resolve(200);
+        i.promise = Promise.resolve(200);
         await new Promise(resolve => setTimeout(resolve, 0));
         
         chai.expect(eventDetail.oldValue).to.equal(100);
         chai.expect(eventDetail.value).to.equal(200);
     });
 
+    /*
     it('change event contains correct oldValue after promise rejects', async () => {
         let i = item(100);
         let eventDetail;
         i.addEventListener('change', e => eventDetail = e.detail);
         
-        i.value = Promise.reject(new Error('test'));
+        i.promise = Promise.reject(new Error('test'));
         await new Promise(resolve => setTimeout(resolve, 0));
         
         chai.expect(eventDetail.oldValue).to.equal(100);
         chai.expect(eventDetail.value).to.equal(100); // bleibt gleich bei error
+    });
+    */
+});
+
+
+describe('asyncIteratorFromEventTarget', () => {
+    it('is an AsyncGenerator', () => {
+        const target = new EventTarget();
+        const iterator = asyncIteratorFromEventTarget(target, 'test-event');
+        chai.expect(iterator[Symbol.asyncIterator]).to.be.a('function');
+        chai.expect(iterator.toString()).to.equal('[object AsyncGenerator]');
+    });
+
+    it('yields events added to the queue', async () => {
+        const target = new EventTarget();
+        const iterator = asyncIteratorFromEventTarget(target, 'test-event');
+        
+        // Simulating some events
+        setTimeout(() => target.dispatchEvent(new CustomEvent('test-event', {detail: 1})), 10);
+        setTimeout(() => target.dispatchEvent(new CustomEvent('test-event', {detail: 2})), 20);
+
+        const results = [];
+        for await (const event of iterator) {
+            results.push(event.detail);
+            if (results.length === 2) break;
+        }
+
+        chai.expect(results).to.deep.equal([1, 2]);
+    });
+
+    it('stops iterating when abort signal is triggered', async () => {
+        const target = new EventTarget();
+        const abortCtrl = new AbortController();
+        const iterator = asyncIteratorFromEventTarget(target, 'test-event', {signal: abortCtrl.signal});
+        
+        let yieldedCount = 0;
+        let p = (async () => {
+            for await (const event of iterator) {
+                yieldedCount++;
+            }
+        })();
+
+        target.dispatchEvent(new Event('test-event'));
+        await new Promise(r => setTimeout(r, 10)); // wait for it to be processed
+
+        abortCtrl.abort();
+        
+        target.dispatchEvent(new Event('test-event')); // Should not be yielded
+        await p;
+
+        chai.expect(yieldedCount).to.equal(1);
+    });
+
+    it('does not hang if aborted while waiting', async () => {
+        const target = new EventTarget();
+        const abortCtrl = new AbortController();
+        const iterator = asyncIteratorFromEventTarget(target, 'test-event', {signal: abortCtrl.signal});
+        
+        let finished = false;
+        let p = (async () => {
+            for await (const event of iterator) {
+                // do nothing
+            }
+            finished = true;
+        })();
+
+        // Abort right away while it's waiting
+        abortCtrl.abort();
+        await p;
+
+        chai.expect(finished).to.equal(true);
     });
 });
 

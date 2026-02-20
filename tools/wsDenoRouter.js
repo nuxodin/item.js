@@ -52,12 +52,12 @@ a.addEventListener('changeIn', (event) => {
 
     // Subscribe to item changes
     const subscribe = (item) => {
-      const key = item.pathKeys.join('/');
+      const key = item.path.join('/');
       if (subscriptions.has(key)) return;
 
       const listener = ({ detail }) => {
         // Simple payloads only — clients apply the exact change locally.
-        const payload = { type: 'update', path: detail.item.pathKeys };
+        const payload = { type: 'update', path: detail.item.path };
         if (detail.add) {
           payload.add = detail.add.key;
         } else if (detail.remove) {
@@ -73,7 +73,7 @@ a.addEventListener('changeIn', (event) => {
     };
 
     const unsubscribe = (item) => {
-      const key = item.pathKeys.join('/');
+      const key = item.path.join('/');
       const sub = subscriptions.get(key);
       if (sub) {
         sub.item.removeEventListener('changeIn', sub.listener);
@@ -86,7 +86,7 @@ a.addEventListener('changeIn', (event) => {
       try {
         msg = JSON.parse(ev.data);
         id = msg.id;
-        const item = rootItem.walkKeys(msg.path);
+        const item = rootItem.sub(msg.path);
 
         switch (msg.action) {
           case 'get': {

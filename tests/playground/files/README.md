@@ -1,6 +1,3 @@
-hossaasdf
-
-heise
 # Item.js Playground
 
 This is a demonstration of the Item.js HTTP system capabilities.

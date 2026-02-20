@@ -30,7 +30,7 @@ export function denoFs(rootPath, options) {
 
                     const pathArray = relativePath.split(/[\\\/]/).filter(Boolean);
 
-                    const targetItem = root.walkKeys(pathArray);
+                    const targetItem = root.sub(pathArray);
 
                     if (event.kind === 'modify') {
                         const contents = await Deno.readTextFile(targetItem.fsPath);
@@ -76,7 +76,7 @@ class FsItem extends AsyncItem {
             const list = Object.create(null);
             for await (const dirEntry of Deno.readDir(this.fsPath)) {
                 //list[dirEntry.name] = this.item(dirEntry.name);
-                list[dirEntry.name] = await this.item(dirEntry.name).promise; // ✅ rekursiv!
+                list[dirEntry.name] = await this.item(dirEntry.name).promise;
             }
             return list;
         }
@@ -92,14 +92,13 @@ class FsItem extends AsyncItem {
             const promise = this.item(key).set(value[key]);
             promises.push(promise);
         }
-        // zzz todo, await all children setters?
-        // zzz return Promise.resolve(promises);
-        return await Promise.all(promises); // ✅ await all
+        return await Promise.all(promises);
     }
     async loadItems() { // if directory, load all children, todo
         for await (const dirEntry of Deno.readDir(this.fsPath)) {
             this.item(dirEntry.name);
-            // this.item(dirEntry.name).type = dirEntry.isDirectory ? 'directory' : 'file';
+            //this.item(dirEntry.name); //.isObject = dirEntry.isDirectory;
+            //this.item(dirEntry.name); //.length = ;
         }
     }
     get fsPath() {

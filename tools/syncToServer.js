@@ -27,14 +27,14 @@ function syncToRestApi(item, {url, delay=100}){
         const {item, value} = e.detail;
         if (e.detail.add) return; // will be handled if the value is set (an other changeIn event)
         if (e.detail.remove) {
-            const path = item.pathKeys;
+            const path = item.path;
             const restUrl = url + '/' + path.join('/');
             fetch(restUrl, {
                 method: 'DELETE',
                 headers: {'Content-Type': 'application/json'},
             });
         } else {
-            const path = item.pathKeys;
+            const path = item.path;
             const restUrl = url + '/' + path.join('/');
             fetch(restUrl, {
                 method: 'PUT',

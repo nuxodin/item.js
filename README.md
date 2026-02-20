@@ -4,7 +4,9 @@
 
 ## The Problem
 
-Every data source has its own API: Files use `fs.readFile()`, localStorage uses `getItem()`, databases use SQL queries, MQTT uses pub/sub. This means:
+Every data source has its own API: Files use `fs.readFile()`, localStorage uses
+`getItem()`, databases use SQL queries, MQTT uses pub/sub. This means:
+
 - 🔄 Different APIs for every backend
 - 🎯 No unified reactivity
 - 🔗 Hard to switch or combine data sources
@@ -13,54 +15,56 @@ Every data source has its own API: Files use `fs.readFile()`, localStorage uses 
 ## The Solution
 
 `item.js` provides **one uniform API** for all structured data sources.
+
 ```js
 // Same API, different backends:
-fileItem.item('config').item('port').value = 8080;
-dbItem.item('users').item('123').item('name').value = 'Alice';
-mqttItem.item('sensors').item('temp').value = 23.5;
-localStorage.item('theme').value = 'dark';
+fileItem.item("config").item("port").value = 8080;
+dbItem.item("users").item("123").item("name").value = "Alice";
+mqttItem.item("sensors").item("temp").value = 23.5;
+localStorage.item("theme").value = "dark";
 ```
 
 ## Installation
 
 ```js
-import { item } from '../item.js';
+import { item } from "../item.js";
 ```
 
 ## Wrapped value
+
 ```js
 const a = item(1);
 a.value === 1; // true
 
 // using object
-const a = item({b: 1});
-a.value // {b: 1}
-const b = a.item('b'); // property 'b' is also an "Item"
+const a = item({ b: 1 });
+a.value; // {b: 1}
+const b = a.item("b"); // property 'b' is also an "Item"
 b.parent === a;
-b.key === 'b';
-b.pathKeys; // ['b'];
-b.path; // equals [a, b]
-a.walkKeys(['a', 'b', 'c']); // equals b.item('a').item('b').item('c');
-a.item('c').item('d') // Automatic property creation (Autovivification)
+b.key === "b";
+b.path; // ['b'];
+a.sub(["a", "b", "c"]); // equals b.item('a').item('b').item('c');
+a.item("c").item("d"); // Automatic property creation (Autovivification)
 ```
 
 ## Promise handling
 
 `item.js` supports assigning promises directly with automatic state tracking.
+
 ```js
 const i = item();
 i.value = Promise.resolve(42);
 i.value === undefined;
-i.pending === true;        // while pending
-i.promise;                 // returns assigned promise or Promise.resolve(this.value)
+i.pending === true; // while pending
+i.promise; // returns assigned promise or Promise.resolve(this.value)
 await i.promise;
-i.value === 42;            // resolved value
+i.value === 42; // resolved value
 ```
 
 ### Properties
 
 - **`pending`**: `true` while promise is pending
-- **`error`**: Error object on rejection, `undefined` otherwise  
+- **`error`**: Error object on rejection, `undefined` otherwise
 - **`filled`**: `true` after successful resolution
 
 ### Behavior
@@ -70,70 +74,78 @@ i.value === 42;            // resolved value
 - Error clearing: automatic when new promise is set or resolves successfully
 
 ## Effect
+
 ```js
 // effect
 effect(() => {
-    console.log(a.item('b').value);
-    console.log(b.item('c').value);
+    console.log(a.item("b").value);
+    console.log(b.item("c").value);
 });
-a.item('b').value = 2;
-b.item('c').value = 3;
+a.item("b").value = 2;
+b.item("c").value = 3;
 // triggers effect batched after a microtask
 ```
 
 ## Events
+
 ```js
-a.addEventListener('change', ({detail}) => {
-  console.log(detail.oldValue, detail.value);
+a.addEventListener("change", ({ detail }) => {
+    console.log(detail.oldValue, detail.value);
 });
 a.value = 3; // triggers 'change' event
 
-a.addEventListener('get', ({detail}) => {
+a.addEventListener("get", ({ detail }) => {
     console.log(detail.value);
 });
 a.value; // triggers 'get' event
 
 // bubbling (changeIn)
-a.addEventListener('changeIn', ({detail}) => {
-    detail.item === a.item('b'); // true
+a.addEventListener("changeIn", ({ detail }) => {
+    detail.item === a.item("b"); // true
     console.log(detail.item, detail.oldValue, detail.value);
 });
-a.item('b').value = 2; // triggers 'changeIn' event on 'a' (bubbles up)
+a.item("b").value = 2; // triggers 'changeIn' event on 'a' (bubbles up)
 
 // object-related:
-a.addEventListener('changeIn', (event) => {
-    if (detail.add) console.log(event.target, 'added property', event.detail.add); // child-item
-    if (detail.remove) console.log(event.target, 'removed property', event.detail.remove);
+a.addEventListener("changeIn", (event) => {
+    if (detail.add) {
+        console.log(event.target, "added property", event.detail.add); // child-item
+    }
+    if (detail.remove) {
+        console.log(event.target, "removed property", event.detail.remove);
+    }
 });
 ```
 
 ## Proxy
+
 ```js
-const p = item({a: 1}).proxy;
+const p = item({ a: 1 }).proxy;
 p.a === 1; // equals `i.item('a').value === 1`
 p.a = 2;
 ```
 
 ## Extend from Item
+
 ```js
-import { Item } from '../item.js';
+import { Item } from "../item.js";
 
 class UpperCaseItem extends Item {
     $get() { // overwrite getter
         const value = super.$get();
-        return typeof value === 'string' ? value.toUpperCase() : value;
+        return typeof value === "string" ? value.toUpperCase() : value;
     }
 }
 
 // Ussage:
 const a = new UpperCaseItem();
-a.value = {a: 'Hello', b: 'World'};
+a.value = { a: "Hello", b: "World" };
 console.log(a.value); // {a: 'HELLO', b: 'WORLD'}
 ```
 
 ## See how easy it is to use "item.js" with different drivers
 
-```js	
+```js
 // indexeddb
 import {IDB} from "../drivers/indexedDb.js";
 const db = IDB().item('db');
@@ -170,10 +182,9 @@ root.item('myCookie').value = 'Hello World';
 Even easier with proxies:
 
 ```js
-
 const db = dbItem.proxy;
 
-db.myTable[1] = {name: 'demo', age: 42};
+db.myTable[1] = { name: "demo", age: 42 };
 
 // and react to changes
 effect(() => {
@@ -183,5 +194,7 @@ effect(() => {
 
 ## About
 
-- MIT License, Copyright (c) 2022 <u1> (like all repositories in this organization) <br>
-- Suggestions, ideas, finding bugs and making pull requests make us very happy. ♥
+- MIT License, Copyright (c) 2022 <u1> (like all repositories in this
+  organization) <br>
+- Suggestions, ideas, finding bugs and making pull requests make us very happy.
+  ♥

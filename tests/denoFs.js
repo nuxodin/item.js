@@ -168,9 +168,9 @@ const data = await jsonFile(testDirectory + '/test.json');
 
 // Event listener for JSON changes
 data.addEventListener('changeIn', ({detail}) => {
-    if (detail.add)    console.log(`  ➕ Added: ${detail.item.pathKeys.join('.')} → ${detail.add.key}`);
-    if (detail.remove) console.log(`  ➖ Removed: ${detail.item.pathKeys.join('.')} → ${detail.remove.key}`);
-    if (detail.value !== undefined)  console.log(`  📝 Changed: ${detail.item.pathKeys.join('.')} = ${JSON.stringify(detail.value)}`);
+    if (detail.add)    console.log(`  ➕ Added: ${detail.item.path.join('.')} → ${detail.add.key}`);
+    if (detail.remove) console.log(`  ➖ Removed: ${detail.item.path.join('.')} → ${detail.remove.key}`);
+    if (detail.value !== undefined)  console.log(`  📝 Changed: ${detail.item.path.join('.')} = ${JSON.stringify(detail.value)}`);
 });
 
 console.log('Initial JSON content:');

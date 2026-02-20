@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Framework Performance Test</title>
+    <meta name="viewport" content="width=device-width" />
+</head>
+<body>
+    <script type=module>
+
+/**
+ * Erweiterter Benchmark für Item.js
+ * Testet Core vs. Proxy Performance
+ */
+
+import { item, Item } from '../item.js';
+
+async function runCoreBenchmark(count = 10000, depth = 500) {
+    performance.clearMarks();
+    performance.clearMeasures();
+    console.log(`%c🚀 Framework Benchmark: ${count} Items / ${depth} Tiefe`, "font-weight: bold; color: #007bff;");
+
+    // --- TEST 1: AUFBAU BREITE (Raw) ---
+    const flatRoot = item();
+    performance.mark('flat-start');
+    for (let i = 0; i < count; i++) {
+        flatRoot.item(`node_${i}`).set(i);
+    }
+    performance.mark('flat-end');
+    performance.measure('1. Aufbau Breite (Raw)', 'flat-start', 'flat-end');
+
+    // --- TEST 2: AUFBAU TIEFE (Raw) ---
+    const deepRoot = item();
+    performance.mark('deep-start');
+    let deepLeaf = deepRoot;
+    for (let i = 0; i < depth; i++) {
+        deepLeaf = deepLeaf.item(`level_${i}`);
+    }
+    deepLeaf.set("Ende");
+    performance.mark('deep-end');
+    performance.measure(`2. Aufbau Tiefe (${depth} Ebenen)`, 'deep-start', 'deep-end');
+
+    // --- TEST 3: PROXY LESE-ZUGRIFF (Bequemlichkeit) ---
+    const proxy = flatRoot.proxy;
+    performance.mark('proxy-read-start');
+    let sum = 0;
+    for (let i = 0; i < count; i++) {
+        // Testet die Getter-Falle des Proxys
+        sum += proxy[`node_${i}`];
+    }
+    performance.mark('proxy-read-end');
+    performance.measure('3. Proxy Lese-Zugriff (10k)', 'proxy-read-start', 'proxy-read-end');
+
+    // --- TEST 4: MUTATION FLACH (Raw) ---
+    performance.mark('mutate-flat-start');
+    for (let i = 0; i < count; i++) {
+        flatRoot.item(`node_${i}`).set(i * 3); 
+    }
+    performance.mark('mutate-flat-end');
+    performance.measure('4. Mutation Flach (Raw)', 'mutate-flat-start', 'mutate-flat-end');
+
+    // --- TEST 5: MUTATION FLACH (Proxy) ---
+    performance.mark('mutate-proxy-start');
+    for (let i = 0; i < count; i++) {
+        // Testet die Setter-Falle des Proxys
+        proxy[`node_${i}`] = i * 4; 
+    }
+    performance.mark('mutate-proxy-end');
+    performance.measure('5. Mutation Flach (Proxy)', 'mutate-proxy-start', 'mutate-proxy-end');
+
+    // --- TEST 6: MUTATION TIEF (Langer Event-Weg) ---
+    performance.mark('mutate-deep-start');
+    for (let i = 0; i < count; i++) {
+        deepLeaf.set(`Update_${i}`); 
+    }
+    performance.mark('mutate-deep-end');
+    performance.measure(`6. Mutation Tief (Raw, ${depth} Ebenen)`, 'mutate-deep-start', 'mutate-deep-end');
+
+    // --- AUSWERTUNG ---
+    const measures = performance.getEntriesByType('measure');
+    console.table(measures.map(m => ({
+        Szenario: m.name,
+        "Dauer (ms)": m.duration.toFixed(2),
+        "ms/op": (m.duration / (m.name.includes('Tiefe') && !m.name.includes('Mutation') ? depth : count)).toFixed(4)
+    })));
+
+    // Direkter Vergleich Proxy vs Raw
+    const rawMutation = performance.getEntriesByName('4. Mutation Flach (Raw)')[0].duration;
+    const proxyMutation = performance.getEntriesByName('5. Mutation Flach (Proxy)')[0].duration;
+    const overhead = ((proxyMutation / rawMutation - 1) * 100).toFixed(1);
+
+    console.log(`%c👉 Proxy-Overhead bei Schreibzugriff: ${overhead}%`, "color: #e67e22; font-weight: bold;");
+}
+
+
+async function checkMemory() {
+    if (!performance.memory) return console.log("Memory API nicht verfügbar");
+    // Kleiner Trick: GC anstoßen (geht nur wenn Chrome mit --js-flags="--expose-gc" startet)
+    // Ansonsten einfach den Wert lesen:
+    const used = performance.memory.usedJSHeapSize / 1024 / 1024;
+    console.log(`Aktueller Heap-Verbrauch: ${used.toFixed(2)} MB`);
+}
+
+window.runCoreBenchmark = runCoreBenchmark;
+
+
+setTimeout(() => {
+    checkMemory();
+    runCoreBenchmark();
+    checkMemory();
+}, 1000);
+
+    </script>
+</body>
+</html>
