@@ -156,6 +156,23 @@
             }
             chai.expect(result).to.deep.equal(['a', 'b']);
         });
+        it('deep set', () => {
+            let i = item({a:1, b:{b1:2, b2: {c:3}}});
+            const value = {a:1, b:{b2: {c:4}}};
+            const clone = structuredClone(value);
+            i.value = value;
+            chai.expect(i.value).to.deep.equal(clone);
+            chai.expect(i.item('b').item('b2').item('c').value).to.equal(4);
+            chai.expect(i.item('b').has('b1')).to.equal(false);
+        });
+        it('deep patch', () => {
+            let i = item({a:1, b:{b1:2, b2: {c:3}}});
+            const value = {a:1, b:{b2: {c:4, d:5}}};
+            i.patch(value);
+            chai.expect(i.value).to.deep.equal({a:1, b:{b1:2, b2: {c:4, d:5}}});
+            chai.expect(i.item('b').item('b2').item('d').value).to.equal(5);
+            chai.expect(i.item('b').has('b1')).to.equal(true);
+        });
     });
 
     describe('events', () => {
@@ -229,6 +246,18 @@
             chai.expect(setTriggered).to.equal(true);
             chai.expect(changeTriggered).to.equal(false);
         });
+
+        it('todo, what should be the value? change from promitive to void object triggers change', () => {
+            let i = item(1);
+            let changeTriggered = false;
+            i.addEventListener('change', e => {
+                console.log(e)
+                changeTriggered = true;
+            });
+            i.value = {};
+            chai.expect(changeTriggered).to.equal(true);
+        });
+
     });
 
 
@@ -273,22 +302,28 @@
             let i = item("test").proxy;
             chai.expect(`${i}`).to.equal('test');
         });
-        it('convert object to string (its the key)', () => {
-            let i = item({a:{x:1, y:2}}).proxy;
-            chai.expect(`${i.a}`).to.equal("a");
-        });
-        it('convert object to string (no key)', () => {
+        it('convert root object to string (should be "")', () => {
             let i = item({x:1, y:2}).proxy;
             chai.expect(`${i}`).to.equal("");
+        });
+        it('convert subobject to string (should be the key)', () => {
+            let i = item({a:{x:1, y:2}}).proxy;
+            chai.expect(`${i.a}`).to.equal("a");
         });
         it('convert bool to string', () => {
             let i = item(true).proxy;
             chai.expect(`${i}`).to.equal('true');
         });
-        it('convert null to string', () => {
+        it('convert null/undefined to string', () => {
             let i = item(null).proxy;
             chai.expect(`${i}`).to.equal('');
             chai.expect(''+i).to.equal('null');
+            let i2 = item(undefined).proxy;
+            chai.expect(`${i2}`).to.equal('');
+            chai.expect(''+i2).to.equal('undefined');
+            let i3 = item().proxy; // not filled
+            chai.expect(`${i3}`).to.equal('');
+            chai.expect(''+i3).to.equal('undefined');
         });
         it('convert to number', () => {
             chai.expect(item(9).proxy+0).to.equal(9);
@@ -304,7 +339,6 @@
             let i = item({a: 1, b: 2}).proxy;
             const result = [];
             for (let item of i) {
-                console.log(item)
                 result.push(item+0);
             }
             chai.expect(result).to.deep.equal([1,2]);

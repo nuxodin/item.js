@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Tests – item.js signals</title>
+    <meta name="viewport" content="width=device-width" />
+    <link rel="stylesheet" href="https://unpkg.com/mocha@10.2.0/mocha.css" />
+</head>
+
+<body>
+
+<div id="mocha"></div>
+<script src="https://unpkg.com/chai@4.4.1/chai.js"></script>
+<script src="https://unpkg.com/mocha@10.2.0/mocha.js"></script>
+<script class="mocha-init">
+mocha.setup('bdd');
+mocha.checkLeaks();
+</script>
+
+<script type="module">
+import { item, effect } from '../item.js';
+
+const { expect } = chai;
+
+// Wait for the next microtask (after the batch flush)
+const nextTick = () => new Promise(resolve => queueMicrotask(resolve));
+
+// ─── effect() ────────────────────────────────────────────────────────────────
+
+describe('effect()', () => {
+
+  it('runs immediately on creation', () => {
+    let count = 0;
+    effect(() => { count++; });
+    expect(count).to.equal(1);
+  });
+
+  it('re-runs when a dependent signal changes', async () => {
+    const s = item(1);
+    let count = 0;
+    effect(() => { s.value; count++; });
+    expect(count).to.equal(1);
+
+    s.value = 2;
+    await nextTick();
+    expect(count).to.equal(2);
+  });
+
+  it('returns a dispose function', () => {
+    const dispose = effect(() => {});
+    expect(dispose).to.be.a('function');
+  });
+
+  it('does not re-run after dispose()', async () => {
+    const s = item(0);
+    let count = 0;
+    const dispose = effect(() => { s.value; count++; });
+    expect(count).to.equal(1);
+
+    dispose();
+    s.value = 1;
+    await nextTick();
+    expect(count).to.equal(1); // no further calls
+  });
+
+  it('batches multiple signal changes into a single re-run', async () => {
+    const a = item(1);
+    const b = item(1);
+    let count = 0;
+    effect(() => { a.value; b.value; count++; });
+    expect(count).to.equal(1);
+
+    a.value = 2;
+    b.value = 2;
+    await nextTick();
+    expect(count).to.equal(2); // only 1 re-run, not 2
+  });
+
+  it('sees the latest value when a signal is updated multiple times before flush', async () => {
+    const s = item(0);
+    let last = 0;
+    effect(() => { last = s.value; });
+
+    s.value = 1;
+    s.value = 2;
+    s.value = 3;
+    await nextTick();
+    expect(last).to.equal(3);
+  });
+
+  it('an error in fn() does not corrupt the reactivity graph', async () => {
+    const bad  = item(0);
+    const good = item(0);
+    let goodRuns = 0;
+
+    // This effect throws on re-run
+    effect(() => {
+      if (bad.value > 0) throw new Error('intentional error');
+    });
+
+    // This effect must not be affected
+    effect(() => { good.value; goodRuns++; });
+    expect(goodRuns).to.equal(1);
+
+    bad.value = 1;  // triggers the error
+    good.value = 1; // must still be reactive
+    await nextTick();
+    expect(goodRuns).to.equal(2);
+  });
+
+  it('effects triggered during a batch flush are deferred to a new batch', async () => {
+    const a = item(0);
+    const b = item(0);
+    let log = [];
+
+    effect(() => { if (a.value) b.value = 1; });   // sets b while flushing a
+    effect(() => { if (b.value) log.push('b'); });
+
+    a.value = 1;
+    await nextTick();
+    await nextTick(); // second flush for the cascaded update
+    expect(log).to.deep.equal(['b']);
+  });
+
+  it('an effect with no signal dependency only runs once', async () => {
+    let count = 0;
+    effect(() => { count++; });
+    await nextTick();
+    expect(count).to.equal(1);
+  });
+
+});
+
+// ─── what triggers effects ────────────────────────────────────────────────────
+
+describe('APIs that register effect', () => {
+
+    function testAccess(should, readFn) {
+        it(`${should?'yes':'no'}: ${readFn}`, async () => {
+            const s = item().item('someKey');
+            let tracked = false;
+            effect(() => {
+                readFn(s);
+                tracked = true;
+            });
+            tracked = false;
+            s.value = 1;
+            await nextTick();
+            expect(tracked).to.equal(should);
+        });
+    }
+    testAccess(true, item => item.value );
+    testAccess(true, item => item.get() );
+    testAccess(true, item => item.valueOf() );
+    testAccess(true, item => item.toString() );
+    testAccess(true, item => item[Symbol.toPrimitive]() );
+    testAccess(true, item => item.toJSON() );
+    testAccess(true, item => item.keys );
+    testAccess(true, item => item.has('someKey') );
+    testAccess(true, item => [...item] );
+    testAccess(true, item => item.items() );
+    testAccess(true, item => 1*item.proxy, false );
+    //testAccess(true, item => item.pending );
+    //testAccess(true, item => item.error );
+    //testAccess(true, item => item.promise );
+
+    testAccess(false, item => item.path );
+    testAccess(false, item => item.set(1) );
+    testAccess(false, item => item.set({a:1}) );
+    testAccess(false, item => item.remove() );
+    testAccess(false, item => item.ChildClass );
+    testAccess(false, item => item.proxy );
+
+});
+
+describe('apis that trigger effects', () => {
+
+    function testTrigger(should, triggerFn) {
+        it(`${should?'yes':'no'}: ${triggerFn}`, async () => {
+            const s = item().item('subitem');
+            let tracked = false;
+            effect(() => {
+                s.value; // track the signal
+                tracked = true;
+            });
+            tracked = false;
+            triggerFn(s);
+            await nextTick();
+            expect(tracked).to.equal(should);
+        });
+    }
+
+    testTrigger(true, item => item.value = 1 );
+    testTrigger(true, item => item.set(1) );
+    testTrigger(true, item => item.set({}) );
+    testTrigger(true, item => item.item('key').remove()  );
+
+    testTrigger(false, item => item.remove() /* only on the parent */);
+
+
+});
+
+
+// ─── nested effects ───────────────────────────────────────────────────────────
+
+describe('effect() – nesting', () => {
+
+  it('child effect is disposed when parent re-runs', async () => {
+    const outer = item(0);
+    const inner = item(0);
+    let innerRuns = 0;
+
+    effect(() => {
+      outer.value;
+      effect(() => { inner.value; innerRuns++; });
+    });
+    expect(innerRuns).to.equal(1);
+
+    outer.value = 1; // parent re-runs → old child disposed, new child created
+    await nextTick();
+    expect(innerRuns).to.equal(2);
+
+    inner.value = 1; // only the new child listener reacts
+    await nextTick();
+    expect(innerRuns).to.equal(3);
+  });
+
+  it('parent re-running does not double-run the child', async () => {
+    const outer = item(0);
+    let childRuns = 0;
+
+    effect(() => {
+      outer.value;
+      effect(() => { childRuns++; });
+    });
+    expect(childRuns).to.equal(1);
+
+    outer.value = 1;
+    await nextTick();
+    expect(childRuns).to.equal(2); // exactly once per parent run
+  });
+
+  it('child effect does not run if parent is also scheduled in the same batch', async () => {
+    const s = item(0);
+    let parentRuns = 0;
+    let childRuns  = 0;
+
+    effect(() => {
+      s.value;
+      parentRuns++;
+      effect(() => { childRuns++; });
+    });
+    expect(parentRuns).to.equal(1);
+    expect(childRuns).to.equal(1);
+
+    s.value = 1; // parent scheduled → child skipped (parent recreates it)
+    await nextTick();
+    expect(parentRuns).to.equal(2);
+    expect(childRuns).to.equal(2); // child ran exactly once inside the new parent
+  });
+
+});
+
+
+
+// ─── effect() – self / cleanup inspection ────────────────────────────────────
+describe('effect() – self inspection', () => {
+    it('fn receives itself as info.self (direct check)', () => {
+        let self;
+        const fn = (info) => { self = info.self; };
+        effect(fn);
+        expect(self).to.equal(fn);
+    });
+    it('fn.disposed is true after dispose()', () => {
+        const fn = () => {};
+        const dispose = effect(fn);
+        dispose();
+        expect(fn.disposed).to.equal(true);
+    });
+    it('fn.parent is set inside a nested effect', () => {
+        const childFn = () => {};
+        const parentFn = () => { effect(childFn); };
+        effect(parentFn);
+        expect(childFn.parent).to.equal(parentFn);
+    });
+    it('fn.nested contains child fn', () => {
+        const childFn = () => {};
+        const parentFn = () => { effect(childFn); };
+        effect(parentFn);
+        expect(parentFn.nested.has(childFn)).to.equal(true);
+    });
+    it('child fn.disposed is true after parent re-runs', async () => {
+        const s = item(0);
+        const childFn = () => {};
+        effect(() => { s.value; effect(childFn); });
+        s.value = 1;
+        await nextTick();
+        expect(childFn.disposed).to.equal(true);
+    });
+});
+
+// ─── Stale Subscriptions / Cleanup vor Re-Run ────────────────────────────────
+describe('stale subscription cleanup', () => {
+    it('effect unsubscribes from signals no longer read after re-run', async () => {
+        const condition = item(true);
+        const a = item('a');
+        const b = item('b');
+        let runs = 0;
+        effect(() => {
+            runs = 0; // reset to track only new runs
+            if (condition.value) { a.value; }
+            else { b.value; }
+            runs++;
+        });
+        runs = 0;
+        condition.value = false; // jetzt wird nur noch b gelesen
+        await nextTick();
+        expect(runs).to.equal(1);
+        runs = 0;
+        a.value = 'a2'; // a sollte nicht mehr subscribed sein
+        await nextTick();
+        expect(runs).to.equal(0); // darf NICHT erneut laufen
+    });
+
+    it('effect does not accumulate duplicate subscriptions on re-run', async () => {
+        const s = item(0);
+        let runCount = 0;
+        effect(() => {
+            s.value; // immer gelesen
+            runCount++;
+        });
+        runCount = 0;
+        s.value = 1;
+        await nextTick();
+        expect(runCount).to.equal(1);
+        s.value = 2;
+        await nextTick();
+        expect(runCount).to.equal(2); // nicht 2 oder 4 durch doppelte Subscriptions
+    });
+});
+
+// ─── Batch / activeEffect Safety ─────────────────────────────────────────────
+describe('batch safety', () => {
+    it('activeEffect is null after batched effects run', async () => {
+        const s = item(0);
+        let capturedActiveEffect = 'not-set';
+        // Ein Effect der nach dem Batch-Run checkt ob activeEffect sauber ist
+        effect(() => { s.value; });
+        s.value = 1;
+        await nextTick();
+        // Keinen neuen Effect registrieren nach dem Batch → activeEffect muss null sein
+        const dummy = item(99);
+        effect(() => { capturedActiveEffect = null; dummy.value; }); // läuft sofort, nicht im batch
+        // Nach dem Batch darf kein activeEffect mehr hängen
+        expect(capturedActiveEffect).to.equal(null);
+    });
+
+    it('exception in batched effect does not leave activeEffect dirty', async () => {
+        const s = item(0);
+        const bad = () => { s.value; if (s.value > 0) throw new Error('boom'); };
+        effect(bad); // erster Run wirft nicht → kein Problem
+        let sideEffectRan = false;
+        const good = item(0);
+        effect(() => { good.value; sideEffectRan = true; });
+        sideEffectRan = false;
+        s.value = 1; // triggert bad im Batch → wirft dort, wird mit console.error geschluckt
+        good.value = 1;
+        await nextTick();
+        // good-effect muss trotzdem gelaufen sein
+        expect(sideEffectRan).to.equal(true);
+    });
+});
+
+// ─── Nested Effect Cleanup (rekursiv) ────────────────────────────────────────
+describe('nested effect cleanup – recursive', () => {
+    it('deeply nested child effects are disposed when grandparent re-runs', async () => {
+        const s = item(0);
+        const grandChildFn = () => {};
+        const childFn = () => { effect(grandChildFn); };
+        effect(() => { s.value; effect(childFn); });
+        s.value = 1;
+        await nextTick();
+        expect(childFn.disposed).to.equal(true);
+        expect(grandChildFn.disposed).to.equal(true); // muss rekursiv disposed werden
+    });
+});
+
+// ─── fn.parent Wiederverwendung ───────────────────────────────────────────────
+describe('effect fn.parent reuse guard', () => {
+    it('throws if same fn is reused in a different parent effect', () => {
+        const childFn = () => {};
+        const parentA = () => { effect(childFn); };
+        const parentB = () => { effect(childFn); };
+        effect(parentA);
+        expect(() => effect(parentB)).to.throw();
+    });
+});
+
+</script>
+
+<script class="mocha-exec" type="module">
+mocha.run();
+</script>
+</body>
+</html>

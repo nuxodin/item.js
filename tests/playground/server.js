@@ -9,10 +9,6 @@ const PORT = 3495;
 // Use the real filesystem from the files directory
 const serverRoot = denoFs('./files', { watch: true });
 
-serverRoot.addEventListener('change', (e) => {
-  console.log('change', e.detail, e.target);
-});
-
 const router = createItemRouter(serverRoot, '/files');
 const wsRouter = createItemWsRouter(serverRoot, '/ws');
 

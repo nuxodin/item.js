@@ -86,7 +86,6 @@ class FsItem extends AsyncItem {
             await ensureDir(this.parent.fsPath);
             return Deno.writeTextFile(this.fsPath, value);
         }
-
         const promises = [];
         for (const key in value) {
             const promise = this.item(key).set(value[key]);
@@ -94,7 +93,7 @@ class FsItem extends AsyncItem {
         }
         return await Promise.all(promises);
     }
-    async loadItems() { // if directory, load all children, todo
+    async loadItems() {
         for await (const dirEntry of Deno.readDir(this.fsPath)) {
             this.item(dirEntry.name);
             //this.item(dirEntry.name); //.isObject = dirEntry.isDirectory;

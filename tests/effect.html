@@ -13,18 +13,27 @@
 
 // local storage
 
-import {item, effect, computed} from "../item.js";
+import {item, effect} from "../item.js";
+
+const s = item().item('xxx');
+effect(()=>{
+    log(`toString: ${s}`);
+});
+s.value = 5;
+setTimeout(()=>{
+
+    s.item('x');
+
+}, 1000);
+
+
 
 const itm = item({outer:0, inner:0, deeper:0});
-
-const sum = computed(()=>{
-    return itm.item('inner') + itm.item('outer') + itm.item('deeper');
-});
 
 
 effect(()=>{
 
-    log("outer effect, value:" + itm.item('outer').value);
+    log("outer effect, value:" + itm.item('outer'));
 
     effect(()=>{
 
@@ -36,18 +45,12 @@ effect(()=>{
 
 
         effect(()=>{
-            log("deeper effect (bevore inner), value:" + itm.item('deeper').value);
+            log("deeper effect (bevore inner), value:" + itm.item('deeper'));
         });
 
-        log("inner effect, value:" + itm.item('inner').value);
+        log("inner effect, value:" + itm.item('inner'));
 
     });
-
-});
-
-const sumdispose = effect(()=>{
-
-    log("sum only in effect should trigger. value:" + sum.value);
 
 });
 
@@ -80,9 +83,6 @@ setTimeout(()=>{
 
 setTimeout(()=>{
     log("<br>new values after 100ms");
-    log("sum is not triggered, because the effect is disposed<br>");
-
-    sumdispose();
 
     itm.item('inner').value = 5;
     itm.item('outer').value = 5;

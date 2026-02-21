@@ -17,26 +17,18 @@
 <script type=module>
 
 // editor:
-let currentItem = null;
 const editorEl = document.querySelector('#editor');
-const saveBtn = document.querySelector('#saveBtn');
-saveBtn.addEventListener('click', async e=>{
-    try {
-        await currentItem.set(editorEl.value);
-        alert('Saved!');
-    } catch (error) {
-        alert('Error: ' + error.message);
-    }
-});
+const editorBinding = reactiveInput(editorEl, {saveOnInput: true, saveOnBlur: false});
+
 // files http:
 import { createItemClient as createHttpClient } from "../../tools/httpClient.js";
 import { createItemClient as createWsClient } from "../../tools/wsClient.js";
+
 const fs = createHttpClient("http://localhost:3495/files");
 const tree = document.getElementById('filesHttp');
 
 window.files = fs; // for testing in console
 console.log('write files.item("test.html").value = "hello world" in the console to test');
-
 
 setTimeout(()=>{
     tree.bindItem(fs);
@@ -44,23 +36,17 @@ setTimeout(()=>{
     tree.setAttribute('aria-expanded', 'true');
     tree.addEventListener('u2-tree-select', async (event) => {
         const treeEl = event.target;
-        const path = [];
-        let current = treeEl;
-        while (current && current.dataset.key) {
-            path.unshift(current.dataset.key);
-            current = current.parentElement.closest('u2-tree');
-        }
+        const path = treeEl.path().map(el => el.dataset.key).filter(k => k);
         const item = fs.sub(path);
         const value = await item.promise;
         if (typeof value === 'string') {
-            currentItem = item;
-            editorEl.value = value;
+            editorBinding.setItem(item);
         } else {
             editorEl.value = '';
             item.loadItems();
         }
     });
-},300)
+},300);
 
 // files (websocket):
 const fsWs = createWsClient("ws://localhost:3495/ws");
@@ -71,23 +57,90 @@ setTimeout(()=>{
     treeWs.setAttribute('aria-expanded', 'true');
     treeWs.addEventListener('u2-tree-select', async (event) => {
         const treeEl = event.target;
-        const path = [];
-        let current = treeEl;
-        while (current && current.dataset.key) {
-            path.unshift(current.dataset.key);
-            current = current.parentElement.closest('u2-tree');
-        }
+        const path = treeEl.path().map(el => el.dataset.key).filter(k => k);
         const item = fsWs.sub(path);
         const value = await item.promise;
         if (typeof value === 'string') {
-            currentItem = item;
-            editorEl.value = value;
+            editorBinding.setItem(item);
         } else {
-            editorEl.value = '';
+            editorBinding.setItem();
             item.loadItems();
         }
     });
 },300)
+
+
+import {jsonDataItem} from '../../tools/jsonDataItem.js';
+
+customElements.whenDefined('u2-tree').then(async ()=>{
+    const tree = document.getElementById('demoJsonTree');
+    const demoJson = await jsonDataItem(fsWs.item('demo.json'));
+    tree.bindItem(demoJson);
+});
+
+
+function reactiveInput(element, options = {}) {
+    options = {
+        saveOnInput: false,
+        saveOnBlur: true,
+        ...options
+    };
+    let currentReactiveItem = null;
+    let inputBlocked = false;
+
+    function save() {
+        if (!currentReactiveItem) return;
+        currentReactiveItem.set(element.value).then(() => {
+
+        }).catch(error => {
+            console.error('Error saving item:', error);
+            alert('Error saving item.');
+        });
+    }
+
+    const onItemChange = () => {
+        if (!inputBlocked) {
+            element.value = currentReactiveItem?.value || '';
+        } else {
+            console.warn('Item changed while input is focused. Consider implementing a notification mechanism.');
+        }
+    };
+
+    const setItem = async (nextItem) => {
+        currentReactiveItem?.removeEventListener('change', onItemChange);
+        currentReactiveItem = nextItem;
+        element.value = '';
+        if (!currentReactiveItem) return;
+        element.value = 'loading...';
+        element.value = await currentReactiveItem.promise;
+        currentReactiveItem?.addEventListener('change', onItemChange);
+    };
+
+    element.addEventListener('focus', () => inputBlocked = true);
+    element.addEventListener('keydown', async (e) => {
+        if (e.key === 's' && (e.ctrlKey || e.metaKey)) {
+            e.preventDefault();
+            save();
+        }
+    });
+    element.addEventListener('blur', async () => {
+        inputBlocked = false;
+        if (options.saveOnBlur) {
+            save();
+        } else {
+            console.warn('Input blurred but saveOnBlur is false. Consider implementing a notification mechanism.');
+        }
+    });
+    element.addEventListener('input', () => {
+        if (options.saveOnInput) {
+            if (!currentReactiveItem) return;
+            save(); // todo: debounce this
+        } else {
+            console.warn('Input changed but saveOnInput is false. Consider implementing a notification mechanism.');
+        }
+    });
+    return { setItem };
+};
 
 
 
@@ -103,10 +156,11 @@ setTimeout(()=>{
                     <u2-tree id="filesHttp">Loading...</u2-tree>
                     <h3>websockets</h3>
                     <u2-tree id="filesWs">Loading...</u2-tree>
+                    <h3>demo.json</h3>
+                    <u2-tree id="demoJsonTree">Loading...</u2-tree>
                 </div>
                 <u2-code id="editor" editable></u2-code>
             </u2-splitpanel>
-            <button id=saveBtn>Save</button>
         </div>
 
         <h2>Cookies</h2>
@@ -138,4 +192,3 @@ setTimeout(()=>{
         </div>
     </u2-tabs>
 </main>
-

@@ -8,9 +8,103 @@ export class Item extends EventTarget {
     #value;
     #parent;
     #key;
-    #filled = false;
+    #isObject = null; // null means not filled, true means filled with an object, false means filled with a primitive value
     #isGetting = false;
     #isSetting = false;
+
+    constructor(parent, key) {
+        super();
+        this.#parent = parent;
+        this.#key = key;
+        this.addEventListener('change', () => triggerEffectsFor(this)); // the method that triggers the change effect can be overwritten by a child class, therefore we use the event
+    }
+
+    get key() { return this.#key }
+    get parent() { return this.#parent }
+    get filled() { return this.#isObject !== null; }
+
+    set value(value) { this.set(value); }
+    get value() { return this.get(); }
+
+    get() {
+        if (this.#isGetting) throw new Error('circular get');
+        this.#isGetting = true;
+        dispatchEvent(this, 'get', { item: this, value: this.#value });
+        registerCurrentEffectFor(this);
+        this.#isGetting = false;
+        return this.$get();
+    }
+    set(value, options = {}) {
+        if (this.#isSetting) throw new Error('circular set');
+        this.#isSetting = true;
+        const obj = dispatchEvent(this, 'set', { item: this, oldValue: this.#value, value, options });
+        const result = !obj.defaultPrevented ? this.$set(value, options) : null;
+        this.#isSetting = false;
+        return result;
+    }
+    patch(value) {
+        this.set(value, { patch: true });
+    }
+
+    $get() {
+        if (this.constructor.isPrimitive(this.#value)) {
+            return this.#value;
+        } else {
+            const value = this.#value ??= Object.create(null); // if undefined, create object
+            return Object.fromEntries(Object.entries(value).map(([key, { value }]) => [key, value]));
+        }
+    }
+    $set(value, options) {
+        const oldValue = this.#value;
+
+        if (this.constructor.isPrimitive(value)) {
+            if (this.#isObject !== false || !this.constructor.equals(oldValue, value)) {
+                this.#value = value;
+                this.#isObject = false;
+                if (!this.#isGetting) {
+                    dispatchEvent(this, 'change', { item: this, oldValue, value });
+                } else {
+                    console.warn('just for your info: set while getting dont trigger change');
+                }
+            }
+        } else {
+            const entries = Object.entries(value);
+            if (!this.#isObject) {
+                this.#value = Object.create(null);
+                this.#isObject = true;
+            }
+            for (const [key, val] of entries) this.item(key).set(val, options);
+            if (!options?.patch) {
+                for (const key in this.#value) {
+                    entries.some(([k]) => k === key) || this.#value[key].remove();
+                }
+            }
+        }
+    }
+    $patch(value) {
+        const oldValue = this.#value;
+
+        if (this.constructor.isPrimitive(value)) {
+            if (this.#isObject !== false || !this.constructor.equals(oldValue, value)) {
+                this.#value = value;
+                this.#isObject = false;
+                if (!this.#isGetting) {
+                    dispatchEvent(this, 'change', { item: this, oldValue, value });
+                } else {
+                    console.warn('just for your info: set while getting dont trigger change');
+                }
+            }
+        } else {
+            if (!this.#isObject) this.#value = Object.create(null);
+            this.#isObject = true;
+            for (const key in value) this.item(key).set(value[key]);
+        }
+    }
+
+    get path() {
+        if (this.#parent == null) return [];
+        return [...this.#parent.path, this.key];
+    }
 
     // Promise states
     #pending = false;
@@ -25,12 +119,10 @@ export class Item extends EventTarget {
         this.#promise = promise;
         this.#pending = true;
         this.#error = undefined;
-        this.#filled = false;
         //dispatchEvent(this, 'change', { item: this, oldValue, value: this.#value }); // todo? pending state changed
         promise.then(
             resolved => {
                 if (this.#promise !== promise) return; // wurde überschrieben
-                this.#filled = true;
                 this.#pending = false;
                 this.#promise = undefined;
                 this.$set(resolved);
@@ -45,83 +137,14 @@ export class Item extends EventTarget {
         );
     }
 
-    constructor(parent, key) {
-        super();
-        this.#parent = parent;
-        this.#key = key;
-        this.addEventListener('change', () => triggerEffectsFor(this)); // the method that triggers the change effect can be overwritten by a child class, therefore we use the event
-    }
-
-    get key() { return this.#key }
-    get parent() { return this.#parent }
-    get filled() { return this.#filled }
-
-    set value(value) { this.set(value); }
-    get value() { return this.get(); }
-
-    get() {
-        if (this.#isGetting) throw new Error('circular get');
-        this.#isGetting = true;
-        dispatchEvent(this, 'get', { item: this, value: this.#value });
-        registerCurrentEffectFor(this);
-        this.#isGetting = false;
-        return this.$get();
-    }
-    set(value) {
-        if (this.#isSetting) throw new Error('circular set');
-        this.#isSetting = true;
-        const obj = dispatchEvent(this, 'set', { item: this, oldValue: this.#value, value });
-        const result = !obj.defaultPrevented ? this.$set(value) : null;
-        this.#isSetting = false;
-        return result;
-    }
-    $get() {
-        if (this.constructor.isPrimitive(this.#value)) {
-            return this.#value;
-        } else {
-            const value = this.#value ??= Object.create(null); // if undefined, create object
-            return Object.fromEntries(Object.entries(value).map(([key, { value }]) => [key, value]));
-        }
-    }
-    $set(value) {
-        const oldValue = this.#value;
-
-        if (this.constructor.isPrimitive(value)) {
-            if (!this.#filled || !this.constructor.equals(oldValue, value)) {
-                this.#value = value;
-                this.#filled = true;
-                if (!this.#isGetting) {
-                    dispatchEvent(this, 'change', { item: this, oldValue, value });
-                } else {
-                    console.warn('just for your info: set while getting dont trigger change');
-                }
-            }
-        } else {
-            if (!this.#value || typeof this.#value !== 'object') this.#value = Object.create(null);
-            this.#filled = true;
-            for (const key in value) this.item(key).set(value[key]);
-            for (const key in this.#value) if (!(key in value)) this.#value[key].remove(); // todo? patch without removing old keys?
-        }
-    }
-
-    // get chain() { // implement if needed/requested
-    //     if (this.#parent == null) return [this];
-    //     return [...this.#parent.chain, this];
-    // }
-
-    get path() {
-        if (this.#parent == null) return [];
-        return [...this.#parent.path, this.key];
-    }
-
     // object related
 
     item(key) {
         key = String(key);
-        if (this.#value == null || typeof this.#value !== 'object') { // item() forces value always to be object
+        if (!this.#isObject) {
             this.#value = Object.create(null);
-            this.#filled = true;
         }
+        this.#isObject = true;
         if (!(key in this.#value)) {
             const Klass = this.ChildClass ?? this.constructor;
             const item = new Klass(this, key);
@@ -137,24 +160,20 @@ export class Item extends EventTarget {
         return current;
     }
 
-    items() {
-        if (!this.filled) return null;
-        const value = this.#value;
-        if (this.constructor.isPrimitive(value)) return null;
-        return Object.values(this.#value);
-    }
-
     remove() {
         if (!this.#parent) throw new Error('cannot remove root item');
         delete this.#parent.#value[this.#key];
         dispatchEvent(this.#parent, 'change', { item: this.#parent, remove: this });
     }
-    has(key) { return key in this.#value; }
 
-    get proxy() { return toProxy(this); }
+    has(key) {
+        registerCurrentEffectFor(this);
+        return typeof this.#value === 'object' && key in this.#value;
+    }
 
     get keys(){
-        return Object.keys(this.#value ?? {});
+        registerCurrentEffectFor(this);
+        return Object.keys(this.#value ?? {}); // string also has keys, todo?
     }
 
     // loadItems() {}
@@ -162,10 +181,16 @@ export class Item extends EventTarget {
     // it should load the keys of the items, but not necessarily the values
     // async loadItems() { await getKeys(); for (const key of keys) this.item(key); }
 
-    // iterator
-    // iterators should probably trigger "get", but not compute the value
+    
+    items() {
+        registerCurrentEffectFor(this);
+        if (this.#isObject !== true) return [];
+        const value = this.#value;
+        return Object.values(this.#value);
+    }
+
     *[Symbol.iterator]() {
-        for (const key in this.get()) yield this.#value[key];
+        for (const key of this.keys) yield this.#value[key];
     }
 
     async *[Symbol.asyncIterator]() {
@@ -176,28 +201,33 @@ export class Item extends EventTarget {
         for await (const { detail: { add } } of iterator) if (add) yield add;
     }
 
-    // integration
+    // misc
+
+    get proxy() { return toProxy(this); }
+
     toJSON() { return this.get(); }
     valueOf() { return this.get(); }
 
     toString() {
-        if (this.constructor.isPrimitive(this.#value)) return String(this.#value ?? ''); 
-        return this.#key != null ? String(this.#key) : '';
+        registerCurrentEffectFor(this); // todo: .get() already registers the effect
+        if (this.constructor.isPrimitive(this.#value)) return String(this.get() ?? '');
+        return this.#key ?? '';
     }    
-    //toString() { return this.get() + '' } // if its an object, this.key would be better
+
     [Symbol.toPrimitive](hint) {
         if (hint === 'string') return this.toString();
-        const value = this.constructor.isPrimitive(this.#value) ? this.#value : this.#key;
+        const value = this.constructor.isPrimitive(this.#value) ? this.get() : this.#key;
         if (hint === 'number') return Number(value);
         return this.#value;
     }
 
+    // static methods
 
     static isPrimitive(value) {
         return value !== Object(value) || 'toJSON' in value;
     }
     static equals(a, b) {
-        if (Object.is(a, b)) return true; // TODO: we should use deepEqual as "primitive" can be an object
+        if (Object.is(a, b)) return true; // question: should use deepEqual as "primitive" can be an object?
     }
 
     static ChildClass;
@@ -218,8 +248,10 @@ export function item(...args) {
 
 
 // signal / effect
+
 const relatedEffects = new WeakMap();
-let currentEffect = null;
+let activeEffect = null;
+let queue = null;
 
 /**
  * Execute the provided function and re-execute it when dependencies change.
@@ -227,62 +259,49 @@ let currentEffect = null;
  * @return {function} A function to dispose the effect.
  */
 export function effect(fn) { // async?
-    const outer = currentEffect;
-    if (outer) {
-        (outer.nested ??= new Set()).add(fn);
-        if (fn.parent && fn.parent !== outer) throw ('effect(cb) callbacks should not be reused for other effects');
-        fn.parent = outer;
+    const parent = activeEffect;
+    if (parent) {
+        (parent.nested ??= new Set()).add(fn);
+        if (fn.parent && fn.parent !== parent) throw new Error('effect(cb) callbacks should not be reused for other effects');
+        fn.parent = parent;
     }
-    currentEffect = fn;
-    try { fn(); } // await, so that signals in async functions are collected?
-    finally { currentEffect = outer; }
+    activeEffect = fn;
+    try { fn({self:fn}); } // await, so that signals in async functions are collected?
+    finally { activeEffect = parent; }
     return () => fn.disposed = true
 }
 
-/**
- * Create a computed item based on the provided calculation function.
- * @param {function} calc - The calculation function.
- * @return {Item} A new computed item.
- */
-export function computed(calc) {
-    const signal = item();
-    effect(() => signal.set(calc())); // todo: only primitive?
-    return signal;
-}
-
-let batches = null;
 function batch(effect) {
-    if (batches) return batches.add(effect); // currently collecting
-    batches = new Set([effect]);
+    if (queue) return queue.add(effect); // currently collecting
+    queue = new Set([effect]);
     queueMicrotask(() => {
-        batches.forEach(fn => {
-            if (batches.has(fn?.parent)) return; // its parent has also to run, so it will run anyway
-            currentEffect = fn; // effect() called inside fn(callback) has to know his parent effect
-            // todo? try
-            fn(); // TODO? fn({rerun:fn}) to rerun effect? https://github.com/nuxodin/item.js/issues/2
-        });
-        batches = null; // restart collecting
+        for (const fn of queue) {
+            if (queue.has(fn?.parent)) continue; // skip if parent already runs
+            activeEffect = fn; // effect() called inside fn(callback) has to know his parent effect
+            try { fn({self:fn}); } catch (err) { console.error(err); } // hm? fn({rerun:fn})/fn({self:fn}) to rerun effect? https://github.com/nuxodin/item.js/issues/2
+        }
+        activeEffect = null;
+        queue = null; // restart collecting, todo? we could also keep collecting while running, but it can cause infinite loops if not careful
     });
 }
+
 function registerCurrentEffectFor(signal) {
-    if (currentEffect) {
-        if (!relatedEffects.has(signal)) relatedEffects.set(signal, new Set());
-        relatedEffects.get(signal).add(currentEffect);
-    }
+    if (!activeEffect) return;
+    (relatedEffects.get(signal) ?? relatedEffects.set(signal, new Set()).get(signal)).add(activeEffect);
 }
+
 function triggerEffectsFor(signal) {
     const effects = relatedEffects.get(signal);
-    if (effects) {
-        effects.forEach(fn => {
-            fn.nested?.forEach(fn => fn.disposed = true); // dispose child-effects
-            if (fn.disposed) return effects.delete(fn);
-            batch(fn);
-        });
+    if (!effects) return;
+    for (const fn of effects) {
+        fn.nested?.forEach(fn => fn.disposed = true); // dispose child-effects
+        if (fn.disposed) effects.delete(fn);
+        else batch(fn);
     }
 }
 
+
 // proxy
-// todo? should proxy[iterator] iterate over item
 
 export const $item = Symbol('item.js [proxy target]');
 
@@ -397,7 +416,7 @@ export async function* asyncIteratorFromEventTarget(eventTarget, eventName, opti
             } else if (stopAfterQueue) {
                 return;
             } else {
-                await new Promise(res => resolve = res);
+                await new Promise(res => resolve = res); // Promise.withResolvers()?
             }
         }
     } finally {

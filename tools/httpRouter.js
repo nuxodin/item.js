@@ -42,14 +42,13 @@ export function createItemRouter(rootItem, basePath = '') {
             }
 
             // GET: Return item value
-            // todo: this gets the full value, maybe we want just the value if primitive or the children if object? or maybe a query param to control this?
-            if (method === 'GET') {
+            if (method === 'GET') {                
                 try {
                     await item.loadItems();
                 } catch {}
                 const items = item.items();
                 let value = null;
-                if (items === null) {
+                if (!items.length) { // ugly!
                     value = await item.promise;
                 } else {
                     value = items.map(item=>({key: item.key}));
@@ -62,7 +61,7 @@ export function createItemRouter(rootItem, basePath = '') {
                 const body = await request.json();
                 item.set(body);
                 const value = await item.promise;
-                return jsonResponse(value);
+                return jsonResponse({success:true});
             }
 
             // PATCH: Partial update (merge for objects)
@@ -70,7 +69,7 @@ export function createItemRouter(rootItem, basePath = '') {
                 const body = await request.json();
                 patch(item, body);
                 const value = await item.promise;
-                return jsonResponse(value);
+                return jsonResponse({success:true});
             }
 
             // DELETE: Remove item
