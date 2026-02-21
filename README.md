@@ -53,11 +53,11 @@ a.item("c").item("d"); // Automatic property creation (Autovivification)
 
 ```js
 const i = item();
-i.value = Promise.resolve(42);
+i.promise = Promise.resolve(42);
 i.value === undefined;
 i.pending === true; // while pending
 i.promise; // returns assigned promise or Promise.resolve(this.value)
-await i.promise;
+await i.promise; // 42
 i.value === 42; // resolved value
 ```
 
