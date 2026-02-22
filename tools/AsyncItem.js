@@ -57,13 +57,13 @@ export class AsyncChild extends AsyncItem {
     }
 
     async createGetter() {
-        let row = await this.parent.get();
+        let row = await this.parent.promise;
         row ??= Object.create(null);
         return row[this.key];
     }
 
     async createSetter(value) { // setters in AsyncChilds must first get the value to modify it
-        let row = await this.parent.get()
+        let row = await this.parent.promise;
         row ??= Object.create(null);
         row[this.key] = value;
         // structuredClone is needed to make the row a new object.
@@ -72,7 +72,7 @@ export class AsyncChild extends AsyncItem {
     }
 
     async remove(){
-        const row = await this.parent.get();
+        const row = await this.parent.promise;
         if (row) {
             delete row[this.key];
             await this.parent.set( structuredClone(row) );
@@ -85,7 +85,8 @@ AsyncItem.ChildClass = AsyncChild;
 
 // resolveAll is a helper function to resolve all *touched* items in an item-object
 export async function resolveAll(item) {
-    const value = await item.get();
+    const value = await item.promise;
+    console.log(value)
     if (typeof value === 'object' && value != null) {
         const results = await Promise.all([...item].map(resolveAll));
         for (const sub of item) {

@@ -27,7 +27,7 @@ localStorage.item("theme").value = "dark";
 ## Installation
 
 ```js
-import { item } from "../item.js";
+import { item } from "https://cdn.jsdelivr.net/gh/nuxodin/item.js@0.4.0/item.js"
 ```
 
 ## Wrapped value

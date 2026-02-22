@@ -28,7 +28,7 @@ export class AsyncDataPoint {
     constructor({get, set, ...options}) {
         this.options = {
             optimistic: true,
-            ttl: 2000,
+            ttl: 5000,
             setDebouncePeriod: 5,
             getRetry: 2,
             getRetryDelay: 1000,
