@@ -163,6 +163,52 @@ function reactiveInput(element, options = {}) {
             </u2-splitpanel>
         </div>
 
+        <h2>Console</h2>
+        <div>
+            <u2-splitpanel style="height:20rem" vertical>
+                <u2-splitpanel style="height:20rem">
+                    <u2-code id="consoleInput" editable trim>
+                        i.item("test").value = "hello world"
+                    </u2-code>
+                    <u2-code id="consoleInspect"></u2-code>
+                </u2-splitpanel>
+                <u2-splitpanel style="height:10rem">
+                    <u2-code id="consoleReturn"></u2-code>
+                    <u2-code id="consoleLog"></u2-code>
+                </u2-splitpanel>
+            </u2-splitpanel>
+            <script type="module">
+                import { item, effect } from "../../item.js";
+                customElements.whenDefined('u2-code').then(() => {
+                    const root = item();
+                    window.i = root;   // wichtig für eval im Modul
+                    window.log = (...args)=>{
+                        consoleLog.value += Array.from(args).join() + '\n';
+                    }
+                    consoleInput.addEventListener("input", () => {
+                        consoleLog.value = '';
+                        consoleReturn.value = '';
+                        const code = consoleInput.value.trim();
+                        try {
+                            i.value = undefined;
+                            const r = eval(code);
+                            consoleReturn.style.color = '';
+                            console.log('return', r);
+                            //consoleReturn.value = JSON.stringify(r.value, null, 2);
+                        } catch (err) {
+                            console.log('error from eval', err);
+                            consoleReturn.style.color = 'red';
+                            consoleReturn.value = "Error: " + err.message;
+                        }
+                    });
+                    effect(() => {
+                        console.log(root.value)
+                        consoleInspect.value = JSON.stringify(root.value, null, 2);
+                    });
+                });
+            </script>
+        </div>
+
         <h2>Cookies</h2>
         <div>
             <u2-tree id="cookiesTree" aria-expanded="true"></u2-tree>

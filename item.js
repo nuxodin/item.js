@@ -113,13 +113,15 @@ export class Item extends EventTarget {
     get pending() { return this.#pending; } // todo? registerCurrentEffectFor(this) ?
     get error() { return this.#error; } // todo? registerCurrentEffectFor(this) ?
     get promise() {
-        return this.#pending ? this.#promise : Promise.resolve(this.get());
+        if (!this.#pending) return Promise.resolve(this.get());
+        registerCurrentEffectFor(this);
+        return this.#promise;
     }
     set promise(promise) {
         this.#promise = promise;
         this.#pending = true;
         this.#error = undefined;
-        //dispatchEvent(this, 'change', { item: this, oldValue, value: this.#value }); // todo? pending state changed
+        dispatchEvent(this, 'change', { item: this, pending: true });
         promise.then(
             resolved => {
                 if (this.#promise !== promise) return; // wurde überschrieben
@@ -132,7 +134,7 @@ export class Item extends EventTarget {
                 this.#error = error;
                 this.#pending = false;
                 this.#promise = undefined;
-                // some event? dispatchEvent(this, 'change', { item: this, oldValue, value: this.#value });
+                dispatchEvent(this, 'change', { item: this, error });
             }
         );
     }
@@ -141,9 +143,8 @@ export class Item extends EventTarget {
 
     item(key) {
         key = String(key);
-        if (!this.#isObject) {
-            this.#value = Object.create(null);
-        }
+        if (key === '') throw new Error('key must not be empty');
+        if (!this.#isObject) this.#value = Object.create(null);
         this.#isObject = true;
         if (!(key in this.#value)) {
             const Klass = this.ChildClass ?? this.constructor;
@@ -171,27 +172,28 @@ export class Item extends EventTarget {
         return typeof this.#value === 'object' && key in this.#value;
     }
 
-    get keys(){
+    get keys() {
         registerCurrentEffectFor(this);
-        return Object.keys(this.#value ?? {}); // string also has keys, todo?
-    }
-
-    // loadItems() {}
-    // can be implemented by child class
-    // it should load the keys of the items, but not necessarily the values
-    // async loadItems() { await getKeys(); for (const key of keys) this.item(key); }
-
-    
-    items() {
-        registerCurrentEffectFor(this);
-        if (this.#isObject !== true) return [];
-        const value = this.#value;
-        return Object.values(this.#value);
+        return this.#isObject ? Object.keys(this.#value ?? {}) : [];
     }
 
     *[Symbol.iterator]() {
         for (const key of this.keys) yield this.#value[key];
     }
+
+    items() {
+        registerCurrentEffectFor(this);
+        if (this.#isObject !== true) return [];
+        return Object.values(this.#value);
+    }
+
+
+    // async 
+
+    // loadItems() {}
+    // can be implemented by child class
+    // it should load the keys of the items, but not necessarily the values
+    // async loadItems() { await getKeys(); for (const key of keys) this.item(key); }
 
     async *[Symbol.asyncIterator]() {
         for (const item of Object.values(this.#value ?? {})) yield item;
@@ -212,7 +214,7 @@ export class Item extends EventTarget {
         registerCurrentEffectFor(this); // todo: .get() already registers the effect
         if (this.constructor.isPrimitive(this.#value)) return String(this.get() ?? '');
         return this.#key ?? '';
-    }    
+    }
 
     [Symbol.toPrimitive](hint) {
         if (hint === 'string') return this.toString();
@@ -266,7 +268,7 @@ export function effect(fn) { // async?
         fn.parent = parent;
     }
     activeEffect = fn;
-    try { fn({self:fn}); } // await, so that signals in async functions are collected?
+    try { fn({ self: fn }); } // await, so that signals in async functions are collected?
     finally { activeEffect = parent; }
     return () => fn.disposed = true
 }
@@ -278,7 +280,7 @@ function batch(effect) {
         for (const fn of queue) {
             if (queue.has(fn?.parent)) continue; // skip if parent already runs
             activeEffect = fn; // effect() called inside fn(callback) has to know his parent effect
-            try { fn({self:fn}); } catch (err) { console.error(err); } // hm? fn({rerun:fn})/fn({self:fn}) to rerun effect? https://github.com/nuxodin/item.js/issues/2
+            try { fn({ self: fn }); } catch (err) { console.error(err); } // hm? fn({rerun:fn})/fn({self:fn}) to rerun effect? https://github.com/nuxodin/item.js/issues/2
         }
         activeEffect = null;
         queue = null; // restart collecting, todo? we could also keep collecting while running, but it can cause infinite loops if not careful
@@ -305,6 +307,9 @@ function triggerEffectsFor(signal) {
 
 export const $item = Symbol('item.js [proxy target]');
 
+
+
+/* OLD
 const proxyHandler = {
     get: function (target, property, receiver) {
         if (property === $item) return target;
@@ -327,11 +332,16 @@ const proxyHandler = {
 
         if (item.pending) return item.promise;
 
+        return toProxy(item);
         const value = item.get(); // TODO?: Is accessing item.get() here good? it will trigger a get event (E.g. fetch data)
         return item.constructor.isPrimitive(value) ? value : toProxy(item);
     },
     set: function (target, property, value) {
         target.item(property).set(value);
+        return true;
+    },
+    apply: function (target, thisArg, argumentsList) {
+        console.log('apply called', target.path, thisArg, argumentsList);
         return true;
     },
     has: (target, property) => target.has(property),
@@ -348,6 +358,75 @@ const toProxy = (item) => {
     if (!cachedProxies.has(item)) cachedProxies.set(item, new Proxy(item, proxyHandler));
     return cachedProxies.get(item);
 }
+*/
+
+
+const proxyHandler = {
+    get: function (target, property, receiver) {
+        const targetItem = target.item;
+        if (property === $item) return targetItem;
+        if (property === Symbol.iterator) {
+            return function* () {
+                for (const childItem of targetItem) {
+                    yield toProxy(childItem);
+                }
+            };
+        }
+        if (typeof property === 'symbol') {
+            if (typeof targetItem[property] === 'function') return targetItem[property].bind(targetItem);
+            return Reflect.get(targetItem, property, receiver);
+        }
+        const childItem = targetItem.item(property);
+
+        if (property === 'then') console.error('item.js: Proxy is not a Promise. Use `await proxy.bald()` instead of `await proxy`');
+        if (property === 'toJSON') console.error('item.js: toJSON accessed on proxy. Use `JSON.stringify(proxy())` instead of `JSON.stringify(proxy)`');
+
+        return toProxy(childItem);
+    },
+
+    set: function (target, property, value) {
+        target.item.item(property).set(value);
+        return true;
+    },
+
+    apply: function (target, thisArg, args) {
+        const targetItem = target.item;
+        if (args.length === 0) return targetItem.pending ? targetItem.promise : targetItem.get();
+        if (args.length === 1) return targetItem.set(args[0]) ?? true;
+        throw new Error('apply called with too many arguments');
+    },
+
+    has: (target, property) => target.item.has(property),
+
+    ownKeys: (target) => target.item.keys,
+
+    getOwnPropertyDescriptor(target, property) {
+        if (typeof property === 'symbol') return Reflect.getOwnPropertyDescriptor(target.item, property);
+        if (target.item.has(property)) {
+            return {
+                configurable: true,
+                enumerable: true,
+                writable: false
+            };
+        }
+    },
+
+    deleteProperty: function (target, property) {
+        target.item.item(property).remove();
+        return true;
+    },
+};
+
+const cachedProxies = new WeakMap();
+
+const toProxy = (itm) => {
+    if (!cachedProxies.has(itm)) {
+        const fn = () => { };
+        fn.item = itm;
+        cachedProxies.set(itm, new Proxy(fn, proxyHandler));
+    }
+    return cachedProxies.get(itm);
+};
 
 
 /**
@@ -358,19 +437,15 @@ const toProxy = (item) => {
  * @return {Object} An object containing a `defaultPrevented` property.
  */
 export function dispatchEvent(item, eventName, detail) {
-
     const options = { detail, cancelable: true };
-
     const event = new CustomEvent(eventName, options);
     item.dispatchEvent(event);
-
     const eventIn = new CustomEvent(eventName + 'In', options);
     let current = item;
     while (current) {
         current.dispatchEvent(eventIn);
         current = current.parent;
     }
-
     return {
         defaultPrevented: eventIn.defaultPrevented || event.defaultPrevented,
     }

@@ -18,280 +18,538 @@
         mocha.checkLeaks();
     </script>
 
-    <script type=module>
-    import {item, asyncIteratorFromEventTarget, $item} from '../item.js';
+<script type=module>
+import { item, asyncIteratorFromEventTarget, $item } from '../item.js';
 
-    describe('primitive value', () => {
-        it('access item.value', () => {
-            let i = item(22);
-            chai.expect(i.value).to.equal(22);
-        });
-        it('item.filled (value provided in constructor)', () => {
-            let i = item();
-            chai.expect(i.value).to.equal(undefined);
-            chai.expect(i.filled).to.equal(false);
-            i.value = 22;
-            chai.expect(i.filled).to.equal(true);
-        });
-        it('toString', () => {
-            let i = item(22);
-            chai.expect(`${i}`).to.equal('22');
-            chai.expect(i+'').to.equal('22');
-        });
-        it('valueOf', () => {
-            let i = item(22);
-            chai.expect(i+0).to.equal(22);
-        });
-        it('JSON.stringify', () => {
-            let i = item(22);
-            chai.expect(JSON.stringify(i)).to.equal('22');
-        });
-        it('.parent is undefined', () => {
-            let i = item(22);
-            chai.expect(i.parent).to.equal(undefined);
-        });
-        it('.key is undefined', () => {
-            let i = item(22);
-            chai.expect(i.key).to.equal(undefined);
-        });
-        it('change value', () => {
-            let i = item(22);
-            i.value = null;
-            chai.expect(i.value).to.equal(null);
-        });
-        // it('set value: a other "item"-object uses its item.value as value', () => {
-        //     let a = item();
-        //     let b = item(2);
-        //     a.value = b;
-        //     chai.expect(a.value).to.equal(2);
-        // });
-        it('date is primitive', () => {
-            let date = new Date();
-            let i = item(date);
-            chai.expect(i.value).to.equal(date);
-        });
-
-        it('0 not equals -0', () => {
-            let i = item(0);
-            let changed = false;
-            i.addEventListener('change', e => changed = true);
-            i.value = -0;
-            chai.expect(changed).to.equal(true);
-        });
-        it('NaN equals NaN', () => {
-            let i = item(NaN);
-            let changed = false;
-            i.addEventListener('change', e => changed = true);
-            i.value = NaN;
-            chai.expect(changed).to.equal(false);
-        });
-
+describe('primitive value', () => {
+    it('access item.value', () => {
+        let i = item(22);
+        chai.expect(i.value).to.equal(22);
+    });
+    it('item.filled (value provided in constructor)', () => {
+        let i = item();
+        chai.expect(i.value).to.equal(undefined);
+        chai.expect(i.filled).to.equal(false);
+        i.value = 22;
+        chai.expect(i.filled).to.equal(true);
+    });
+    it('toString', () => {
+        let i = item(22);
+        chai.expect(`${i}`).to.equal('22');
+        chai.expect(i + '').to.equal('22');
+    });
+    it('valueOf', () => {
+        let i = item(22);
+        chai.expect(i + 0).to.equal(22);
+    });
+    it('JSON.stringify', () => {
+        let i = item(22);
+        chai.expect(JSON.stringify(i)).to.equal('22');
+    });
+    it('.parent is undefined', () => {
+        let i = item(22);
+        chai.expect(i.parent).to.equal(undefined);
+    });
+    it('.key is undefined', () => {
+        let i = item(22);
+        chai.expect(i.key).to.equal(undefined);
+    });
+    it('change value', () => {
+        let i = item(22);
+        i.value = null;
+        chai.expect(i.value).to.equal(null);
+    });
+    // it('set value: a other "item"-object uses its item.value as value', () => {
+    //     let a = item();
+    //     let b = item(2);
+    //     a.value = b;
+    //     chai.expect(a.value).to.equal(2);
+    // });
+    it('date is primitive', () => {
+        let date = new Date();
+        let i = item(date);
+        chai.expect(i.value).to.equal(date);
     });
 
-    describe('object value', () => {
-        let i = item({a:1, b:{b1:2, b2:3}});
-        let b = i.item('b');
-        let b2 = b.item('b2');
+    it('0 not equals -0', () => {
+        let i = item(0);
+        let changed = false;
+        i.addEventListener('change', e => changed = true);
+        i.value = -0;
+        chai.expect(changed).to.equal(true);
+    });
+    it('NaN equals NaN', () => {
+        let i = item(NaN);
+        let changed = false;
+        i.addEventListener('change', e => changed = true);
+        i.value = NaN;
+        chai.expect(changed).to.equal(false);
+    });
 
-        it('parent of item', () => {
-            chai.expect(b2.parent).to.equal(b);
+});
+
+describe('object value', () => {
+    let i = item({ a: 1, b: { b1: 2, b2: 3 } });
+    let b = i.item('b');
+    let b2 = b.item('b2');
+
+    it('parent of item', () => {
+        chai.expect(b2.parent).to.equal(b);
+    });
+    it('access value should return object', () => {
+        chai.expect(b.value).to.deep.equal({ b1: 2, b2: 3 });
+    });
+    // it('toString of a object should be its key', () => {
+    //     let i = item({a:{b:22}});
+    //     chai.expect(i+'').to.equal('');
+    //     chai.expect(i.item('a')+'').to.equal('a');
+    // });
+    it('as JSON object', () => {
+        chai.expect(JSON.stringify(b)).to.equal('{"b1":2,"b2":3}');
+    });
+    it('access value of nested item', () => {
+        chai.expect(b2.value).to.equal(3);
+    });
+    it('add a new property', () => {
+        b.item('c').value = 4;
+        chai.expect(b.item('c').value).to.equal(4);
+    });
+    it('path', () => {
+        chai.expect(b2.path).to.deep.equal(['b', 'b2']);
+    });
+    // it('path as string of item', () => { removed for now
+    //     chai.expect(b2.pathString).to.equal('b/b2');
+    // });
+    it('keys of root', () => {
+        chai.expect(i.path).to.deep.equal([]);
+    });
+    it('sub(array)', () => {
+        chai.expect(i.sub(['b', 'b2']).value).to.equal(3);
+    });
+    it('sub(..arguments)', () => {
+        chai.expect(i.sub('b', 'b2').value).to.equal(3);
+    });
+    it('sub(combined)', () => {
+        chai.expect(i.sub(['b'], 'b2').value).to.equal(3);
+    });
+    it('sub() no argument', () => {
+        chai.expect(i.sub()).to.equal(i);
+    });
+    it('sub([]) void array', () => {
+        chai.expect(i.sub([])).to.equal(i);
+    });
+    it('assigning a object will remove existing properties not in the new object', () => {
+        let i = item({ a: 1 });
+        i.value = { b: 2 };
+        chai.expect(i.value).to.deep.equal({ b: 2 });
+    });
+    it('assigning a object that was void before', () => {
+        let i = item({});
+        i.value = { a: 2 };
+        chai.expect(i.value).to.deep.equal({ a: 2 });
+    });
+    it('iterator', () => {
+        let i = item({ a: 1, b: 2 });
+        const result = [];
+        for (let item of i) {
+            result.push(item.key);
+        }
+        chai.expect(result).to.deep.equal(['a', 'b']);
+    });
+    it('deep set', () => {
+        let i = item({ a: 1, b: { b1: 2, b2: { c: 3 } } });
+        const value = { a: 1, b: { b2: { c: 4 } } };
+        const clone = structuredClone(value);
+        i.value = value;
+        chai.expect(i.value).to.deep.equal(clone);
+        chai.expect(i.item('b').item('b2').item('c').value).to.equal(4);
+        chai.expect(i.item('b').has('b1')).to.equal(false);
+    });
+    it('deep patch', () => {
+        let i = item({ a: 1, b: { b1: 2, b2: { c: 3 } } });
+        const value = { a: 1, b: { b2: { c: 4, d: 5 } } };
+        i.patch(value);
+        chai.expect(i.value).to.deep.equal({ a: 1, b: { b1: 2, b2: { c: 4, d: 5 } } });
+        chai.expect(i.item('b').item('b2').item('d').value).to.equal(5);
+        chai.expect(i.item('b').has('b1')).to.equal(true);
+    });
+
+    it('switching from object to primitive clears children', () => {
+        let i = item({a:1});
+        let childA = i.item('a');
+        i.value = 100;
+        chai.expect(i.keys).to.deep.equal([]);
+        chai.expect(i.item('a')).to.not.equal(childA);
+    });
+
+    it('works with spread operator {...proxy}', () => {
+        const p = item({ a: 1, b: 2 }).proxy;
+        const items = { ...p };
+        chai.expect(Object.keys(items)).to.deep.equal(['a', 'b']);
+        chai.expect(items.a[$item]).to.be.ok;
+        chai.expect(items.a()).to.equal(1);
+    });
+
+    it('works with Object.assign(source, proxy)', () => {
+        const raw = item({ a: 1, b: 2 });
+        const p = raw.proxy;
+        const target = { existing: true };
+
+        Object.assign(target, p);
+
+        // Prüfungen
+        chai.expect(target.existing).to.be.true;
+        chai.expect(target.a[$item]).to.equal(p.a[$item]);
+        chai.expect(target.b[$item]).to.equal(p.b[$item]);
+        
+        // Sicherstellen, dass die Werte funktional bleiben
+        chai.expect(target.a()).to.equal(1);
+    });
+
+    it('Object.assign(proxy, source) updates the underlying items', () => {
+        const raw = item({ a: 1, c: 3 });
+        const p = raw.proxy;
+        Object.assign(p, { a: 10, b: 20, c: { c1: 30 } });
+        chai.expect(raw.item('a').value).to.equal(10);
+        chai.expect(raw.item('b').value).to.equal(20);
+        chai.expect(raw.item('c').item('c1').value).to.equal(30);
+    });    
+
+
+});
+
+describe('events', () => {
+    it('event.details.oldValue', done => {
+        let i = item(1);
+        i.addEventListener('set', e => {
+            chai.expect(e.detail.oldValue).to.equal(1);
+            done();
         });
-        it('access value should return object', () => {
-            chai.expect(b.value).to.deep.equal({b1:2, b2:3});
+        i.value = 2;
+    });
+    it('event.details.value', done => {
+        let i = item(1);
+        i.addEventListener('set', e => {
+            chai.expect(e.detail.value).to.equal(2);
+            done();
         });
-        // it('toString of a object should be its key', () => {
-        //     let i = item({a:{b:22}});
-        //     chai.expect(i+'').to.equal('');
-        //     chai.expect(i.item('a')+'').to.equal('a');
-        // });
-        it('as JSON object', () => {
-            chai.expect(JSON.stringify(b)).to.equal('{"b1":2,"b2":3}');
+        i.value = 2;
+    });
+    it('event.details.item', done => {
+        let i = item(1);
+        i.addEventListener('set', e => {
+            chai.expect(e.detail.item).to.equal(i);
+            done();
         });
-        it('access value of nested item', () => {
-            chai.expect(b2.value).to.equal(3);
+        i.value = 2;
+    });
+    it('change deep property', done => {
+        let i = item({ a: 1, b: 2 });
+        i.addEventListener('setIn', e => {
+            chai.expect(e.detail.item.key).to.equal('a');
+            done();
         });
-        it('add a new property', () => {
-            b.item('c').value = 4;
-            chai.expect(b.item('c').value).to.equal(4);
+        i.item('a').value = 2;
+    });
+    it('throw circular set', done => {
+        let i = item();
+        i.addEventListener('set', e => {
+            chai.expect(() => {
+                i.value = Math.random()
+            }).to.throw('circular set');
+            done();
         });
-        it('path', () => {
-            chai.expect(b2.path).to.deep.equal(['b', 'b2']);
+        i.value = 2;
+    });
+    it('throw circular get', done => {
+        let i = item();
+        i.addEventListener('get', e => {
+            chai.expect(() => {
+                i.value
+            }).to.throw('circular get');
+            done();
         });
-        // it('path as string of item', () => { removed for now
-        //     chai.expect(b2.pathString).to.equal('b/b2');
-        // });
-        it('keys of root', () => {
-            chai.expect(i.path).to.deep.equal([]);
+        let y = i.value;
+    });
+
+    it('set same (modified) object does not trigger change', () => {
+        let date = new Date();
+        let i = item(date);
+
+        let changeTriggered = false;
+        let setTriggered = false;
+
+        i.addEventListener('set', e => setTriggered = true);
+        i.addEventListener('change', e => changeTriggered = true);
+
+        date.setFullYear(2000);
+
+        i.value = date;
+
+        chai.expect(setTriggered).to.equal(true);
+        chai.expect(changeTriggered).to.equal(false);
+    });
+
+    it('todo, what should be the value? change from promitive to void object triggers change', () => {
+        let i = item(1);
+        let changeTriggered = false;
+        i.addEventListener('change', e => {
+            console.log(e)
+            changeTriggered = true;
         });
-        it('sub(array)', () => {
-            chai.expect(i.sub(['b', 'b2']).value).to.equal(3);
+        i.value = {};
+        chai.expect(changeTriggered).to.equal(true);
+    });
+
+});
+
+
+describe('proxy', () => {
+
+    describe('get trap', () => {
+
+        it('proxy[$item] (symbol) returns the underlying raw item', () => {
+            let raw = item();
+            chai.expect(raw.proxy[$item]).to.equal(raw);
         });
-        it('sub(..arguments)', () => {
-            chai.expect(i.sub('b', 'b2').value).to.equal(3);
-        });
-        it('sub(combined)', () => {
-            chai.expect(i.sub(['b'], 'b2').value).to.equal(3);
-        });
-        it('sub() no argument', () => {
-            chai.expect(i.sub()).to.equal(i);
-        });
-        it('sub([]) void array', () => {
-            chai.expect(i.sub([])).to.equal(i);
-        });
-        it('assigning a object will remove existing properties not in the new object', () => {
-            let i = item({a:1});
-            i.value = {b:2};
-            chai.expect(i.value).to.deep.equal({b:2});
-        });
-        it('assigning a object that was void before', () => {
-            let i = item({});
-            i.value = {a:2};
-            chai.expect(i.value).to.deep.equal({a:2});
-        });
-        it('iterator', () => {
-            let i = item({a:1, b:2});
-            const result = [];
-            for (let item of i) {
-                result.push(item.key);
+
+        it('Symbol.iterator returns a generator yielding child proxies', () => {
+            const p = item({ a: 1 }).proxy;
+            const collected = [];
+            for (const child of p) {
+                collected.push(child);
             }
-            chai.expect(result).to.deep.equal(['a', 'b']);
-        });
-        it('deep set', () => {
-            let i = item({a:1, b:{b1:2, b2: {c:3}}});
-            const value = {a:1, b:{b2: {c:4}}};
-            const clone = structuredClone(value);
-            i.value = value;
-            chai.expect(i.value).to.deep.equal(clone);
-            chai.expect(i.item('b').item('b2').item('c').value).to.equal(4);
-            chai.expect(i.item('b').has('b1')).to.equal(false);
-        });
-        it('deep patch', () => {
-            let i = item({a:1, b:{b1:2, b2: {c:3}}});
-            const value = {a:1, b:{b2: {c:4, d:5}}};
-            i.patch(value);
-            chai.expect(i.value).to.deep.equal({a:1, b:{b1:2, b2: {c:4, d:5}}});
-            chai.expect(i.item('b').item('b2').item('d').value).to.equal(5);
-            chai.expect(i.item('b').has('b1')).to.equal(true);
-        });
-    });
-
-    describe('events', () => {
-        it('event.details.oldValue', done => {
-            let i = item(1);
-            i.addEventListener('set', e => {
-                chai.expect(e.detail.oldValue).to.equal(1);
-                done();
-            });
-            i.value = 2;
-        });
-        it('event.details.value', done => {
-            let i = item(1);
-            i.addEventListener('set', e => {
-                chai.expect(e.detail.value).to.equal(2);
-                done();
-            });
-            i.value = 2;
-        });
-        it('event.details.item', done => {
-            let i = item(1);
-            i.addEventListener('set', e => {
-                chai.expect(e.detail.item).to.equal(i);
-                done();
-            });
-            i.value = 2;
-        });
-        it('change deep property', done => {
-            let i = item({a:1, b:2});
-            i.addEventListener('setIn', e => {
-                chai.expect(e.detail.item.key).to.equal('a');
-                done();
-            });
-            i.item('a').value = 2;
-        });
-        it('throw circular set', done => {
-            let i = item();
-            i.addEventListener('set', e => {
-                chai.expect(()=>{
-                    i.value = Math.random()
-                }).to.throw('circular set');
-                done();
-            });
-            i.value = 2;
-        });
-        it('throw circular get', done => {
-            let i = item();
-            i.addEventListener('get', e => {
-                chai.expect(()=>{
-                    i.value
-                }).to.throw('circular get');
-                done();
-            });
-            let y = i.value;
+            chai.expect(collected).to.have.length(1);
+            chai.expect(collected[0]).to.equal(p.a);
         });
 
-        it('set same (modified) object does not trigger change', () => {
-            let date = new Date();
-            let i = item(date);
-
-            let changeTriggered = false;
-            let setTriggered = false;
-
-            i.addEventListener('set', e => setTriggered = true );
-            i.addEventListener('change', e => changeTriggered = true );
-
-            date.setFullYear(2000);
-
-            i.value = date;
-
-            chai.expect(setTriggered).to.equal(true);
-            chai.expect(changeTriggered).to.equal(false);
+        it('accessing symbol-keyed methods binds them correctly to the target', () => {
+            const raw = item();
+            raw[Symbol.toPrimitive] = (hint) => hint === 'string' ? 'hello-proxy' : 99;
+            const proxy = raw.proxy;
+            chai.expect(proxy[Symbol.toPrimitive]('string')).to.equal('hello-proxy');
+            chai.expect(+proxy).to.equal(99);
         });
 
-        it('todo, what should be the value? change from promitive to void object triggers change', () => {
-            let i = item(1);
-            let changeTriggered = false;
-            i.addEventListener('change', e => {
-                console.log(e)
-                changeTriggered = true;
-            });
-            i.value = {};
-            chai.expect(changeTriggered).to.equal(true);
+        it('other symbols are forwarded via Reflect.get', () => {
+            const customSym = Symbol('custom');
+            const raw = item();
+            raw[customSym] = 'secret-value';
+            const proxy = raw.proxy;
+            chai.expect(proxy[customSym]).to.equal('secret-value');
+        });
+
+        it('accessing child property returns a proxy of the child', () => {
+            const raw = item({ username: 'alice' });
+            const proxy = raw.proxy;
+            chai.expect(proxy.username[$item]).to.equal(raw.item('username'));
+        });
+
+        it('every .propertyName is possible (strings)', () => {
+            const raw = item();
+            const proxy = raw.proxy;
+            chai.expect(proxy.toString[$item]).to.equal(raw.item('toString'));
+            chai.expect(proxy.then[$item]).to.equal(raw.item('then')); // works but, it will throw a warning
+            chai.expect(proxy.toJSON[$item]).to.equal(raw.item('toJSON')); // works but, it will throw a warning
+            chai.expect(proxy.valueOf[$item]).to.equal(raw.item('valueOf'));
         });
 
     });
 
+    describe('set trap', () => {
+        it('proxy.prop = value calls .set(value) on the child item', () => {
+            const raw = item({ a: 1 });
+            const proxy = raw.proxy;
+            proxy.a = 42;
+            chai.expect(raw.item('a').get()).to.equal(42);
+        });
 
-    describe('proxy', () => {
-        // it('TODO: try to proxify a non object should throw', () => {
-        //     let i = item(1).proxy;
-        //     console.log(i)
-        //     i.a = 3;
-        //     console.log(i.a)
-        // });
+        it('setting a new property creates and sets the child item', () => {
+            const raw = item();
+            const proxy = raw.proxy;
+            proxy.username = 'bob';
+            chai.expect(raw.item('username').get()).to.equal('bob');
+        });
+
+        it('set trap returns true (strict mode compatibility)', () => {
+            const raw = item();
+            const proxy = raw.proxy;
+            const result = Reflect.set(proxy, 'x', 99);
+            chai.expect(result).to.equal(true);
+        });
+
+        it('setting via proxy is reflected when reading back via proxy', () => {
+            const raw = item();
+            const proxy = raw.proxy;
+            proxy.name = 'alice';
+            chai.expect(proxy.name()).to.equal('alice');
+        });
+    });
+
+
+    describe('apply trap – proxy als Funktion aufrufen', () => {
+
+        it('proxy() no args → targetItem.get()', () => {
+            const proxy = item(55).proxy;
+            chai.expect(proxy()).to.equal(55);
+        });
+
+        it('proxy() no args → targetItem.get() returns promise', async () => {
+            const raw = item();
+            const proxy = raw.proxy;
+            chai.expect(proxy()).to.equal(undefined);
+            raw.promise = Promise.resolve(55);
+            chai.expect(proxy()).to.be.a('Promise');
+            chai.expect(await proxy()).to.equal(55);
+        });
+
+        it('proxy(42) sets value', () => {
+            const raw = item();
+            raw.proxy(42);
+            chai.expect(raw.value).to.equal(42);
+        });
+
+        it('proxy(42) returns true', () => {
+            const raw = item();
+            const proxy = raw.proxy;
+            const returnVal = proxy(42);
+            chai.expect(returnVal).to.equal(true);
+        });
+
+        it('proxy(42) returns promise', () => {
+            const raw = item();
+            const proxy = raw.proxy;
+            raw.$set = (value) => {
+                return Promise.resolve(true);
+            };
+            const returnVal = proxy(42);
+            chai.expect(returnVal).to.be.a('Promise');
+        });
+
+        it('proxy(1,2) too many args', () => {
+            const proxy = item().proxy;
+            chai.expect(() => proxy(1, 2)).to.throw('apply called with too many arguments');
+        });
+
+    });
+
+
+    describe('has trap – "key" in proxy', () => {
+
+        it('existing key → true', () => {
+            const raw = item({ title: 'test', count: 7 });
+            const proxy = raw.proxy;
+            chai.expect('title' in proxy).to.be.true;
+            chai.expect('count' in proxy).to.be.true;
+        });
+
+        it('non existing key → false', () => {
+            const raw = item({ a: 1 });
+            const proxy = raw.proxy;
+            chai.expect('b' in proxy).to.be.false;
+            chai.expect('toString' in proxy).to.be.false;
+        });
+
+        it('Symbol keys are not handled by has (only strings)', () => {
+            const sym = Symbol('xyz');
+            const raw = item();
+            raw[sym] = 999;
+            const proxy = raw.proxy;
+            chai.expect(sym in proxy).to.be.false;
+        });
+
+    });
+
+
+    describe('ownKeys trap – Object.keys(proxy), Reflect.ownKeys, for..in', () => {
+
+        it('Object.keys zeigt nur die eigenen string-keys', () => {
+            const raw = item({
+                name: 'Lisa',
+                age: 28,
+                active: true
+            });
+            const proxy = raw.proxy;
+            chai.expect(Object.keys(proxy)).to.deep.equal(['name', 'age', 'active']);
+        });
+
+        it('leeres item → leeres Array', () => {
+            const proxy = item().proxy;
+            chai.expect(Object.keys(proxy)).to.deep.equal([]);
+        });
+
+        it('item("abc") → leeres Array', () => {
+            const proxy = item('abc').proxy;
+            chai.expect(Object.keys(proxy)).to.deep.equal([]);
+        });
+
+    });
+
+
+    describe('getOwnPropertyDescriptor trap', () => {
+
+        it('jede Property sieht aus wie {configurable: true, enumerable: true}', () => {
+            const proxy = item({ x: 10, y: 20 }).proxy;
+
+            const desc1 = Object.getOwnPropertyDescriptor(proxy, 'x');
+            chai.expect(desc1).to.include({
+                configurable: true,
+                enumerable: true
+            });
+
+            const desc2 = Object.getOwnPropertyDescriptor(proxy, 'missing');
+            chai.expect(desc2).to.equal(undefined);
+        });
+
+    });
+
+
+    describe('deleteProperty trap – delete proxy.key', () => {
+
+        it('delete proxy.xxx deletes the child item', () => {
+            const raw = item({ temp: 123, other: 999 });
+            const proxy = raw.proxy;
+            delete proxy.temp;
+            chai.expect(raw.keys).to.deep.equal(['other']);
+        });
+
+        it('delete gibt immer true zurück', () => {
+            const proxy = item().proxy;
+            chai.expect(delete proxy.whatever).to.be.true;
+            chai.expect(delete proxy[Symbol.for('test')]).to.be.true;
+        });
+
+    });
+
+
+    describe('misc', () => {
+
         it('set and get deep item', () => {
-            let i = item({a:1, b:{b1:2}}).proxy;
+            let i = item({ a: 1, b: { b1: 2 } }).proxy;
             i.b.b1 = 3;
-            chai.expect(i.b.b1).to.equal(3);
+            chai.expect(i.b.b1()).to.equal(3);
         });
         it('Object.keys', () => {
-            let i = item({a:1, b:{b1:2}}).proxy;
+            let i = item({ a: 1, b: { b1: 2 } }).proxy;
             chai.expect(Object.keys(i)).to.deep.equal(['a', 'b']);
         });
         it('Object.getOwnPropertyNames', () => {
-            let i = item({a:1, b:{b1:2}}).proxy;
+            let i = item({ a: 1, b: { b1: 2 } }).proxy;
             chai.expect(Object.getOwnPropertyNames(i)).to.deep.equal(['a', 'b']);
         });
         it('JSON.stringify', () => {
-            let i = item({a:1, b:{b1:2}}).proxy;
-            chai.expect(JSON.stringify(i)).to.equal('{"a":1,"b":{"b1":2}}');
+            let i = item({ a: 1 }).proxy;
+            chai.expect(JSON.stringify(i())).to.equal('{"a":1}');
+            i = item({ a: 1 }).proxy;
+            chai.expect(JSON.stringify(i(), null, 2)).to.equal('{\n  "a": 1\n}');
         });
         it('delete property', () => {
-            let i = item({a:1, b:2}).proxy;
+            let i = item({ a: 1, b: 2 }).proxy;
             delete i.a;
             chai.expect('a' in i).to.equal(false);
         });
         it('reuse proxies', () => {
-            let i = item({a: {c:3}}).proxy;
+            let i = item({ a: { c: 3 } }).proxy;
             chai.expect(i.a).to.equal(i.a);
         });
         it('convert number to string', () => {
@@ -303,11 +561,11 @@
             chai.expect(`${i}`).to.equal('test');
         });
         it('convert root object to string (should be "")', () => {
-            let i = item({x:1, y:2}).proxy;
+            let i = item({ x: 1, y: 2 }).proxy;
             chai.expect(`${i}`).to.equal("");
         });
         it('convert subobject to string (should be the key)', () => {
-            let i = item({a:{x:1, y:2}}).proxy;
+            let i = item({ a: { x: 1, y: 2 } }).proxy;
             chai.expect(`${i.a}`).to.equal("a");
         });
         it('convert bool to string', () => {
@@ -317,31 +575,31 @@
         it('convert null/undefined to string', () => {
             let i = item(null).proxy;
             chai.expect(`${i}`).to.equal('');
-            chai.expect(''+i).to.equal('null');
+            chai.expect('' + i).to.equal('null');
             let i2 = item(undefined).proxy;
             chai.expect(`${i2}`).to.equal('');
-            chai.expect(''+i2).to.equal('undefined');
+            chai.expect('' + i2).to.equal('undefined');
             let i3 = item().proxy; // not filled
             chai.expect(`${i3}`).to.equal('');
-            chai.expect(''+i3).to.equal('undefined');
+            chai.expect('' + i3).to.equal('undefined');
         });
         it('convert to number', () => {
-            chai.expect(item(9).proxy+0).to.equal(9);
+            chai.expect(item(9).proxy + 0).to.equal(9);
             chai.expect(+item("9").proxy).to.equal(9);
-            chai.expect(+item({a:1}).proxy).to.be.NaN;
-            chai.expect(+item({'9':{x:1}}).proxy['9']).to.equal(9);
+            chai.expect(+item({ a: 1 }).proxy).to.be.NaN;
+            chai.expect(+item({ '9': { x: 1 } }).proxy['9']).to.equal(9);
             chai.expect(+item(true).proxy).to.equal(1);
             chai.expect(+item(false).proxy).to.equal(0);
             chai.expect(+item(null).proxy).to.equal(0);
         });
 
         it('iterator', () => {
-            let i = item({a: 1, b: 2}).proxy;
+            let i = item({ a: 1, b: 2 }).proxy;
             const result = [];
             for (let item of i) {
-                result.push(item+0);
+                result.push(item + 0);
             }
-            chai.expect(result).to.deep.equal([1,2]);
+            chai.expect(result).to.deep.equal([1, 2]);
         });
         // it('iterator todo?', () => {
         //     let i = item({a: 1, b: 2}).proxy;
@@ -352,7 +610,7 @@
         //     chai.expect(result).to.deep.equal([1, 2]);
         // });
         it('async iterator', async () => {
-            const i = item({a: 1, b: 2});
+            const i = item({ a: 1, b: 2 });
             i.loadItems = async function () {
                 await new Promise(resolve => setTimeout(resolve, 50))
                 this.item('a').set(2); // does not trigger "add" as it is already there
@@ -370,37 +628,34 @@
         });
 
         it('access internal item via symbol', () => {
-            const i = item({a: 1});
+            const i = item({ a: 1 });
             const p = i.proxy;
-            // Teste den Ausbruch aus dem Proxy zum Item-Objekt
             chai.expect(p[$item]).to.equal(i);
-            chai.expect(p.a).to.equal(1);
+            chai.expect(p.a()).to.equal(1);
         });
 
         it('no collision between symbol and string keys', () => {
-            // Wir setzen einen String-Key, der zufällig wie unser Symbol heißt
             const i = item({ "$item": "fake" }).proxy;
-            // Der String-Zugriff muss den String liefern
-            chai.expect(i["$item"]).to.equal("fake");
-            // Der Symbol-Zugriff muss das Item liefern
+            chai.expect(i["$item"]()).to.equal("fake");
             chai.expect(i[$item].constructor.name).to.equal("Item");
         });
 
         it('root reset via $item symbol', () => {
             const i = item({ a: 1, b: 2 });
             const p = i.proxy;
-            p[$item].value = { c: 3 }; // Reset des gesamten Objekts
+            p[$item].value = { c: 3 };
             chai.expect(Object.keys(p)).to.deep.equal(['c']);
-            const valueA = p.a; 
-            chai.expect(valueA).to.be.undefined; 
+            const valueA = p.a();
+            chai.expect(valueA).to.be.undefined;
             chai.expect(Object.keys(p)).to.include('a');
         });
 
     });
+});
 
 
 describe('promise handling', () => {
-    
+
     it('pending state is true when promise assigned', () => {
         let i = item();
         i.promise = Promise.resolve(42);
@@ -490,18 +745,18 @@ describe('promise handling', () => {
         i.promise = Promise.reject(new Error('first'));
         await new Promise(resolve => setTimeout(resolve, 0));
         chai.expect(i.error).to.not.equal(undefined);
-        
+
         i.promise = Promise.resolve(42);
         await new Promise(resolve => setTimeout(resolve, 0));
         chai.expect(i.error).to.equal(undefined);
     });
-    
+
     it('setting a new promise clears old pending state', async () => {
         let i = item();
         i.promise = Promise.resolve(42);
         await new Promise(resolve => setTimeout(resolve, 0));
         chai.expect(i.pending).to.equal(false);
-        
+
         i.promise = Promise.reject(new Error('test'));
         await new Promise(resolve => setTimeout(resolve, 0));
         chai.expect(i.pending).to.equal(false);
@@ -523,38 +778,38 @@ describe('promise handling', () => {
         let resolve1, resolve2;
         const p1 = new Promise(r => resolve1 = r);
         const p2 = new Promise(r => resolve2 = r);
-        
+
         i.promise = p1;
         i.promise = p2; // überschreibt p1
-        
+
         resolve1(100); // sollte ignoriert werden
         await new Promise(resolve => setTimeout(resolve, 0));
-        
+
         resolve2(200);
         await new Promise(resolve => setTimeout(resolve, 0));
-        
+
         chai.expect(i.value).to.equal(200);
     });
 
     it('promise resolves to object: only changed properties trigger change', async () => {
-        let i = item({a: 1, b: 2});
+        let i = item({ a: 1, b: 2 });
         let changes = [];
-        
+
         i.item('a').addEventListener('change', e => changes.push('a'));
         i.item('b').addEventListener('change', e => changes.push('b'));
-        
-        i.promise = Promise.resolve({a: 1, b: 3}); // a bleibt gleich, b ändert sich
+
+        i.promise = Promise.resolve({ a: 1, b: 3 }); // a bleibt gleich, b ändert sich
         await new Promise(resolve => setTimeout(resolve, 0));
-        
+
         chai.expect(changes).to.deep.equal(['b']);
     });
 
     it('promise resolves to object: properties are set correctly', async () => {
-        let i = item({a: 1, b: 2});
-        i.promise = Promise.resolve({a: 10, b: 20, c: 30});
+        let i = item({ a: 1, b: 2 });
+        i.promise = Promise.resolve({ a: 10, b: 20, c: 30 });
         await new Promise(resolve => setTimeout(resolve, 0));
-        
-        chai.expect(i.value).to.deep.equal({a: 10, b: 20, c: 30});
+
+        chai.expect(i.value).to.deep.equal({ a: 10, b: 20, c: 30 });
     });
 
     it('filled is true after promise resolves', async () => {
@@ -577,7 +832,7 @@ describe('promise handling', () => {
         i.promise = Promise.reject(new Error('test'));
         await new Promise(resolve => setTimeout(resolve, 0));
         chai.expect(i.error).to.not.equal(undefined);
-        
+
         i.promise = Promise.resolve(42);
         await new Promise(resolve => setTimeout(resolve, 0));
         chai.expect(i.error).to.equal(undefined);
@@ -587,10 +842,10 @@ describe('promise handling', () => {
         let i = item(100);
         let eventDetail;
         i.addEventListener('change', e => eventDetail = e.detail);
-        
+
         i.promise = Promise.resolve(200);
         await new Promise(resolve => setTimeout(resolve, 0));
-        
+
         chai.expect(eventDetail.oldValue).to.equal(100);
         chai.expect(eventDetail.value).to.equal(200);
     });
@@ -622,10 +877,10 @@ describe('asyncIteratorFromEventTarget', () => {
     it('yields events added to the queue', async () => {
         const target = new EventTarget();
         const iterator = asyncIteratorFromEventTarget(target, 'test-event');
-        
+
         // Simulating some events
-        setTimeout(() => target.dispatchEvent(new CustomEvent('test-event', {detail: 1})), 10);
-        setTimeout(() => target.dispatchEvent(new CustomEvent('test-event', {detail: 2})), 20);
+        setTimeout(() => target.dispatchEvent(new CustomEvent('test-event', { detail: 1 })), 10);
+        setTimeout(() => target.dispatchEvent(new CustomEvent('test-event', { detail: 2 })), 20);
 
         const results = [];
         for await (const event of iterator) {
@@ -639,8 +894,8 @@ describe('asyncIteratorFromEventTarget', () => {
     it('stops iterating when abort signal is triggered', async () => {
         const target = new EventTarget();
         const abortCtrl = new AbortController();
-        const iterator = asyncIteratorFromEventTarget(target, 'test-event', {signal: abortCtrl.signal});
-        
+        const iterator = asyncIteratorFromEventTarget(target, 'test-event', { signal: abortCtrl.signal });
+
         let yieldedCount = 0;
         let p = (async () => {
             for await (const event of iterator) {
@@ -652,7 +907,7 @@ describe('asyncIteratorFromEventTarget', () => {
         await new Promise(r => setTimeout(r, 10)); // wait for it to be processed
 
         abortCtrl.abort();
-        
+
         target.dispatchEvent(new Event('test-event')); // Should not be yielded
         await p;
 
@@ -662,8 +917,8 @@ describe('asyncIteratorFromEventTarget', () => {
     it('does not hang if aborted while waiting', async () => {
         const target = new EventTarget();
         const abortCtrl = new AbortController();
-        const iterator = asyncIteratorFromEventTarget(target, 'test-event', {signal: abortCtrl.signal});
-        
+        const iterator = asyncIteratorFromEventTarget(target, 'test-event', { signal: abortCtrl.signal });
+
         let finished = false;
         let p = (async () => {
             for await (const event of iterator) {
@@ -680,10 +935,81 @@ describe('asyncIteratorFromEventTarget', () => {
     });
 });
 
-    </script>
-    <script class="mocha-exec" type=module>
-      mocha.run();
-    </script>
-</body>
+describe('Transparent Data (Object.create(null) storage)', () => {
 
-</html>
+    it('allows "__proto__" as a normal data key', () => {
+        const p = item({}).proxy;
+        
+        // Wir setzen __proto__ als reinen Datenwert
+        p.__proto__ = "I am a string, not a prototype";
+        
+        // Es muss ein Item zurückgeben (via dein Proxy-Mechanismus)
+        chai.expect(p.__proto__[$item]).to.be.ok;
+        chai.expect(p.__proto__()).to.equal("I am a string, not a prototype");
+        
+        // WICHTIG: Die globale Umgebung bleibt sauber
+        chai.expect({}.polluted).to.be.undefined;
+    });
+
+    it('allows "constructor" as a normal data key', () => {
+        const p = item({}).proxy;
+        p.constructor = "Not a function";
+        
+        chai.expect(p.constructor()).to.equal("Not a function");
+        // Der echte Constructor des Proxys (für JS-Zwecke) bleibt unberührt,
+        // sofern man ihn via Object.getPrototypeOf abfragt.
+    });
+
+    it('allows "hasOwnProperty" as a data key', () => {
+        const raw = item({});
+        const p = raw.proxy;
+        
+        p.hasOwnProperty = "Just data";
+        
+        chai.expect(p.hasOwnProperty()).to.equal("Just data");
+        chai.expect(raw.has('hasOwnProperty')).to.be.true;
+    });
+
+    it('prevents global prototype pollution even when writing to typical exploit keys', () => {
+        const p = item({}).proxy;
+        
+        // Dieser typische Exploit-Weg darf nur lokale Items erzeugen
+        const keys = ['__proto__', 'constructor', 'prototype'];
+        
+        keys.forEach(key => {
+            p[key] = { isSafe: true };
+            chai.expect(p[key].isSafe()).to.be.true;
+        });
+
+        // Check, dass das globale Object-Prototype nicht verändert wurde
+        chai.expect(Object.prototype.isSafe).to.be.undefined;
+    });
+
+    it('numeric string keys stay strings and don’t create arrays', () => {
+        const raw = item({});
+        const p = raw.proxy;
+        
+        p["10"] = "value";
+        
+        chai.expect(Array.isArray(raw.value)).to.be.false;
+        chai.expect(raw.value["10"]).to.equal("value");
+    });
+    
+    it('JSON.stringify handles reserved keys correctly', () => {
+        const p = item({}).proxy;
+        p.__proto__ = "test";
+        p.constructor = 123;
+        
+        const json = JSON.stringify(p[$item].value);
+        chai.expect(json).to.contain('"__proto__":"test"');
+        chai.expect(json).to.contain('"constructor":123');
+    });
+
+});
+
+
+</script>
+
+<script class="mocha-exec" type=module>
+    mocha.run();
+</script>
