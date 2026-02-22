@@ -18,7 +18,7 @@ Every data source has its own API: Files use `fs.readFile()`, localStorage uses
 
 ```js
 // Same API, different backends:
-fileItem.item("config").item("port").value = 8080;
+fileSystem.item("project").item("readme.md").value = "### Hello World";
 dbItem.item("users").item("123").item("name").value = "Alice";
 mqttItem.item("sensors").item("temp").value = 23.5;
 localStorage.item("theme").value = "dark";
