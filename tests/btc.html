@@ -39,8 +39,8 @@ effect(() => {
         ${[...wallet].map(item => {
             return html`
                 <tr>
-                    <td> ${item.key}
-                    <td align=right> <u2-number value="${item.item('balance').value}" digits="8"></u2-number>
+                    <td> ${item}
+                    <td align=right><u2-number value="${item.balance()}" digits="8"></u2-number>
             `;
         })}
     `);

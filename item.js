@@ -169,7 +169,7 @@ export class Item extends EventTarget {
 
     has(key) {
         registerCurrentEffectFor(this);
-        return typeof this.#value === 'object' && key in this.#value;
+        return this.#isObject && key in this.#value ? this.item(key) : false;
     }
 
     get keys() {

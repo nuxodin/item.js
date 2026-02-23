@@ -136,7 +136,7 @@ describe('effect()', () => {
 describe('APIs that register effect', () => {
 
     function testAccess(should, readFn) {
-        it(`${should?'yes':'no'}: ${readFn}`, async () => {
+        it(`${should?'🟢':'🔴'}: ${readFn}`, async () => {
             const s = item().item('someKey');
             let tracked = false;
             effect(() => {
@@ -160,9 +160,9 @@ describe('APIs that register effect', () => {
     testAccess(true, item => [...item] );
     testAccess(true, item => item.items() );
     testAccess(true, item => 1*item.proxy, false );
-    //testAccess(true, item => item.pending );
-    //testAccess(true, item => item.error );
-    //testAccess(true, item => item.promise );
+    testAccess(true, item => item.pending );
+    testAccess(true, item => item.error );
+    testAccess(true, item => item.promise );
 
     testAccess(false, item => item.path );
     testAccess(false, item => item.set(1) );
@@ -176,7 +176,7 @@ describe('APIs that register effect', () => {
 describe('apis that trigger effects', () => {
 
     function testTrigger(should, triggerFn) {
-        it(`${should?'yes':'no'}: ${triggerFn}`, async () => {
+        it(`${should?'🟢':'🔴'}: ${triggerFn}`, async () => {
             const s = item().item('subitem');
             let tracked = false;
             effect(() => {
@@ -194,6 +194,8 @@ describe('apis that trigger effects', () => {
     testTrigger(true, item => item.set(1) );
     testTrigger(true, item => item.set({}) );
     testTrigger(true, item => item.item('key').remove()  );
+    testTrigger(true, item => item.promise = Promise.resolve(1) );
+    testTrigger(true, item => item.promise = Promise.reject(1) );
 
     testTrigger(false, item => item.remove() /* only on the parent */);
 

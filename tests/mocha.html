@@ -99,16 +99,23 @@ describe('object value', () => {
     it('access value should return object', () => {
         chai.expect(b.value).to.deep.equal({ b1: 2, b2: 3 });
     });
-    // it('toString of a object should be its key', () => {
-    //     let i = item({a:{b:22}});
-    //     chai.expect(i+'').to.equal('');
-    //     chai.expect(i.item('a')+'').to.equal('a');
-    // });
     it('as JSON object', () => {
         chai.expect(JSON.stringify(b)).to.equal('{"b1":2,"b2":3}');
     });
     it('access value of nested item', () => {
         chai.expect(b2.value).to.equal(3);
+    });
+    it('toString of primitive is its value', () => {
+        chai.expect(String(b2)).to.equal('3');
+    });
+    it('toString of object is its key', () => {
+        chai.expect(String(b)).to.equal('b');
+    });
+    it('has("existing") returns the item', () => {
+        chai.expect(i.has('b')).to.equal(i.item('b'))
+    });
+    it('has("no") returns the false', () => {
+        chai.expect(i.has('no')).to.equal(false)
     });
     it('add a new property', () => {
         b.item('c').value = 4;
@@ -171,7 +178,7 @@ describe('object value', () => {
         i.patch(value);
         chai.expect(i.value).to.deep.equal({ a: 1, b: { b1: 2, b2: { c: 4, d: 5 } } });
         chai.expect(i.item('b').item('b2').item('d').value).to.equal(5);
-        chai.expect(i.item('b').has('b1')).to.equal(true);
+        chai.expect(i.item('b').has('b1')).to.not.equal(false);
     });
 
     it('switching from object to primitive clears children', () => {
@@ -967,7 +974,7 @@ describe('Transparent Data (Object.create(null) storage)', () => {
         p.hasOwnProperty = "Just data";
         
         chai.expect(p.hasOwnProperty()).to.equal("Just data");
-        chai.expect(raw.has('hasOwnProperty')).to.be.true;
+        chai.expect(raw.has('hasOwnProperty')).to.be.ok;
     });
 
     it('prevents global prototype pollution even when writing to typical exploit keys', () => {
