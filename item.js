@@ -209,7 +209,7 @@ export class Item extends EventTarget {
     // static methods
 
     static isPrimitive(value) {
-        return value !== Object(value) || 'toJSON' in value;
+        return value !== Object(value);
     }
     static equals(a, b) {
         return Object.is(a, b); // question: should use deepEqual as "primitive" can be an object?
@@ -233,7 +233,7 @@ export function item(...args) {
 
 
 // signal / effect
-
+// todo: better cleaning. state object instead of properties on the function?
 const relatedEffects = new WeakMap();
 let activeEffect = null;
 let queue = null;
@@ -253,7 +253,7 @@ export function effect(fn) { // async?
     activeEffect = fn;
     try { fn({ self: fn }); } // await, so that signals in async functions are collected?
     finally { activeEffect = parent; }
-    return () => fn.disposed = true
+    return () => fn.disposed = true;
 }
 
 function batch(effect) {

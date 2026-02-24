@@ -10,7 +10,7 @@ description: >
 # item.js
 
 ```js
-import { item, effect, $item } from './item.js'
+import { item, effect, $item } from 'https://cdn.jsdelivr.net/gh/nuxodin/item.js@main/item.js' // if not selfhosted
 ```
 
 ## Item
@@ -36,8 +36,8 @@ i.patch({ b: 3 })    // → { a: 1, b: 3 } 'a' kept (deep)
 i = item(NaN); i.value = NaN  // no change event
 i = item(0);   i.value = -0   // change fires
 
-// primitives: value !== Object(value), or has .toJSON (e.g. Date)
-// plain objects → nested child items
+// primitives → value !== Object(value)
+// objects → nested child items
 
 i.item('key')     // get/create child Item, fires change on parent
 i.has('key');     // subitem / undefined
@@ -79,7 +79,7 @@ const dispose = effect(() => {// runs immediately
     count.value  // .get() / .value / .has() / .keys register as dep
 })
 count.value = 1; // no effect
-count.value = 2; // effect after batched microtask
+count.value = 2; // effect runs after batched microtask
 dispose()
 ```
 
@@ -115,13 +115,14 @@ await p                  // ✗ logs warning
 ## Events
 
 ```js
-// fire on item + bubble up as *In on ancestors
+// fire on item
 i.addEventListener('get',    e => e.detail) // { item, value }
 i.addEventListener('set',    e => e.detail) // { item, oldValue, value, options } — preventable
 i.addEventListener('change', e => e.detail)
 // { item, oldValue, value } | { item, add } | { item, remove } | { item, pending } | { item, error }
 // item, add, remove are items, pending bool, error error-object 
 // only track value changes? use if ('value' in detail)
+// bubbles:
 root.addEventListener('changeIn', e => e.detail.item.path) // also setIn, getIn
 ```
 
