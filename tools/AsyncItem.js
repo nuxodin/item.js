@@ -1,4 +1,4 @@
-import { Item, dispatchEvent } from "../item.js";
+import { Item, dispatch } from "../item.js";
 import { AsyncDataPoint } from "./AsyncDataPoint.js";
 
 /*
@@ -24,7 +24,7 @@ export class AsyncItem extends Item {
         this.asyncHandler.onchange = ({value, oldValue}) => {
             this.$set(value); // make sure the item's value is updated
             // needed, but why? $set should trigger change if needed, but #value is not handled by item base class!
-            dispatchEvent(this, 'change', { item: this, value, oldValue });
+            dispatch(this, 'change', { item: this, value, oldValue });
         }
     }
 

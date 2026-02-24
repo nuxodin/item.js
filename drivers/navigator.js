@@ -14,14 +14,28 @@ export function store(){
         }
 
         root.item('geolocation').item('latitude').$get = function(){
-            if (!this.filled) return geo().then(geo => geo.latitude);
+            if (geovalues) return geovalues.latitude;
+            this.promise = geo().then(geo => {
+                return geo.latitude
+            });
+            return;
+            if (!this.filled) {
+                this.promise = geo().then(geo => geo.latitude);
+                return;
+            }
             return geovalues.latitude;
         }
         root.item('geolocation').item('longitude').$get = function(){
-            if (!this.filled) return geo().then(geo => geo.longitude);
+            if (!this.filled) {
+                this.promise = geo().then(geo => geo.longitude);
+                return;
+            }
         }
         root.item('geolocation').item('accuracy').$get = function(){
-            if (!this.filled) return geo().then(geo => geo.accuracy);
+            if (!this.filled) {
+                this.promise = geo().then(geo => geo.accuracy);
+                return;
+            }
         }
 
     }
@@ -34,8 +48,7 @@ let geovalues = null;
 function geo(){
     if (!geowatcher) {
         function onSuccess(position) {
-            geovalues = position.coords;
-            root.item('geolocation').set(position.coords);
+            root.item('geolocation').set(position.coords.toJSON());
         }
         function onError(error) { }
         const options = { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 };

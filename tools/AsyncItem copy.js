@@ -1,4 +1,4 @@
-import { Item, dispatchEvent } from "../item.js";
+import { Item, dispatch } from "../item.js";
 import { AsyncDataPoint } from "./AsyncDataPoint.js";
 
 /*
@@ -15,7 +15,7 @@ export class AsyncItem extends Item {
             set: (value, abortSignal) => this.createSetter(value, abortSignal)
         });
         this.asyncHandler.onchange = ({value, oldValue}) => {
-            dispatchEvent(this, 'change', { item: this, value, oldValue });
+            dispatch(this, 'change', { item: this, value, oldValue });
         }
     }
     

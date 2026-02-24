@@ -40,7 +40,8 @@ i = item(0);   i.value = -0   // change fires
 // plain objects → nested child items
 
 i.item('key')     // get/create child Item, fires change on parent
-i.has('key')      // subitem (as true) or false
+i.has('key');     // subitem / undefined
+i.has('key')?.remove();
 i.keys            // string[], registers effect dep
 i.items()         // Item[]
 b = i.sub('a', 'b')   // i.item('a').item('b'), accepts array/spread/mixed
@@ -89,16 +90,19 @@ p = i.proxy
 
 p()              // i.get(), or i.promise if pending
 p(42)            // i.set(42), returns true or Promise
+'p:' + p         // 'p:42' / null 'p:null'
+`p:${p}`         // 'p:42' / null 'p:'
+++p;             // 43
 p(1, 2)          // throws
-p.key            // child proxy (auto-created)
-p.key = v
-delete p.key
-'key' in p
+p.xyz            // child proxy (auto-created)
+p.xyz = v
+delete p.xyz
+'xyz' in p
 Object.keys(p)
-{ ...p }         // { key: childProxy, ... }
+{ ...p }                 // { xyz: Proxy, ... }
 Object.assign(p, src)    // sets each key on underlying items
-p[$item]         // underlying Item
-for (const c of p) { }  // child proxies
+p[$item]                 // underlying Item
+for (const c of p) { }   // child proxies
 for await (const c of p) { } // calls loadItems
 JSON.stringify(p())      // ✓
 JSON.stringify(p)        // ✗ logs warning

@@ -185,6 +185,7 @@ function reactiveInput(element, options = {}) {
                     window.log = (...args)=>{
                         consoleLog.value += Array.from(args).join() + '\n';
                     }
+
                     consoleInput.addEventListener("input", () => {
                         consoleLog.value = '';
                         consoleReturn.value = '';
@@ -193,17 +194,16 @@ function reactiveInput(element, options = {}) {
                             i.value = undefined;
                             const r = eval(code);
                             consoleReturn.style.color = '';
-                            console.log('return', r);
-                            //consoleReturn.value = JSON.stringify(r.value, null, 2);
+                            consoleReturn.value = JSON.stringify(r, null, 2);
                         } catch (err) {
-                            console.log('error from eval', err);
+                            //console.log('error from eval', err);
                             consoleReturn.style.color = 'red';
                             consoleReturn.value = "Error: " + err.message;
                         }
                     });
                     effect(() => {
                         console.log(root.value)
-                        consoleInspect.value = JSON.stringify(root.value, null, 2);
+                        consoleInspect.value = JSON.stringify(root.value??null, null, 2);
                     });
                 });
             </script>

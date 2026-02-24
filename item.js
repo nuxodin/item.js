@@ -29,7 +29,7 @@ export class Item extends EventTarget {
     get() {
         if (this.#isGetting) throw new Error('circular get');
         this.#isGetting = true;
-        dispatchEvent(this, 'get', { item: this, value: this.#value });
+        dispatch(this, 'get', { item: this, value: this.#value });
         registerCurrentEffectFor(this);
         this.#isGetting = false;
         return this.$get();
@@ -37,7 +37,7 @@ export class Item extends EventTarget {
     set(value, options = {}) {
         if (this.#isSetting) throw new Error('circular set');
         this.#isSetting = true;
-        const obj = dispatchEvent(this, 'set', { item: this, oldValue: this.#value, value, options });
+        const obj = dispatch(this, 'set', { item: this, oldValue: this.#value, value, options });
         const result = !obj.defaultPrevented ? this.$set(value, options) : null;
         this.#isSetting = false;
         return result;
@@ -47,7 +47,7 @@ export class Item extends EventTarget {
     }
 
     $get() {
-        if (this.constructor.isPrimitive(this.#value)) {
+        if (!this.#isObject) {
             return this.#value;
         } else {
             const value = this.#value ??= Object.create(null); // if undefined, create object
@@ -62,7 +62,7 @@ export class Item extends EventTarget {
                 this.#value = value;
                 this.#isObject = false;
                 if (!this.#isGetting) {
-                    dispatchEvent(this, 'change', { item: this, oldValue, value });
+                    dispatch(this, 'change', { item: this, oldValue, value });
                 } else {
                     console.warn('just for your info: set while getting dont trigger change');
                 }
@@ -81,25 +81,6 @@ export class Item extends EventTarget {
             }
         }
     }
-    $patch(value) {
-        const oldValue = this.#value;
-
-        if (this.constructor.isPrimitive(value)) {
-            if (this.#isObject !== false || !this.constructor.equals(oldValue, value)) {
-                this.#value = value;
-                this.#isObject = false;
-                if (!this.#isGetting) {
-                    dispatchEvent(this, 'change', { item: this, oldValue, value });
-                } else {
-                    console.warn('just for your info: set while getting dont trigger change');
-                }
-            }
-        } else {
-            if (!this.#isObject) this.#value = Object.create(null);
-            this.#isObject = true;
-            for (const key in value) this.item(key).set(value[key]);
-        }
-    }
 
     get path() {
         if (this.#parent == null) return [];
@@ -110,8 +91,8 @@ export class Item extends EventTarget {
     #pending = false;
     #error;
     #promise;
-    get pending() { return this.#pending; } // todo? registerCurrentEffectFor(this) ?
-    get error() { return this.#error; } // todo? registerCurrentEffectFor(this) ?
+    get pending() { registerCurrentEffectFor(this); return this.#pending; } // todo? registerCurrentEffectFor(this) ?
+    get error() { registerCurrentEffectFor(this); return this.#error; } // todo? registerCurrentEffectFor(this) ?
     get promise() {
         if (!this.#pending) return Promise.resolve(this.get());
         registerCurrentEffectFor(this);
@@ -121,7 +102,7 @@ export class Item extends EventTarget {
         this.#promise = promise;
         this.#pending = true;
         this.#error = undefined;
-        dispatchEvent(this, 'change', { item: this, pending: true });
+        dispatch(this, 'change', { item: this, pending: true });
         promise.then(
             resolved => {
                 if (this.#promise !== promise) return; // wurde überschrieben
@@ -134,7 +115,7 @@ export class Item extends EventTarget {
                 this.#error = error;
                 this.#pending = false;
                 this.#promise = undefined;
-                dispatchEvent(this, 'change', { item: this, error });
+                dispatch(this, 'change', { item: this, error });
             }
         );
     }
@@ -150,7 +131,7 @@ export class Item extends EventTarget {
             const Klass = this.ChildClass ?? this.constructor;
             const item = new Klass(this, key);
             this.#value[key] = item;
-            dispatchEvent(this, 'change', { item: this, add: item });
+            dispatch(this, 'change', { item: this, add: item });
         }
         return this.#value[key];
     }
@@ -164,12 +145,12 @@ export class Item extends EventTarget {
     remove() {
         if (!this.#parent) throw new Error('cannot remove root item');
         delete this.#parent.#value[this.#key];
-        dispatchEvent(this.#parent, 'change', { item: this.#parent, remove: this });
+        dispatch(this.#parent, 'change', { item: this.#parent, remove: this });
     }
 
     has(key) {
         registerCurrentEffectFor(this);
-        return this.#isObject && key in this.#value ? this.item(key) : false;
+        return this.#isObject && key in this.#value ? this.item(key) : undefined;
     }
 
     get keys() {
@@ -211,14 +192,16 @@ export class Item extends EventTarget {
     valueOf() { return this.get(); }
 
     toString() {
-        registerCurrentEffectFor(this); // todo: .get() already registers the effect
-        if (this.constructor.isPrimitive(this.#value)) return String(this.get() ?? '');
-        return this.#key ?? '';
+        if (this.#isObject) {
+            registerCurrentEffectFor(this); // needed? key will not change, but it can change to a primitive...
+            return this.#key ?? '';
+        }
+        return String(this.get() ?? '');
     }
 
     [Symbol.toPrimitive](hint) {
         if (hint === 'string') return this.toString();
-        const value = this.constructor.isPrimitive(this.#value) ? this.get() : this.#key;
+        const value = this.#isObject ? this.#key : this.get();
         if (hint === 'number') return Number(value);
         return this.#value;
     }
@@ -229,7 +212,7 @@ export class Item extends EventTarget {
         return value !== Object(value) || 'toJSON' in value;
     }
     static equals(a, b) {
-        if (Object.is(a, b)) return true; // question: should use deepEqual as "primitive" can be an object?
+        return Object.is(a, b); // question: should use deepEqual as "primitive" can be an object?
     }
 
     static ChildClass;
@@ -278,7 +261,7 @@ function batch(effect) {
     queue = new Set([effect]);
     queueMicrotask(() => {
         for (const fn of queue) {
-            if (queue.has(fn?.parent)) continue; // skip if parent already runs
+            if (queue.has(fn?.parent)) continue; // skip if parent already runs. needed as nested effects are disposed anyway
             activeEffect = fn; // effect() called inside fn(callback) has to know his parent effect
             try { fn({ self: fn }); } catch (err) { console.error(err); } // hm? fn({rerun:fn})/fn({self:fn}) to rerun effect? https://github.com/nuxodin/item.js/issues/2
         }
@@ -306,60 +289,6 @@ function triggerEffectsFor(signal) {
 // proxy
 
 export const $item = Symbol('item.js [proxy target]');
-
-
-
-/* OLD
-const proxyHandler = {
-    get: function (target, property, receiver) {
-        if (property === $item) return target;
-        // if (target.asyncHandler && property === 'then') { // instanceof AsyncItem, make it a thenable, would be great if it can be handled by a proxy-trap
-        //     return (onFulfilled, onRejected) => target.get().then(onFulfilled, onRejected);
-        // }
-        if (property === Symbol.iterator) {
-            return function* () {
-                for (const childItem of target) { 
-                    yield toProxy(childItem);
-                }
-            };
-        }
-        if (typeof property === 'symbol') {
-            if (typeof target[property] === 'function') return target[property].bind(target);
-            return Reflect.get(target, property, receiver);
-        }
-
-        const item = target.item(property);
-
-        if (item.pending) return item.promise;
-
-        return toProxy(item);
-        const value = item.get(); // TODO?: Is accessing item.get() here good? it will trigger a get event (E.g. fetch data)
-        return item.constructor.isPrimitive(value) ? value : toProxy(item);
-    },
-    set: function (target, property, value) {
-        target.item(property).set(value);
-        return true;
-    },
-    apply: function (target, thisArg, argumentsList) {
-        console.log('apply called', target.path, thisArg, argumentsList);
-        return true;
-    },
-    has: (target, property) => target.has(property),
-    ownKeys: (target) => target.keys,
-    getOwnPropertyDescriptor: () => ({ configurable: true, enumerable: true }),
-    deleteProperty: function (target, property) {
-        target.item(property).remove();
-        return true;
-    },
-};
-
-const cachedProxies = new WeakMap();
-const toProxy = (item) => {
-    if (!cachedProxies.has(item)) cachedProxies.set(item, new Proxy(item, proxyHandler));
-    return cachedProxies.get(item);
-}
-*/
-
 
 const proxyHandler = {
     get: function (target, property, receiver) {
@@ -436,7 +365,7 @@ const toProxy = (itm) => {
  * @param {Object} detail - The event details.
  * @return {Object} An object containing a `defaultPrevented` property.
  */
-export function dispatchEvent(item, eventName, detail) {
+export function dispatch(item, eventName, detail) {
     const options = { detail, cancelable: true };
     const event = new CustomEvent(eventName, options);
     item.dispatchEvent(event);

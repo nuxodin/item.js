@@ -115,7 +115,7 @@ describe('object value', () => {
         chai.expect(i.has('b')).to.equal(i.item('b'))
     });
     it('has("no") returns the false', () => {
-        chai.expect(i.has('no')).to.equal(false)
+        chai.expect(i.has('no')).to.equal(undefined)
     });
     it('add a new property', () => {
         b.item('c').value = 4;
@@ -170,7 +170,7 @@ describe('object value', () => {
         i.value = value;
         chai.expect(i.value).to.deep.equal(clone);
         chai.expect(i.item('b').item('b2').item('c').value).to.equal(4);
-        chai.expect(i.item('b').has('b1')).to.equal(false);
+        chai.expect(i.item('b').has('b1')).to.equal(undefined);
     });
     it('deep patch', () => {
         let i = item({ a: 1, b: { b1: 2, b2: { c: 3 } } });
