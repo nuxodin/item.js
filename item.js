@@ -171,10 +171,16 @@ export class Item extends EventTarget {
 
     // async 
 
+    loadItems = null;
     // loadItems() {}
-    // can be implemented by child class
-    // it should load the keys of the items, but not necessarily the values
+    // Can be used by inherited item-class or item-instance.
+    // It should load the keys of the items, but not necessarily the values
     // async loadItems() { await getKeys(); for (const key of keys) this.item(key); }
+    // not implemented:
+    // hasRemote() async
+
+    /** @beta Metadata slot for drivers/subclasses. Not reactive. Consistency is the driver's responsibility. */
+    meta = null;
 
     async *[Symbol.asyncIterator]() {
         for (const item of Object.values(this.#value ?? {})) yield item;
