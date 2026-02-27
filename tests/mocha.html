@@ -19,7 +19,8 @@
     </script>
 
 <script type=module>
-import { item, asyncIteratorFromEventTarget, $item } from '../item.js';
+import { item, $item } from '../item.js';
+import { asyncIteratorFromEventTarget } from '../src/Emitter.js';
 
 describe('primitive value', () => {
     it('access item.value', () => {

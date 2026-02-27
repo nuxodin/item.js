@@ -1,9 +1,15 @@
 
+export { toProxy, $item } from './src/proxy.js';
+
+import { toProxy } from './src/proxy.js';
+import { Emitter, ItemEvent, asyncIteratorFromEventTarget } from './src/Emitter.js';
+
+
 /**
  * Class representing an item.
- * @extends EventTarget
+ * @extends Emitter
  */
-export class Item extends EventTarget {
+export class Item extends Emitter {
 
     #value;
     #parent;
@@ -87,39 +93,6 @@ export class Item extends EventTarget {
         return [...this.#parent.path, this.key];
     }
 
-    // Promise states
-    #pending = false;
-    #error;
-    #promise;
-    get pending() { registerCurrentEffectFor(this); return this.#pending; } // todo? registerCurrentEffectFor(this) ?
-    get error() { registerCurrentEffectFor(this); return this.#error; } // todo? registerCurrentEffectFor(this) ?
-    get promise() {
-        if (!this.#pending) return Promise.resolve(this.get());
-        registerCurrentEffectFor(this);
-        return this.#promise;
-    }
-    set promise(promise) {
-        this.#promise = promise;
-        this.#pending = true;
-        this.#error = undefined;
-        dispatch(this, 'change', { item: this, pending: true });
-        promise.then(
-            resolved => {
-                if (this.#promise !== promise) return; // wurde überschrieben
-                this.#pending = false;
-                this.#promise = undefined;
-                this.$set(resolved);
-            },
-            error => {
-                if (this.#promise !== promise) return;
-                this.#error = error;
-                this.#pending = false;
-                this.#promise = undefined;
-                dispatch(this, 'change', { item: this, error });
-            }
-        );
-    }
-
     // object related
 
     item(key) {
@@ -169,6 +142,9 @@ export class Item extends EventTarget {
     }
 
 
+    /** @beta Metadata slot for drivers/subclasses. Not reactive. Consistency is the driver's responsibility. */
+    meta = null;
+
     // async 
 
     loadItems = null;
@@ -179,15 +155,46 @@ export class Item extends EventTarget {
     // not implemented:
     // hasRemote() async
 
-    /** @beta Metadata slot for drivers/subclasses. Not reactive. Consistency is the driver's responsibility. */
-    meta = null;
-
     async *[Symbol.asyncIterator]() {
         for (const item of Object.values(this.#value ?? {})) yield item;
         const abortCtrl = new AbortController();
         const iterator = asyncIteratorFromEventTarget(this, 'change', { signal: abortCtrl.signal });
         this.loadItems?.().then(() => abortCtrl.abort());
         for await (const { detail: { add } } of iterator) if (add) yield add;
+    }
+
+    // Promise setter
+
+    #pending = false;
+    #error;
+    #promise;
+    get pending() { registerCurrentEffectFor(this); return this.#pending; }
+    get error() { registerCurrentEffectFor(this); return this.#error; }
+    get promise() {
+        if (!this.#pending) return Promise.resolve(this.get());
+        registerCurrentEffectFor(this);
+        return this.#promise;
+    }
+    set promise(promise) {
+        this.#promise = promise;
+        this.#pending = true;
+        this.#error = undefined;
+        dispatch(this, 'change', { item: this, pending: true });
+        promise.then(
+            resolved => {
+                if (this.#promise !== promise) return; // wurde überschrieben
+                this.#pending = false;
+                this.#promise = undefined;
+                this.$set(resolved);
+            },
+            error => {
+                if (this.#promise !== promise) return;
+                this.#error = error;
+                this.#pending = false;
+                this.#promise = undefined;
+                dispatch(this, 'change', { item: this, error });
+            }
+        );
     }
 
     // misc
@@ -212,7 +219,7 @@ export class Item extends EventTarget {
         return this.#value;
     }
 
-    // static methods
+    // static members
 
     static isPrimitive(value) {
         return value !== Object(value);
@@ -221,8 +228,8 @@ export class Item extends EventTarget {
         return Object.is(a, b); // question: should use deepEqual as "primitive" can be an object?
     }
 
-    static ChildClass;
     ChildClass = this.constructor.ChildClass;
+    static ChildClass;
 }
 
 
@@ -292,78 +299,6 @@ function triggerEffectsFor(signal) {
 }
 
 
-// proxy
-
-export const $item = Symbol('item.js [proxy target]');
-
-const proxyHandler = {
-    get: function (target, property, receiver) {
-        const targetItem = target.item;
-        if (property === $item) return targetItem;
-        if (property === Symbol.iterator) {
-            return function* () {
-                for (const childItem of targetItem) {
-                    yield toProxy(childItem);
-                }
-            };
-        }
-        if (typeof property === 'symbol') {
-            if (typeof targetItem[property] === 'function') return targetItem[property].bind(targetItem);
-            return Reflect.get(targetItem, property, receiver);
-        }
-        const childItem = targetItem.item(property);
-
-        if (property === 'then') console.error('item.js: Proxy is not a Promise. Use `await proxy.bald()` instead of `await proxy`');
-        if (property === 'toJSON') console.error('item.js: toJSON accessed on proxy. Use `JSON.stringify(proxy())` instead of `JSON.stringify(proxy)`');
-
-        return toProxy(childItem);
-    },
-
-    set: function (target, property, value) {
-        target.item.item(property).set(value);
-        return true;
-    },
-
-    apply: function (target, thisArg, args) {
-        const targetItem = target.item;
-        if (args.length === 0) return targetItem.pending ? targetItem.promise : targetItem.get();
-        if (args.length === 1) return targetItem.set(args[0]) ?? true;
-        throw new Error('apply called with too many arguments');
-    },
-
-    has: (target, property) => target.item.has(property),
-
-    ownKeys: (target) => target.item.keys,
-
-    getOwnPropertyDescriptor(target, property) {
-        if (typeof property === 'symbol') return Reflect.getOwnPropertyDescriptor(target.item, property);
-        if (target.item.has(property)) {
-            return {
-                configurable: true,
-                enumerable: true,
-                writable: false
-            };
-        }
-    },
-
-    deleteProperty: function (target, property) {
-        target.item.item(property).remove();
-        return true;
-    },
-};
-
-const cachedProxies = new WeakMap();
-
-const toProxy = (itm) => {
-    if (!cachedProxies.has(itm)) {
-        const fn = () => { };
-        fn.item = itm;
-        cachedProxies.set(itm, new Proxy(fn, proxyHandler));
-    }
-    return cachedProxies.get(itm);
-};
-
-
 /**
  * Dispatch a custom event on the item and its ancestors.
  * @param {Item} item - The item to dispatch the event on.
@@ -372,10 +307,9 @@ const toProxy = (itm) => {
  * @return {Object} An object containing a `defaultPrevented` property.
  */
 export function dispatch(item, eventName, detail) {
-    const options = { detail, cancelable: true };
-    const event = new CustomEvent(eventName, options);
+    const event = new ItemEvent(eventName, detail);
     item.dispatchEvent(event);
-    const eventIn = new CustomEvent(eventName + 'In', options);
+    const eventIn = new ItemEvent(eventName + 'In', detail);
     let current = item;
     while (current) {
         current.dispatchEvent(eventIn);
@@ -387,49 +321,3 @@ export function dispatch(item, eventName, detail) {
 }
 
 
-/**
- * Creates a async iterator from an event target.
- * @param {EventTarget} eventTarget - The event target.
- * @param {string} eventName - The name of the event.
- * @param {Object} [options] - The event listener options.
- * @return {Generator} A generator that yields events.
- * @example
- * const abortCtrl = new AbortController();
- * for await (const event of asyncIteratorFromEventTarget(document, 'click', {signal: abortCtrl.signal})) {
- *    console.log(event);
- * }
- * setTimeout(() => abortCtrl.abort(), 1000);
- */
-export async function* asyncIteratorFromEventTarget(eventTarget, eventName, options) {
-    const queue = [];
-    let stopAfterQueue = false;
-    let resolve;
-    const eventHandler = event => {
-        queue.push(event);
-        if (resolve) {
-            resolve();
-            resolve = null;
-        }
-    };
-    eventTarget.addEventListener(eventName, eventHandler, options);
-    options?.signal?.addEventListener('abort', () => {
-        stopAfterQueue = true;
-        if (resolve) {
-            resolve();
-            resolve = null;
-        }
-    });
-    try {
-        while (true) {
-            if (queue.length) {
-                yield queue.shift();
-            } else if (stopAfterQueue) {
-                return;
-            } else {
-                await new Promise(res => resolve = res); // Promise.withResolvers()?
-            }
-        }
-    } finally {
-        eventTarget.removeEventListener(eventName, eventHandler, options);
-    }
-}
