@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Schema Mixin Tests</title>
+    <meta name="viewport" content="width=device-width" />
+    <link rel="stylesheet" href="https://unpkg.com/mocha@10.2.0/mocha.css" />
+</head>
+<body>
+    <div id="mocha"></div>
+
+    <script src="https://unpkg.com/chai@4.4.1/chai.js"></script>
+    <script src="https://unpkg.com/mocha@10.2.0/mocha.js"></script>
+
+    <script class="mocha-init">
+        mocha.setup('bdd');
+        mocha.checkLeaks();
+    </script>
+
+<script type="module">
+
+import { item } from '../item.js';
+
+const { expect } = chai;
+
+describe('setSchema()', () => {
+    it('sets schema on root item', () => {
+        const root = item();
+        root.setSchema({ type: 'object' });
+        expect(root.schema).to.deep.equal({ type: 'object' });
+    });
+
+    it('throws when an ancestor already has a schema', () => {
+        const root = item();
+        root.setSchema({ type: 'object' });
+        expect(() => root.item('a').setSchema({ type: 'string' })).to.throw();
+    });
+
+    it('throws at any depth', () => {
+        const root = item();
+        root.setSchema({ type: 'object' });
+        expect(() => root.item('a').item('b').item('c').setSchema({ type: 'string' })).to.throw();
+    });
+
+    it('allows schema on sibling branches', () => {
+        const a = item();
+        const b = item();
+        a.setSchema({ type: 'string' });
+        expect(() => b.setSchema({ type: 'number' })).not.to.throw();
+    });
+});
+
+describe('schema getter — inheritance', () => {
+    it('root.schema returns own schema', () => {
+        const root = item();
+        root.setSchema({ type: 'object', properties: { name: { type: 'string' } } });
+        expect(root.schema.type).to.equal('object');
+    });
+
+    it('child inherits schema from parent properties', () => {
+        const root = item();
+        root.setSchema({ properties: { name: { type: 'string' } } });
+        expect(root.item('name').schema).to.deep.equal({ type: 'string' });
+    });
+
+    it('returns null for unknown key', () => {
+        const root = item();
+        root.setSchema({ properties: { name: { type: 'string' } } });
+        expect(root.item('unknown').schema).to.equal(null);
+    });
+
+    it('returns null when no schema in tree', () => {
+        const root = item();
+        expect(root.item('a').schema).to.equal(null);
+    });
+
+    it('traverses multiple levels deep', () => {
+        const root = item();
+        root.setSchema({ properties: {
+            address: { properties: {
+                city: { type: 'string' }
+            }}
+        }});
+        expect(root.item('address').item('city').schema).to.deep.equal({ type: 'string' });
+    });
+});
+
+describe('additionalProperties', () => {
+    it('falls back to additionalProperties for unknown keys', () => {
+        const root = item();
+        root.setSchema({ additionalProperties: { type: 'number' } });
+        expect(root.item('whatever').schema).to.deep.equal({ type: 'number' });
+    });
+
+    it('prefers properties over additionalProperties for known keys', () => {
+        const root = item();
+        root.setSchema({
+            properties: { name: { type: 'string' } },
+            additionalProperties: { type: 'number' }
+        });
+        expect(root.item('name').schema).to.deep.equal({ type: 'string' });
+        expect(root.item('age').schema).to.deep.equal({ type: 'number' });
+    });
+
+    it('inherits nested schema via additionalProperties', () => {
+        const root = item();
+        root.setSchema({
+            additionalProperties: {
+                properties: {
+                    name: { type: 'string' },
+                    age:  { type: 'number' }
+                }
+            }
+        });
+        expect(root.item('55').item('name').schema).to.deep.equal({ type: 'string' });
+        expect(root.item('2').item('age').schema).to.deep.equal({ type: 'number' });
+    });
+});
+
+describe('items (array-like)', () => {
+    it('falls back to items for numeric-like keys', () => {
+        const root = item();
+        root.setSchema({ items: { type: 'string' } });
+        expect(root.item('0').schema).to.deep.equal({ type: 'string' });
+        expect(root.item('99').schema).to.deep.equal({ type: 'string' });
+    });
+});
+
+</script>
+
+<script class="mocha-exec" type="module">
+    mocha.run();
+</script>
+

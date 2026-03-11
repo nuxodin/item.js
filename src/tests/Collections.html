@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Collection Tests</title>
+<meta name="viewport" content="width=device-width" />
+<link rel="stylesheet" href="https://unpkg.com/mocha@10.2.0/mocha.css" />
+</head>
+<body>
+<div id="mocha"></div>
+<script src="https://unpkg.com/chai@4.4.1/chai.js"></script>
+<script src="https://unpkg.com/mocha@10.2.0/mocha.js"></script>
+<script class="mocha-init">
+mocha.setup('bdd');
+mocha.checkLeaks();
+</script>
+<script type="module">
+import { item } from '../../item.js';
+import { Collection } from '../Collection.experiment.js';
+const { expect } = chai;
+
+function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+// ─── Basic filtering ───────────────────────────────────────────────────────
+
+describe('Collection: basic filter', () => {
+
+    it('matches shorthand {field: value}', () => {
+        const root = item();
+        root.item('a').set({ active: true });
+        root.item('b').set({ active: false });
+        const c = new Collection(root, { active: true });
+        expect(c.keys).to.deep.equal(['a']);
+    });
+
+    it('matches operator [includes, ...]', () => {
+        const root = item();
+        root.item('a').set({ name: 'hans' });
+        root.item('b').set({ name: 'sepp' });
+        const c = new Collection(root, { name: ['includes', 'ans'] });
+        expect(c.keys).to.deep.equal(['a']);
+    });
+
+    it('matches operator [gte, ...]', () => {
+        const root = item();
+        root.item('a').set({ age: 20 });
+        root.item('b').set({ age: 15 });
+        root.item('c').set({ age: 18 });
+        const c = new Collection(root, { age: ['gte', 18] });
+        expect(c.keys).to.deep.equal(['a', 'c']);
+    });
+
+    it('matches multiple conditions (implicit and)', () => {
+        const root = item();
+        root.item('a').set({ active: true,  age: 20 });
+        root.item('b').set({ active: true,  age: 15 });
+        root.item('c').set({ active: false, age: 20 });
+        const c = new Collection(root, { active: true, age: ['gte', 18] });
+        expect(c.keys).to.deep.equal(['a']);
+    });
+
+    it('empty filter matches all', () => {
+        const root = item();
+        root.item('a').set({ x: 1 });
+        root.item('b').set({ x: 2 });
+        const c = new Collection(root, {});
+        expect(c.keys).to.deep.equal(['a', 'b']);
+    });
+
+    it('$ prefixed fieldname works without conflict', () => {
+        const root = item();
+        root.item('a').set({ '$or': true });
+        root.item('b').set({ '$or': false });
+        const c = new Collection(root, { '$or': true });
+        expect(c.keys).to.deep.equal(['a']);
+    });
+
+});
+
+// ─── Operators ────────────────────────────────────────────────────────────
+
+describe('Collection: operators', () => {
+
+    it('eq', () => {
+        const root = item();
+        root.item('a').set({ x: 1 });
+        root.item('b').set({ x: 2 });
+        expect(new Collection(root, { x: ['eq', 1] }).keys).to.deep.equal(['a']);
+    });
+
+    it('ne', () => {
+        const root = item();
+        root.item('a').set({ x: 1 });
+        root.item('b').set({ x: 2 });
+        expect(new Collection(root, { x: ['ne', 1] }).keys).to.deep.equal(['b']);
+    });
+
+    it('lt / lte', () => {
+        const root = item();
+        root.item('a').set({ x: 5 });
+        root.item('b').set({ x: 10 });
+        expect(new Collection(root, { x: ['lt',  10] }).keys).to.deep.equal(['a']);
+        expect(new Collection(root, { x: ['lte', 10] }).keys).to.deep.equal(['a', 'b']);
+    });
+
+    it('in / nin', () => {
+        const root = item();
+        root.item('a').set({ role: 'admin' });
+        root.item('b').set({ role: 'user' });
+        root.item('c').set({ role: 'guest' });
+        expect(new Collection(root, { role: ['in',  ['admin', 'user']] }).keys).to.deep.equal(['a', 'b']);
+        expect(new Collection(root, { role: ['nin', ['admin', 'user']] }).keys).to.deep.equal(['c']);
+    });
+
+    it('exists', () => {
+        const root = item();
+        root.item('a').set({ name: 'anna' });
+        root.item('b').set({ age: 22 });
+        expect(new Collection(root, { name: ['exists', true]  }).keys).to.deep.equal(['a']);
+        expect(new Collection(root, { name: ['exists', false] }).keys).to.deep.equal(['b']);
+    });
+
+    it('startsWith / endsWith', () => {
+        const root = item();
+        root.item('a').set({ name: 'Johannes' });
+        root.item('b').set({ name: 'Hansjoerg' });
+        expect(new Collection(root, { name: ['startsWith', 'Jo']   }).keys).to.deep.equal(['a']);
+        expect(new Collection(root, { name: ['endsWith',   'joerg'] }).keys).to.deep.equal(['b']);
+    });
+
+    it('regex', () => {
+        const root = item();
+        root.item('a').set({ name: 'Anna' });
+        root.item('b').set({ name: 'Bob' });
+        expect(new Collection(root, { name: ['regex', '^A'] }).keys).to.deep.equal(['a']);
+    });
+
+    it('ref — field-to-field comparison', () => {
+        const root = item();
+        root.item('a').set({ balance: 222, kreditLimite: 200 }); // over limit
+        root.item('b').set({ balance: 100, kreditLimite: 150 }); // under limit
+        const c = new Collection(root, { balance: ['gt', ['ref', 'kreditLimite']] });
+        expect(c.keys).to.deep.equal(['a']);
+    });
+
+});
+
+// ─── Reactivity ───────────────────────────────────────────────────────────
+
+describe('Collection: reactivity', () => {
+
+    it('adds item when it starts matching', () => {
+        const root = item();
+        root.item('a').set({ active: false });
+        const c = new Collection(root, { active: true });
+        expect(c.keys).to.deep.equal([]);
+        root.item('a').item('active').set(true);
+        expect(c.keys).to.deep.equal(['a']);
+    });
+
+    it('removes item when it stops matching', () => {
+        const root = item();
+        root.item('a').set({ active: true });
+        const c = new Collection(root, { active: true });
+        expect(c.keys).to.deep.equal(['a']);
+        root.item('a').item('active').set(false);
+        expect(c.keys).to.deep.equal([]);
+    });
+
+    it('picks up newly added items', () => {
+        const root = item();
+        const c = new Collection(root, { active: true });
+        root.item('a').set({ active: true });
+        expect(c.keys).to.deep.equal(['a']);
+    });
+
+    it('removes item when deleted from source', () => {
+        const root = item();
+        root.item('a').set({ active: true });
+        const c = new Collection(root, { active: true });
+        root.item('a').remove();
+        expect(c.keys).to.deep.equal([]);
+    });
+
+});
+
+// ─── Events ───────────────────────────────────────────────────────────────
+
+describe('Collection: events', () => {
+
+    it('fires add event', () => {
+        const root = item();
+        const c = new Collection(root, { active: true });
+        const added = [];
+        c.addEventListener('change', e => { if (e.detail.add) added.push(e.detail.add.key); });
+        root.item('a').set({ active: true });
+        expect(added).to.deep.equal(['a']);
+    });
+
+    it('fires remove event', () => {
+        const root = item();
+        root.item('a').set({ active: true });
+        const c = new Collection(root, { active: true });
+        const removed = [];
+        c.addEventListener('change', e => { if (e.detail.remove) removed.push(e.detail.remove.key); });
+        root.item('a').item('active').set(false);
+        expect(removed).to.deep.equal(['a']);
+    });
+
+});
+
+// ─── Destroy ──────────────────────────────────────────────────────────────
+
+describe('Collection: destroy', () => {
+
+    it('stops reacting after destroy', () => {
+        const root = item();
+        const c = new Collection(root, { active: true });
+        c.destroy();
+        root.item('a').set({ active: true });
+        expect(c.keys).to.deep.equal([]);
+    });
+
+    it('clears items on destroy', () => {
+        const root = item();
+        root.item('a').set({ active: true });
+        const c = new Collection(root, { active: true });
+        expect(c.keys).to.deep.equal(['a']);
+        c.destroy();
+        expect(c.keys).to.deep.equal([]);
+    });
+
+});
+
+mocha.run();
+</script>

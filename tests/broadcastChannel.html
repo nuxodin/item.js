@@ -25,11 +25,11 @@ document.addEventListener('mousemove', e => {
     bcItem.item(myId).value = {x: e.clientX, y: e.clientY};
 });
 
-bcItem.addEventListener('changeIn', ({detail}) => {
+bcItem.addEventListener('changeIn', ({target, detail}) => {
     if (detail.add) return;
     if (detail.remove) return;
 
-    const item = detail.item;
+    const item = target;
     const id = item.parent.key;
 
     if (!document.getElementById(id)) {

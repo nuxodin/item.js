@@ -232,18 +232,18 @@ describe('events', () => {
         });
         i.value = 2;
     });
-    it('event.details.item', done => {
-        let i = item(1);
-        i.addEventListener('set', e => {
-            chai.expect(e.detail.item).to.equal(i);
+    it('event.target', done => {
+        let i = item({a:3});
+        i.addEventListener('setIn', e => {
+            chai.expect(e.target).to.equal(i.item('a'));
             done();
         });
-        i.value = 2;
+        i.item('a').value = 4;
     });
     it('change deep property', done => {
         let i = item({ a: 1, b: 2 });
         i.addEventListener('setIn', e => {
-            chai.expect(e.detail.item.key).to.equal('a');
+            chai.expect(e.target.key).to.equal('a');
             done();
         });
         i.item('a').value = 2;
@@ -258,33 +258,34 @@ describe('events', () => {
         });
         i.value = 2;
     });
-    it('throw circular get', done => {
-        let i = item();
-        i.addEventListener('get', e => {
-            chai.expect(() => {
-                i.value
-            }).to.throw('circular get');
-            done();
-        });
-        let y = i.value;
+    
+    it('event bubbling and order: setIn, changeIn', () => {
+        let i = item({ a: 1 });
+        let types = '';
+        i.addEventListener('setIn', e => types += e.type);
+        i.addEventListener('changeIn', e => types += e.type);
+        i.item('a').value = 2;
+        i.item('a').value;
+        chai.expect(types).to.equal('setInchangeIn');
     });
 
-    it('set same (modified) object does not trigger change', () => {
-        let date = new Date();
-        let i = item(date);
+    it('event no bubbling: change, set', () => {
+        let i = item({ a: 1 });
+        let types = '';
+        i.addEventListener('change', e => types += e.type);
+        i.addEventListener('set', e => types += e.type);
+        i.item('a').value = 2;
+        i.item('a').value;
+        chai.expect(types).to.equal('');
+    }); 
 
-        let changeTriggered = false;
-        let setTriggered = false;
-
-        i.addEventListener('set', e => setTriggered = true);
-        i.addEventListener('change', e => changeTriggered = true);
-
-        date.setFullYear(2000);
-
-        i.value = date;
-
-        chai.expect(setTriggered).to.equal(true);
-        chai.expect(changeTriggered).to.equal(false);
+    it('event order change, changeIn', () => {
+        let i = item(1);
+        let types = '';
+        i.addEventListener('change', e => types += e.type);
+        i.addEventListener('changeIn', e => types += e.type);
+        i.value = 2;
+        chai.expect(types).to.equal('changechangeIn');
     });
 
     it('todo, what should be the value? change from promitive to void object triggers change', () => {
@@ -608,13 +609,13 @@ describe('proxy', () => {
         // });
         it('async iterator', async () => {
             const i = item({ a: 1, b: 2 });
-            i.loadItems = async function () {
+            i.reader = async function () {
                 await new Promise(resolve => setTimeout(resolve, 50))
                 this.item('a').set(2); // does not trigger "add" as it is already there
                 await new Promise(resolve => setTimeout(resolve, 50))
                 this.item('c').set(3);
                 this.item('d').set(4);
-                setTimeout(() => this.item('e').set(4)) // not included as it is added after loadItems is finished
+                setTimeout(() => this.item('e').set(4)) // not included as it is added after "reader" is finished
             };
             const p = i.proxy;
             const result = [];
@@ -710,33 +711,6 @@ describe('promise handling', () => {
         chai.expect(changeTriggered).to.equal(true);
     });
 
-    /*
-    it('change event triggers after promise rejects', async () => {
-        let i = item(100);
-        let changeTriggered = false;
-        i.addEventListener('change', () => changeTriggered = true);
-        i.promise = Promise.reject(new Error('test'));
-        await new Promise(resolve => setTimeout(resolve, 0));
-        chai.expect(changeTriggered).to.equal(true);
-    });
-    */
-
-    it('promise property returns the current promise', () => {
-        let i = item();
-        const p = Promise.resolve(42);
-        i.promise = p;
-        chai.expect(i.promise).to.equal(p);
-    });
-
-    it('setting a new promise replaces the old one', () => {
-        let i = item();
-        const p1 = Promise.resolve(42);
-        const p2 = Promise.resolve(100);
-        i.promise = p1;
-        i.promise = p2;
-        chai.expect(i.promise).to.equal(p2);
-    });
-
     it('setting a new promise clears old error', async () => {
         let i = item();
         i.promise = Promise.reject(new Error('first'));
@@ -758,17 +732,6 @@ describe('promise handling', () => {
         await new Promise(resolve => setTimeout(resolve, 0));
         chai.expect(i.pending).to.equal(false);
     });
-
-    it('after promise resolves, promise is a new promise that resolves to the value', async () => {
-        let i = item();
-        let promise = Promise.resolve(42);
-        i.promise = promise
-        await new Promise(resolve => setTimeout(resolve, 0));
-        chai.expect(i.promise).to.not.equal(promise);
-        const value = await i.promise;
-        chai.expect(value).to.equal(42);
-    });
-
 
     it('race condition: old promise ignored when new promise set', async () => {
         let i = item();

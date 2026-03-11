@@ -1,0 +1,198 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>dbAdmin</title>
+<script type="module" async src="https://cdn.jsdelivr.net/gh/u2ui/u2@main/u2/auto.js"></script>
+<style>
+html{--color:#207acc; font-size:12px; --width:100% }
+[aria-current="true"]{background:var(--color-lighter)}
+</style>
+<u2-splitpanel style="height:100vh">
+  <aside style="flex: 0 0 auto">
+    <h2>Tabellen</h2>
+    <nav>
+      <ul id="tables" style="list-style:none;"></ul>
+    </nav>
+    <pre id="status">lade…</pre>
+  </aside>
+  <main>
+    <h1 id="title">dbAdmin</h1>
+    <menu>
+      <button disabled title="Insert folgt später">Neu</button>
+      <button id="saveBtn">Speichern</button>
+      <button id="deleteBtn" u2-confirm="Zeile löschen?">Löschen</button>
+    </menu>
+    <table id="grid" class="u2-table"></table>
+    <div id="form"></div>
+  </main>
+</u2-splitpanel>
+<script type="module">
+import { item, effect } from '/__repo/item.js';
+import { createItemClient } from '/__repo/adapter/httpClient.js';
+import { render, html } from 'https://esm.sh/uhtml@4';
+
+const db = createItemClient('/api');
+const ui = item({ table: '', rowId: '', draft: {}, error: '' });
+
+const title = document.getElementById('title');
+const tables = document.getElementById('tables');
+const status = document.getElementById('status');
+const grid = document.getElementById('grid');
+const form = document.getElementById('form');
+const saveBtn = document.getElementById('saveBtn');
+const deleteBtn = document.getElementById('deleteBtn');
+let fieldsEl = document.createElement('u2-fields');
+let fieldsTable = null;
+
+saveBtn.onclick = save;
+deleteBtn.onclick = remove;
+
+await boot();
+
+effect(() => {
+  render(tables, html`
+    ${[...db].map(table => html`
+      <li>
+        <button style="inline-size:100%;text-align:start" aria-current=${table.key === ui.item('table').value ? 'true' : 'false'} onclick=${() => selectTable(table.key)}>${table.key}</button>
+    `)}
+  `);
+});
+
+effect(() => {
+  title.textContent = ui.item('table').value || 'dbAdmin';
+  status.textContent = ui.item('error').value || JSON.stringify({
+    table: ui.item('table'),
+    rowId: ui.item('rowId'),
+    columns: columns(),
+    primaryKeys: primaryKeys(),
+    addressable: addressable(),
+  }, null, 2);
+  saveBtn.disabled = deleteBtn.disabled = !ui.item('rowId').value || !addressable();
+});
+
+effect(() => {
+  const table = tableItem();
+  render(grid, html`
+    <thead>
+      <tr>
+        ${columns().map(name => html`<th>${label(name)}`)}
+    </thead>
+    <tbody>
+      ${(table ? [...table] : []).map(row => html`
+        <tr aria-current=${row.key === ui.item('rowId').value ? 'true' : 'false'} onclick=${() => selectRow(row.key)}>
+          ${columns().map(name => html`<td>${show(row.item(name).value)}`)}
+      `)}
+    </tbody>
+  `);
+});
+
+effect(() => {
+  const rowSchema = schema();
+  const tableName = ui.item('table').value;
+  if (!rowSchema) {
+    fieldsTable = tableName;
+    form.replaceChildren();
+    return;
+  }
+  if (tableName !== fieldsTable || !form.firstChild) {
+    fieldsTable = tableName;
+    fieldsEl = document.createElement('u2-fields');
+    form.replaceChildren(fieldsEl);
+  }
+  render(fieldsEl, html`
+    ${columns().map(name => fieldTemplate(name, rowSchema.properties[name] || {}))}
+  `);
+});
+
+async function boot() {
+  try {
+    const res = await fetch('/api?$schema');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    ui.item('error').value = '';
+    const schema = await res.json();
+    db.setSchema(schema);
+    await db.read();
+  } catch (error) {
+    ui.item('error').value = String(error.message || error);
+  }
+}
+
+async function selectTable(name) {
+  const keepRowId = name === ui.item('table').value ? ui.item('rowId').value : '';
+  
+  tableItem()?.clear();
+
+  ui.item('table').value = name;
+  ui.item('rowId').value = '';
+  ui.item('draft').set({});
+  const table = tableItem();
+  await table.read();
+  await loadTable(table);
+  ui.item('rowId').value = table.has(keepRowId)?.key ?? table.keys[0] ?? '';
+  syncDraft();
+}
+
+function selectRow(rowId) {
+  ui.item('rowId').value = rowId;
+  syncDraft();
+}
+
+function fieldTemplate(name, field) {
+  const value = ui.item('draft').item(name).value;
+  const readonly = field['x-autoIncrement'] || (field['x-primary'] && ui.item('rowId').value);
+  if (field.enum) return html`${label(name, field)}<select .value=${value ?? ''} .disabled=${readonly} oninput=${e => setDraft(name, e.target.value)}>${field.enum.map(option => html`<option value=${option}>${option}`)}</select>`;
+  if (field.type === 'boolean') return html`${label(name, field)}<input type="checkbox" .checked=${!!value} .disabled=${readonly} oninput=${e => setDraft(name, e.target.checked)}>`;
+  return html`${label(name, field)}<input type=${inputType(field)} .value=${value ?? ''} .disabled=${readonly} oninput=${e => setDraft(name, readFieldValue(e.target, field))}>`;
+}
+
+async function save() {
+  if (!ui.item('table').value || !ui.item('rowId').value || !addressable()) return;
+  const row = currentRow();
+  const changes = Object.entries(cleanDraft(ui.item('draft').value)).filter(([name, value]) => JSON.stringify(row.item(name).value) !== JSON.stringify(value));
+  await Promise.all(changes.map(([name, value]) => row.item(name).set(value)));
+}
+
+async function remove() {
+  if (!ui.item('table').value || !ui.item('rowId').value) return;
+  await tableItem().item(ui.item('rowId').value).remove();
+}
+
+async function loadTable(table) {
+  for await (const row of table) {
+    for await (const cell of row) cell.read();
+  }
+}
+
+function syncDraft() {
+  ui.item('draft').set(currentRow()?.value ?? emptyDraft());
+}
+
+function setDraft(name, value) {
+  ui.item('draft').item(name).value = value;
+}
+
+function emptyDraft() {
+  return Object.fromEntries(columns().map(name => [name, schema()?.properties?.[name]?.default ?? '']));
+}
+
+function cleanDraft(draft) {
+  return Object.fromEntries(Object.entries(draft).filter(([name, value]) => {
+    const field = schema()?.properties?.[name];
+    return !!field && !field['x-autoIncrement'] && !field['x-primary'] && value !== undefined;
+  }));
+}
+
+function tableItem() { return db.has(ui.item('table')); }
+function schema() { return tableItem()?.schema?.additionalProperties; }
+function columns() { return Object.keys(schema()?.properties ?? {}); }
+function primaryKeys() { return tableItem()?.schema?.['x-primaryKeys'] ?? []; }
+function addressable() { return primaryKeys().length > 0; }
+function currentRow() { return tableItem()?.has(ui.item('rowId').value); }
+function label(name, field) { return (schema()?.properties?.[name]?.title || name) + (field?.['x-primary'] ? ' *' : ''); }
+function inputType(field) { return field.format === 'date' ? 'date' : field.type === 'number' || field.type === 'integer' ? 'number' : 'text'; }
+function readFieldValue(input, field) {
+  if (field.type === 'integer') return input.value === '' ? '' : Number.parseInt(input.value, 10);
+  if (field.type === 'number') return input.value === '' ? '' : Number(input.value);
+  return input.value;
+}
+function show(value) { return value == null ? '' : typeof value === 'object' ? JSON.stringify(value) : String(value); }
+</script>

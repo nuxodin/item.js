@@ -1,3 +1,4 @@
+
 export class Emitter {
     #listeners = null;
 
@@ -14,8 +15,12 @@ export class Emitter {
 
     /** @returns {{ defaultPrevented: boolean }} */
     dispatchEvent(e) {
+        e.target ??= this;
         const fns = this.#listeners?.get(e.type);
-        if (fns) for (const fn of fns) fn(e);
+        if (fns) {
+            e.currentTarget = this;
+            for (const fn of fns) fn(e);
+        }
         return !e.defaultPrevented;
     }
 }
@@ -23,7 +28,23 @@ export class Emitter {
 // Leichtes Event-Objekt – kein CustomEvent-Overhead
 export class ItemEvent {
     defaultPrevented = false;
-    constructor(type, detail) { this.type = type; this.detail = detail; }
+    type = null;
+    detail = null;
+    constructor(type, detail) {
+        this.type = type;
+        this.detail = detail;
+        /*
+        Object.defineProperty(this.detail, "item", {
+            get() {
+                console.error("detail.item is deprecated use event.target instead");
+                return detail._item;
+            },
+            set(v) {
+                detail._item = v;
+            }
+        });
+        */
+    }
     preventDefault() { this.defaultPrevented = true; }
 }
 

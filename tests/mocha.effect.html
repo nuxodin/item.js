@@ -162,7 +162,7 @@ describe('APIs that register effect', () => {
     testAccess(true, item => 1*item.proxy, false );
     testAccess(true, item => item.pending );
     testAccess(true, item => item.error );
-    testAccess(true, item => item.promise );
+    testAccess(true, item => item.read() );
 
     testAccess(false, item => item.path );
     testAccess(false, item => item.set(1) );

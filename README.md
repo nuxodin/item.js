@@ -38,6 +38,7 @@ a.value === 1; // true
 
 // using object
 const a = item({ b: 1 });
+a.isObject // true
 a.value; // {b: 1}
 const b = a.item("b"); // property 'b' is also an "Item"
 b.parent === a;
@@ -46,32 +47,6 @@ b.path; // ['b'];
 a.sub(["a", "b", "c"]); // equals b.item('a').item('b').item('c');
 a.item("c").item("d"); // Automatic property creation (Autovivification)
 ```
-
-## Promise handling
-
-`item.js` supports assigning promises directly with automatic state tracking.
-
-```js
-const i = item();
-i.promise = Promise.resolve(42);
-i.value === undefined;
-i.pending === true; // while pending
-i.promise; // returns assigned promise or Promise.resolve(this.value)
-await i.promise; // 42
-i.value === 42; // resolved value
-```
-
-### Properties
-
-- **`pending`**: `true` while promise is pending
-- **`error`**: Error object on rejection, `undefined` otherwise
-- **`filled`**: `true` after successful resolution
-
-### Behavior
-
-- On rejection: previous value is preserved, error is stored
-- Change events / effects: fire after resolution or rejection
-- Error clearing: automatic when new promise is set or resolves successfully
 
 ## Effect
 
@@ -94,15 +69,10 @@ a.addEventListener("change", ({ detail }) => {
 });
 a.value = 3; // triggers 'change' event
 
-a.addEventListener("get", ({ detail }) => {
-    console.log(detail.value);
-});
-a.value; // triggers 'get' event
-
 // bubbling (changeIn)
-a.addEventListener("changeIn", ({ detail }) => {
-    detail.item === a.item("b"); // true
-    console.log(detail.item, detail.oldValue, detail.value);
+a.addEventListener("changeIn", ({ target, detail }) => {
+    target === a.item("b"); // true
+    console.log(target, detail.oldValue, detail.value);
 });
 a.item("b").value = 2; // triggers 'changeIn' event on 'a' (bubbles up)
 
@@ -111,7 +81,7 @@ a.addEventListener("changeIn", (event) => {
     if (detail.add) {
         console.log(event.target, "added property", event.detail.add); // child-item
     }
-    if (detail.remove) {
+    if (detail.delete) {
         console.log(event.target, "removed property", event.detail.remove);
     }
 });
@@ -161,8 +131,8 @@ await db.connect();
 db.item('table').item('1').item('name').value = 'demo';
 
 // MQTT
-import {mqtt} from "../drivers/mqtt.js";
-const root = await mqtt({url: 'mqtt://mqtt.org:1883'});
+import {createMqtt} from "../adapter/deno/mqtt.js";
+const root = await createMqtt({url: 'mqtt://mqtt.org:1883'});
 
 root.item('house1').item('counters').item('electricity').value = 876;
 

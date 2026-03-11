@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>AsyncDataPoint Tests</title>
+    <meta name="viewport" content="width=device-width" />
+    <link rel="stylesheet" href="https://unpkg.com/mocha@10.2.0/mocha.css" />
+</head>
+
+<body>
+    <div id="mocha"></div>
+
+    <script src="https://unpkg.com/chai@4.4.1/chai.js"></script>
+    <script src="https://unpkg.com/mocha@10.2.0/mocha.js"></script>
+
+    <script class="mocha-init">
+        mocha.setup('bdd');
+        mocha.checkLeaks();
+    </script>
+
+    <script type="module">
+        import { AsyncDataPoint } from '../AsyncDataPoint.js';
+
+        const { expect } = chai;
+
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function deferred() {
+            let resolve;
+            let reject;
+            const promise = new Promise((res, rej) => {
+                resolve = res;
+                reject = rej;
+            });
+            return { promise, resolve, reject };
+        }
+
+        async function expectRejected(promise, messagePart) {
+            try {
+                await promise;
+                expect.fail(`Expected promise to reject with message containing: ${messagePart}`);
+            } catch (err) {
+                expect(String(err && err.message || err)).to.contain(messagePart);
+            }
+        }
+
+        describe('AsyncDataPoint: get() and caching', () => {
+            it('deduplicates concurrent get() calls to one getter request', async () => {
+                let getCalls = 0;
+                const gate = deferred();
+                const dp = new AsyncDataPoint({
+                    get: async () => {
+                        getCalls++;
+                        await gate.promise;
+                        return 'value';
+                    },
+                    set: async () => {},
+                    ttl: 100
+                });
+
+                const p1 = dp.get();
+                const p2 = dp.get();
+
+                expect(p2).to.equal(p1);
+                expect(getCalls).to.equal(1);
+
+                gate.resolve();
+                const value = await p1;
+                expect(value).to.equal('value');
+
+                dp.dispose();
+            });
+
+            it('loads once and serves cached value within ttl', async () => {
+                let getCalls = 0;
+                const dp = new AsyncDataPoint({
+                    get: async () => {
+                        getCalls++;
+                        return 'server-value';
+                    },
+                    set: async () => {},
+                    ttl: 50
+                });
+
+                const v1 = await dp.get();
+                const v2 = await dp.get();
+
+                expect(v1).to.equal('server-value');
+                expect(v2).to.equal('server-value');
+                expect(getCalls).to.equal(1);
+                expect(dp.recentValue).to.equal('server-value');
+
+                dp.dispose();
+            });
+
+            it('refetches after ttl expiration', async () => {
+                let getCalls = 0;
+                const dp = new AsyncDataPoint({
+                    get: async () => `value-${++getCalls}`,
+                    set: async () => {},
+                    ttl: 20
+                });
+
+                const v1 = await dp.get();
+                await delay(30);
+                const v2 = await dp.get();
+
+                expect(v1).to.equal('value-1');
+                expect(v2).to.equal('value-2');
+                expect(getCalls).to.equal(2);
+
+                dp.dispose();
+            });
+
+            it('keeps cached getter when ttl is 0', async () => {
+                let getCalls = 0;
+                const dp = new AsyncDataPoint({
+                    get: async () => `value-${++getCalls}`,
+                    set: async () => {},
+                    ttl: 0
+                });
+
+                const v1 = await dp.get();
+                const v2 = await dp.get();
+
+                expect(v1).to.equal('value-1');
+                expect(v2).to.equal('value-1');
+                expect(getCalls).to.equal(1);
+
+                dp.dispose();
+            });
+
+            it('keeps cached getter when ttl is false', async () => {
+                let getCalls = 0;
+                const dp = new AsyncDataPoint({
+                    get: async () => `value-${++getCalls}`,
+                    set: async () => {},
+                    ttl: false
+                });
+
+                const v1 = await dp.get();
+                const v2 = await dp.get();
+
+                expect(v1).to.equal('value-1');
+                expect(v2).to.equal('value-1');
+                expect(getCalls).to.equal(1);
+
+                dp.dispose();
+            });
+
+            it('keeps cached getter when ttl is null', async () => {
+                let getCalls = 0;
+                const dp = new AsyncDataPoint({
+                    get: async () => `value-${++getCalls}`,
+                    set: async () => {},
+                    ttl: null
+                });
+
+                const v1 = await dp.get();
+                await delay(30);
+                const v2 = await dp.get();
+
+                expect(v1).to.equal('value-1');
+                expect(v2).to.equal('value-1');
+                expect(getCalls).to.equal(1);
+
+                dp.dispose();
+            });
+
+            it('applies ttl changes on the fly', async () => {
+                let getCalls = 0;
+                const dp = new AsyncDataPoint({
+                    get: async () => `value-${++getCalls}`,
+                    set: async () => {},
+                    ttl: 10
+                });
+
+                await dp.get();
+                dp.options.ttl = 0;
+                await delay(15);
+                await dp.get();
+                await dp.get();
+                expect(getCalls).to.equal(2);
+
+                dp.dispose();
+            });
+
+            it('treats NaN ttl as no-timeout cache', async () => {
+                let getCalls = 0;
+                const dp = new AsyncDataPoint({
+                    get: async () => `value-${++getCalls}`,
+                    set: async () => {},
+                    ttl: NaN
+                });
+
+                const v1 = await dp.get();
+                await delay(10);
+                const v2 = await dp.get();
+
+                expect(v1).to.equal('value-1');
+                expect(v2).to.equal('value-1');
+                expect(getCalls).to.equal(1);
+
+                dp.dispose();
+            });
+
+            it('recentValue is undefined before first get()', () => {
+                const dp = new AsyncDataPoint({
+                    get: async () => 'value',
+                    set: async () => { },
+                });
+                expect(dp.recentValue).to.equal(undefined);
+                dp.dispose();
+            });
+
+            it('refetches after failed get(), does not cache rejection', async () => {
+                let attempts = 0;
+                const dp = new AsyncDataPoint({
+                    get: async () => {
+                        attempts++;
+                        if (attempts === 1) throw new Error('first fails');
+                        return 'ok';
+                    },
+                    set: async () => { },
+                    getRetry: 1,
+                    getRetryDelay: 1
+                });
+
+                await dp.get().catch(() => { });
+                const v = await dp.get();
+
+                expect(v).to.equal('ok');
+                expect(attempts).to.equal(2);
+
+                dp.dispose();
+            });
+        });
+
+        describe('AsyncDataPoint: set() behavior', () => {
+            it('no-ops if cached getter value equals set value', async () => {
+                let setCalls = 0;
+                const dp = new AsyncDataPoint({
+                    get: async () => ({ a: 1 }),
+                    set: async () => {
+                        setCalls++;
+                    },
+                    ttl: 100
+                });
+
+                await dp.get();
+                const result = dp.set({ a: 1 });
+
+                expect(result).to.equal(undefined);
+                await delay(20);
+                expect(setCalls).to.equal(0);
+
+                dp.dispose();
+            });
+
+            it('reuses pending setter for same value', async () => {
+                let setCalls = 0;
+                let aborted = 0;
+                const gate = deferred();
+
+                const dp = new AsyncDataPoint({
+                    get: async () => 'unused',
+                    set: async (value, signal) => {
+                        setCalls++;
+                        signal.addEventListener('abort', () => aborted++);
+                        await gate.promise;
+                        return value;
+                    },
+                    debounceMs: 0
+                });
+
+                const p1 = dp.set('same');
+                await delay(2);
+                const p2 = dp.set('same');
+
+                expect(p2).to.equal(p1);
+
+                gate.resolve();
+                await p1;
+
+                expect(setCalls).to.equal(1);
+                expect(aborted).to.equal(0);
+
+                dp.dispose();
+            });
+
+            it('aborts previous pending setter for different value', async () => {
+                let setCalls = 0;
+                let aborted = 0;
+                let activeValue = null;
+
+                const dp = new AsyncDataPoint({
+                    get: async () => 'unused',
+                    set: async (value, signal) => {
+                        setCalls++;
+                        activeValue = value;
+                        signal.addEventListener('abort', () => aborted++);
+                        await delay(20);
+                        if (signal.aborted) throw new Error('aborted by test');
+                        return value;
+                    },
+                    debounceMs: 0
+                });
+
+                const p1 = dp.set('first');
+                await delay(5);
+                const p2 = dp.set('second');
+
+                await p2;
+                await p1.catch(() => {});
+
+                expect(setCalls).to.equal(2);
+                expect(aborted).to.equal(1);
+                expect(activeValue).to.equal('second');
+                expect(dp.recentValue).to.equal('second');
+
+                dp.dispose();
+            });
+
+            it('keeps requested value even if setter resolves a different payload', async () => {
+                const dp = new AsyncDataPoint({
+                    get: async () => 'unused',
+                    set: async () => ({ server: 'different' }),
+                    debounceMs: 0,
+                    ttl: 100
+                });
+
+                await dp.set({ local: 'x' });
+                await delay(0);
+
+                expect(dp.recentValue).to.deep.equal({ local: 'x' });
+
+                dp.dispose();
+            });
+
+            it('handles quick set chain and keeps only the last value', async () => {
+                let aborted = 0;
+                let completed = 0;
+                let lastCompleted = null;
+
+                const dp = new AsyncDataPoint({
+                    get: async () => 'unused',
+                    set: async (value, signal) => {
+                        signal.addEventListener('abort', () => aborted++);
+                        await delay(20);
+                        if (signal.aborted) throw new Error('aborted');
+                        completed++;
+                        lastCompleted = value;
+                        return value;
+                    },
+                    debounceMs: 0
+                });
+
+                const p1 = dp.set('a');
+                await delay(5);
+                const p2 = dp.set('b');
+                await delay(5);
+                const p3 = dp.set('c');
+
+                await Promise.allSettled([p1, p2, p3]);
+
+                expect(aborted).to.equal(2);
+                expect(completed).to.equal(1);
+                expect(lastCompleted).to.equal('c');
+                expect(dp.recentValue).to.equal('c');
+
+                dp.dispose();
+            });
+
+            it('ignores stale resolve from outdated setter', async () => {
+                const first = deferred();
+                const second = deferred();
+                let setCalls = 0;
+                let getCalls = 0;
+
+                const dp = new AsyncDataPoint({
+                    get: async () => {
+                        getCalls++;
+                        return 'from-get';
+                    },
+                    set: (value) => {
+                        setCalls++;
+                        if (value === 'first') return first.promise;
+                        if (value === 'second') return second.promise;
+                        return Promise.resolve(value);
+                    },
+                    debounceMs: 0,
+                    ttl: 100
+                });
+
+                const p1 = dp.set('first');
+                await delay(2);
+                const p2 = dp.set('second');
+
+                second.resolve('second-server');
+                await p2;
+                await delay(0);
+                expect(dp.recentValue).to.equal('second');
+
+                first.resolve('first-server');
+                await p1.catch(() => {});
+                await delay(0);
+
+                expect(dp.recentValue).to.equal('second');
+                expect(getCalls).to.equal(0);
+                expect(setCalls).to.equal(2);
+
+                dp.dispose();
+            });
+
+            it('ignores stale reject from outdated setter and keeps latest cache', async () => {
+                const first = deferred();
+                const second = deferred();
+                let getCalls = 0;
+
+                const dp = new AsyncDataPoint({
+                    get: async () => {
+                        getCalls++;
+                        return 'from-get';
+                    },
+                    set: (value) => {
+                        if (value === 'first') return first.promise;
+                        if (value === 'second') return second.promise;
+                        return Promise.resolve(value);
+                    },
+                    debounceMs: 0,
+                    ttl: 100
+                });
+
+                const p1 = dp.set('first');
+                await delay(2);
+                const p2 = dp.set('second');
+
+                second.resolve('second-server');
+                await p2;
+                await delay(0);
+                expect(dp.recentValue).to.equal('second');
+
+                first.reject(new Error('late failure'));
+                await p1.catch(() => {});
+                await delay(0);
+
+                const value = await dp.get();
+                expect(value).to.equal('second');
+                expect(dp.recentValue).to.equal('second');
+                expect(getCalls).to.equal(0);
+
+                dp.dispose();
+            });
+        });
+
+        describe('AsyncDataPoint: optimistic mode', () => {
+            it('optimistic=true returns expected value while setter pending', async () => {
+                let serverValue = 'old';
+                const gate = deferred();
+
+                const dp = new AsyncDataPoint({
+                    get: async () => serverValue,
+                    set: async value => {
+                        await gate.promise;
+                        serverValue = value;
+                        return value;
+                    },
+                    optimistic: true,
+                    debounceMs: 0
+                });
+
+                dp.set('new');
+                const immediate = await dp.get();
+
+                expect(immediate).to.equal('new');
+
+                gate.resolve();
+                await delay(2);
+                const after = await dp.get();
+                expect(after).to.equal('new');
+
+                dp.dispose();
+            });
+
+            it('optimistic=false waits for setter and then fetches getter', async () => {
+                let serverValue = 'old';
+                let getCalls = 0;
+                const gate = deferred();
+
+                const dp = new AsyncDataPoint({
+                    get: async () => {
+                        getCalls++;
+                        return serverValue;
+                    },
+                    set: async value => {
+                        await gate.promise;
+                        serverValue = value;
+                        return value;
+                    },
+                    optimistic: false,
+                    debounceMs: 0,
+                    ttl: 0
+                });
+
+                dp.set('new');
+                const pendingGet = dp.get();
+
+                await delay(5);
+                expect(getCalls).to.equal(0);
+
+                gate.resolve();
+                const value = await pendingGet;
+
+                expect(value).to.equal('new');
+                expect(getCalls).to.equal(0);
+
+                dp.dispose();
+            });
+
+            it('optimistic=false get rejects when pending setter rejects', async () => {
+                let getCalls = 0;
+                const gate = deferred();
+
+                const dp = new AsyncDataPoint({
+                    get: async () => {
+                        getCalls++;
+                        return 'from-get';
+                    },
+                    set: async () => {
+                        await gate.promise;
+                        throw new Error('set failed');
+                    },
+                    optimistic: false,
+                    debounceMs: 0,
+                    ttl: 0
+                });
+
+                dp.set('new');
+                const pendingGet = dp.get();
+
+                gate.resolve();
+                await expectRejected(pendingGet, 'set failed');
+
+                const after = await dp.get();
+                expect(after).to.equal('from-get');
+                expect(getCalls).to.equal(1);
+
+                dp.dispose();
+            });
+        });
+
+        describe('AsyncDataPoint: retries', () => {
+            it('retries get() until success', async () => {
+                let attempts = 0;
+                const dp = new AsyncDataPoint({
+                    get: async () => {
+                        attempts++;
+                        if (attempts < 3) throw new Error('temporary get failure');
+                        return 'ok';
+                    },
+                    set: async () => {},
+                    getRetry: 2,
+                    getRetryDelay: 1
+                });
+
+                const value = await dp.get();
+
+                expect(value).to.equal('ok');
+                expect(attempts).to.equal(3);
+
+                dp.dispose();
+            });
+
+            it('rejects get() after all retries fail', async () => {
+                let attempts = 0;
+                const dp = new AsyncDataPoint({
+                    get: async () => {
+                        attempts++;
+                        throw new Error('get failed always');
+                    },
+                    set: async () => {},
+                    getRetry: 1,
+                    getRetryDelay: 1
+                });
+
+                await expectRejected(dp.get(), 'get failed always');
+                expect(attempts).to.equal(2);
+
+                dp.dispose();
+            });
+
+            it('retries set() until success', async () => {
+                let attempts = 0;
+                const dp = new AsyncDataPoint({
+                    get: async () => 'unused',
+                    set: async value => {
+                        attempts++;
+                        if (attempts < 3) throw new Error('temporary set failure');
+                        return value;
+                    },
+                    setRetry: 3,
+                    setRetryDelay: 1,
+                    debounceMs: 0
+                });
+
+                await dp.set('x');
+
+                expect(attempts).to.equal(3);
+                expect(dp.recentValue).to.equal('x');
+
+                dp.dispose();
+            });
+
+            it('rejects set() after retries and clears getter cache', async () => {
+                let setAttempts = 0;
+                let getCalls = 0;
+
+                const dp = new AsyncDataPoint({
+                    get: async () => {
+                        getCalls++;
+                        return `v-${getCalls}`;
+                    },
+                    set: async () => {
+                        setAttempts++;
+                        throw new Error('permanent set failure');
+                    },
+                    setRetry: 1,
+                    setRetryDelay: 1,
+                    debounceMs: 0,
+                    ttl: 100
+                });
+
+                await dp.get();
+                await expectRejected(dp.set('broken'), 'permanent set failure');
+
+                const afterFailure = await dp.get();
+                expect(afterFailure).to.equal('v-2');
+                expect(setAttempts).to.equal(2);
+
+                const state = dp.getDebugState();
+                expect(state.setter).to.equal(null);
+                expect(state.expectedValue).to.equal(null);
+
+                dp.dispose();
+            });
+        });
+
+        describe('AsyncDataPoint: onchange and setLocal', () => {
+            it('fires onchange with old and new values', async () => {
+                const events = [];
+                let current = 'a';
+
+                const dp = new AsyncDataPoint({
+                    get: async () => current,
+                    set: async value => {
+                        current = value;
+                        return value;
+                    },
+                    ttl: 100,
+                    debounceMs: 0
+                });
+
+                dp.onchange = event => events.push(event);
+
+                await dp.get();
+                await dp.set('b');
+                await delay(2);
+
+                expect(events.length).to.equal(2);
+                expect(events[0]).to.deep.include({ value: 'a', oldValue: undefined });
+                expect(events[1]).to.deep.include({ value: 'b', oldValue: 'a' });
+
+                dp.dispose();
+            });
+
+            it('setLocal updates recentValue and suppresses unchanged event', async () => {
+                const events = [];
+
+                const dp = new AsyncDataPoint({
+                    get: async () => 'unused',
+                    set: async () => {},
+                    ttl: 100
+                });
+
+                dp.onchange = event => events.push(event);
+
+                dp.setLocal('x');
+                await delay(0);
+                dp.setLocal('x');
+                await delay(0);
+                dp.setLocal('y');
+                await delay(0);
+
+                expect(dp.recentValue).to.equal('y');
+                expect(events.length).to.equal(2);
+                expect(events[0]).to.deep.include({ value: 'x', oldValue: undefined });
+                expect(events[1]).to.deep.include({ value: 'y', oldValue: 'x' });
+
+                dp.dispose();
+            });
+
+            it('catches onchange errors without breaking flow', async () => {
+                const originalError = console.error;
+                const errors = [];
+                console.error = (...args) => errors.push(args);
+
+                try {
+                    const dp = new AsyncDataPoint({
+                        get: async () => 'value',
+                        set: async () => {},
+                        ttl: 100
+                    });
+
+                    dp.onchange = () => {
+                        throw new Error('listener failed');
+                    };
+
+                    const value = await dp.get();
+                    expect(value).to.equal('value');
+                    expect(errors.length).to.equal(1);
+                    expect(String(errors[0][0])).to.contain('AsyncDataPoint onchange error');
+
+                    dp.dispose();
+                } finally {
+                    console.error = originalError;
+                }
+            });
+        });
+
+        describe('AsyncDataPoint: dispose()', () => {
+            it('aborts pending setter and clears debug state', async () => {
+                let aborted = 0;
+                const gate = deferred();
+
+                const dp = new AsyncDataPoint({
+                    get: async () => 'unused',
+                    set: async (value, signal) => {
+                        signal.addEventListener('abort', () => aborted++);
+                        await gate.promise;
+                        if (signal.aborted) throw new Error('aborted');
+                        return value;
+                    },
+                    debounceMs: 0
+                });
+
+                dp.onchange = () => {};
+                const pendingSet = dp.set('later');
+                await delay(5);
+                dp.dispose();
+
+                gate.resolve();
+                await delay(5);
+                await pendingSet.catch(() => {});
+
+                const state = dp.getDebugState();
+                expect(aborted).to.equal(1);
+                expect(state.setter).to.equal(null);
+                expect(state.getter).to.equal(null);
+                expect(state.expectedValue).to.equal(null);
+                expect(dp.onchange).to.equal(null);
+            });
+
+            it('prevents debounced setter from starting after dispose', async () => {
+                let setCalls = 0;
+                const dp = new AsyncDataPoint({
+                    get: async () => 'unused',
+                    set: async () => {
+                        setCalls++;
+                    },
+                    debounceMs: 30
+                });
+
+                dp.set('x');
+                dp.dispose();
+                await delay(40);
+
+                expect(setCalls).to.equal(0);
+            });
+
+            it('get() during dispose does not fire onchange after dispose', async () => {
+                const gate = deferred();
+                const events = [];
+
+                const dp = new AsyncDataPoint({
+                    get: async () => {
+                        await gate.promise;
+                        return 'late';
+                    },
+                    set: async () => { },
+                    ttl: 100
+                });
+
+                dp.onchange = e => events.push(e);
+                dp.get();
+                await delay(5);
+                dp.dispose();
+
+                gate.resolve();
+                await delay(5);
+
+                expect(events.length).to.equal(0);
+                expect(dp.recentValue).to.equal(undefined);
+            });
+       
+        });
+    </script>
+
+    <script class="mocha-exec" type="module">
+        mocha.run();
+    </script>
+</body>
+
+</html>

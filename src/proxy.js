@@ -7,9 +7,7 @@ const proxyHandler = {
         if (property === $item) return targetItem;
         if (property === Symbol.iterator) {
             return function* () {
-                for (const childItem of targetItem) {
-                    yield toProxy(childItem);
-                }
+                for (const childItem of targetItem) yield toProxy(childItem);
             };
         }
         if (typeof property === 'symbol') {
@@ -31,7 +29,7 @@ const proxyHandler = {
 
     apply: function (target, thisArg, args) {
         const targetItem = target.item;
-        if (args.length === 0) return targetItem.pending ? targetItem.promise : targetItem.get();
+        if (args.length === 0) return targetItem.pending ? targetItem.read() : targetItem.get();
         if (args.length === 1) return targetItem.set(args[0]) ?? true;
         throw new Error('apply called with too many arguments');
     },
@@ -42,13 +40,7 @@ const proxyHandler = {
 
     getOwnPropertyDescriptor(target, property) {
         if (typeof property === 'symbol') return Reflect.getOwnPropertyDescriptor(target.item, property);
-        if (target.item.has(property)) {
-            return {
-                configurable: true,
-                enumerable: true,
-                writable: false
-            };
-        }
+        if (target.item.has(property)) return { configurable: true, enumerable: true, writable: false };
     },
 
     deleteProperty: function (target, property) {
@@ -60,10 +52,12 @@ const proxyHandler = {
 const cachedProxies = new WeakMap();
 
 export const toProxy = (itm) => {
-    if (!cachedProxies.has(itm)) {
-        const fn = () => { };
+    let p = cachedProxies.get(itm);
+    if (!p) {
+        const fn = ()=>{};
         fn.item = itm;
-        cachedProxies.set(itm, new Proxy(fn, proxyHandler));
+        p = new Proxy(fn, proxyHandler);
+        cachedProxies.set(itm, p);
     }
-    return cachedProxies.get(itm);
+    return p;
 };

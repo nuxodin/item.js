@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>reader/writer/io Tests</title>
+    <meta name="viewport" content="width=device-width" />
+    <link rel="stylesheet" href="https://unpkg.com/mocha@10.2.0/mocha.css" />
+</head>
+<body>
+    <div id="mocha"></div>
+    <script src="https://unpkg.com/chai@4.4.1/chai.js"></script>
+    <script src="https://unpkg.com/mocha@10.2.0/mocha.js"></script>
+    <script class="mocha-init">
+        mocha.setup('bdd');
+        mocha.checkLeaks();
+    </script>
+
+<script type="module">
+
+import { item } from '../item.js';
+const { expect } = chai;
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+describe('reader', () => {
+    it('read() fetches and sets value', async () => {
+        const i = item();
+        i.reader = () => Promise.resolve(42);
+        await i.read();
+        expect(i.value).to.equal(42);
+    });
+
+    it('read() returns Promise also when no reader set', () => {
+        const i = item();
+        expect(i.read()).to.be.a('Promise');
+    });
+
+    it('read() caches value (ttl)', async () => {
+        let calls = 0;
+        const i = item();
+        i.reader = () => { calls++; return Promise.resolve(calls); };
+        await i.read();
+        await i.read();
+        expect(calls).to.equal(1);
+    });
+
+    it('read() triggers change event', async () => {
+        const i = item();
+        i.reader = () => Promise.resolve('hello');
+        const events = [];
+        i.addEventListener('change', e => events.push(e.detail));
+        await i.read();
+        await delay(0);
+        expect(events.length).to.be.greaterThan(0);
+        expect(events.some(e => e.value === 'hello')).to.be.true;
+    });
+
+    it('read() with object value creates child items', async () => {
+        const i = item();
+        i.reader = () => Promise.resolve({ a: 1, b: 2 });
+        await i.read();
+        expect(i.item('a').value).to.equal(1);
+        expect(i.item('b').value).to.equal(2);
+    });
+
+    it('read() with undefined return does not set value', async () => {
+        const i = item(99);
+        i.reader = () => Promise.resolve(undefined);
+        await i.read();
+        expect(i.value).to.equal(99);
+    });
+
+    it('read() with patch: does not delete existing keys', async () => {
+        const i = item();
+        i.item('existing').set('stays');
+        i.reader = () => Promise.resolve({ newKey: 'newVal' });
+        await i.read();
+        expect(i.item('existing').value).to.equal('stays');
+        expect(i.item('newKey').value).to.equal('newVal');
+    });
+});
+
+describe('io options', () => {
+    it('io is lazily created', () => {
+        const i = item();
+        i.reader = () => Promise.resolve(1);
+        expect(i.io).to.be.an('object');
+        expect(i.io).to.not.equal(null);
+    });
+    it('io.options.ttl can be changed', async () => {
+        let calls = 0;
+        const i = item();
+        i.reader = () => { calls++; return Promise.resolve(calls); };
+        i.io.options.ttl = 20;
+        await i.read();
+        await delay(30);
+        await i.read();
+        expect(calls).to.equal(2);
+    });
+
+    it('same io instance is reused', () => {
+        const i = item();
+        i.reader = () => Promise.resolve(1);
+        expect(i.io).to.equal(i.io);
+    });
+
+    it('io.onchange fires exactly once per read()', async () => {
+        const i = item();
+        i.reader = () => Promise.resolve({ a: 1, b: 2 });
+        let count = 0;
+        i.io.onchange = ({value}) => {
+            count++;
+            if (value === undefined) return;
+            i.$set(value, {patch: true});
+        };
+        await i.read();
+        await delay(0);
+        expect(count).to.equal(1);
+    });
+
+});
+
+describe('writer via set()', () => {
+    it('set() calls writer', async () => {
+        let written = null;
+        const i = item();
+        i.reader = () => Promise.resolve(0);
+        i.writer = v => { written = v; return Promise.resolve(v); };
+        await i.set(99);
+        await delay(10);
+        expect(written).to.equal(99);
+    });
+
+    it('set() without writer does not throw', async () => {
+        const i = item();
+        i.reader = () => Promise.resolve(0);
+        await i.read();
+        expect(() => i.set(1)).to.not.throw();
+    });
+});
+
+describe('AsyncChild pattern', () => {
+    it('child reads from parent value', async () => {
+        const i = item();
+        i.reader = () => Promise.resolve({ x: 10, y: 20 });
+        await i.read();
+        expect(i.item('x').value).to.equal(10);
+        expect(i.item('y').value).to.equal(20);
+    });
+});
+</script>
+<script class="mocha-exec" type="module">
+mocha.run();
+</script>

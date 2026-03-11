@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Storage Manager</title>
+<script type=module async src="https://cdn.jsdelivr.net/gh/u2ui/u2@main/u2/auto.js"></script>
+<link rel=stylesheet href="https://cdn.jsdelivr.net/gh/u2ui/u2@main/css/classless/simple.css">
+<body>
+<script type=module>
+import { effect } from '../../item.js';
+import { local, session } from "../storage.js";
+import { render, html } from "https://esm.sh/uhtml@4";
+
+await local.read();
+await session.read();
+
+function renderStore(store, table) {
+    effect(() => render(table, html`
+        <thead>
+            <tr>
+                <th>Name
+                <th>Value
+                <th><button onclick=${()=>{const n=prompt('key'); if(n) store.item(n).value=''}}>add</button>
+        <tbody>
+        ${[...store].map(item => html`
+            <tr>
+                <td>${item.key}
+                <td><textarea .value=${item.value??''} oninput=${e => item.value = e.target.value}></textarea>
+                <td><button onclick=${()=>item.remove()} class=u2-unstyle u2-confirm="delete?">✖</button>
+        `)}
+    `));
+}
+
+renderStore(local, localTable);
+renderStore(session, sessionTable);
+</script>
+
+<h1>localStorage</h1>
+<table id=localTable></table>
+
+<h1>sessionStorage</h1>
+<table id=sessionTable></table>

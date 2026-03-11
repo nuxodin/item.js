@@ -37,30 +37,38 @@ export function createItemRouter(rootItem, basePath = '') {
                 return jsonResponse({
                     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
                     path: path,
-                    //type: typeof item.get(),
+                    type: typeof item.get(),
                 });
             }
 
             // GET: Return item value
-            if (method === 'GET') {
-                if (url.searchParams.has('$schema')) return jsonResponse(item.schema ?? null);
-                await item.io.get();
-                const data = item.isObject ? item.keys.map(key => ({ key })) : item.value;
-                //const data = item.isObject ? [...item].map(item => ({ key:item.key, meta: item.meta })) : item.value;
-                return jsonResponse(data);
+            if (method === 'GET') {                
+                try {
+                    await item.loadItems();
+                } catch {}
+                const items = item.items();
+                let value = null;
+                if (!items.length) { // ugly!
+                    value = await item.promise;
+                } else {
+                    value = items.map(item=>({key: item.key}));
+                }
+                return jsonResponse(value);
             }
 
             // PUT: Set/replace item value
             if (method === 'PUT') {
                 const body = await request.json();
-                await item.set(body);
+                item.set(body);
+                const value = await item.promise;
                 return jsonResponse({success:true});
             }
 
             // PATCH: Partial update (merge for objects)
             if (method === 'PATCH') {
                 const body = await request.json();
-                await item.patch(body);
+                patch(item, body);
+                const value = await item.promise;
                 return jsonResponse({success:true});
             }
 
@@ -84,6 +92,17 @@ export function createItemRouter(rootItem, basePath = '') {
 /**
  * Helpers
  */
+function patch(item, updates) {
+    if (item.constructor.isPrimitive(updates)) {
+        // Primitive Werte direkt setzen
+        item.set(updates);
+    } else {
+        // Objekte: rekursiv nur die vorhandenen Keys updaten
+        for (const key in updates) {
+            patch(item.item(key), updates[key]);
+        }
+    }
+}
 function jsonResponse(data, status = 200) {
     return new Response(JSON.stringify(data), {
         status,

@@ -1,77 +1,74 @@
 
-export { toProxy, $item } from './src/proxy.js';
+import { toProxy, $item } from "./src/proxy.js";
+import { asyncIteratorFromEventTarget, Emitter, ItemEvent, } from "./src/Emitter.js";
+import { AsyncDataPoint } from "./src/AsyncDataPoint.js";
+import { effect, track, notify } from "./src/signal.js";
+export { effect, $item };
 
-import { toProxy } from './src/proxy.js';
-import { Emitter, ItemEvent, asyncIteratorFromEventTarget } from './src/Emitter.js';
-
+const EMPTY_ARRAY = Object.freeze([]);
 
 /**
  * Class representing an item.
  * @extends Emitter
  */
 export class Item extends Emitter {
-
     #value;
     #parent;
     #key;
-    #isObject = null; // null means not filled, true means filled with an object, false means filled with a primitive value
-    #isGetting = false;
+    #path;
+    #root;
+    #isObject = null; // null:filled, true:object, false:primitive value
     #isSetting = false;
 
     constructor(parent, key) {
         super();
         this.#parent = parent;
         this.#key = key;
-        this.addEventListener('change', () => triggerEffectsFor(this)); // the method that triggers the change effect can be overwritten by a child class, therefore we use the event
+        this.addEventListener("change", () => notify(this));
     }
 
-    get key() { return this.#key }
-    get parent() { return this.#parent }
+    get key() { return this.#key; }
+    get parent() { return this.#parent; }
     get filled() { return this.#isObject !== null; }
-
     set value(value) { this.set(value); }
     get value() { return this.get(); }
+    get isObject() { return this.#isObject; }
 
     get() {
-        if (this.#isGetting) throw new Error('circular get');
-        this.#isGetting = true;
-        dispatch(this, 'get', { item: this, value: this.#value });
-        registerCurrentEffectFor(this);
-        this.#isGetting = false;
+        track(this);
         return this.$get();
     }
     set(value, options = {}) {
-        if (this.#isSetting) throw new Error('circular set');
+        if (this.#isSetting) throw new Error("circular set");
         this.#isSetting = true;
-        const obj = dispatch(this, 'set', { item: this, oldValue: this.#value, value, options });
-        const result = !obj.defaultPrevented ? this.$set(value, options) : null;
+        const obj = dispatch(this, "set", { oldValue: this.#value, value, options });
+        if (!obj.defaultPrevented) this.$set(value, options);
+        const ioPromise = !obj.defaultPrevented && !options?.fromIO && this.writer ? this.io.set(value) : null;
         this.#isSetting = false;
-        return result;
+        return ioPromise; // what about nested items? await also?
     }
-    patch(value) {
-        this.set(value, { patch: true });
-    }
+    patch(value) { return this.set(value, { patch: true }); }
 
     $get() {
         if (!this.#isObject) {
             return this.#value;
         } else {
-            const value = this.#value ??= Object.create(null); // if undefined, create object
-            return Object.fromEntries(Object.entries(value).map(([key, { value }]) => [key, value]));
+            const value = this.#value ??= Object.create(null);
+            const result = Object.create(null);
+            for (const key in value) result[key] = value[key].value;
+            return result;
         }
     }
     $set(value, options) {
         const oldValue = this.#value;
 
         if (this.constructor.isPrimitive(value)) {
-            if (this.#isObject !== false || !this.constructor.equals(oldValue, value)) {
+            const equal = this.#isObject === false && this.constructor.equals(oldValue, value); 
+            if (!equal) {
+                if (this.#isObject) this.#clearChildren();
                 this.#value = value;
                 this.#isObject = false;
-                if (!this.#isGetting) {
-                    dispatch(this, 'change', { item: this, oldValue, value });
-                } else {
-                    console.warn('just for your info: set while getting dont trigger change');
-                }
+                dispatch(this, "change", { oldValue, value });
             }
         } else {
             const entries = Object.entries(value);
@@ -80,6 +77,7 @@ export class Item extends Emitter {
                 this.#isObject = true;
             }
             for (const [key, val] of entries) this.item(key).set(val, options);
+
             if (!options?.patch) {
                 for (const key in this.#value) {
                     entries.some(([k]) => k === key) || this.#value[key].remove();
@@ -88,23 +86,34 @@ export class Item extends Emitter {
         }
     }
 
-    get path() {
-        if (this.#parent == null) return [];
-        return [...this.#parent.path, this.key];
+
+    #clearChildren() {
+        for (const child of Object.values(this.#value)) {
+            //child.dead = true; not used for now
+            child.clear();
+        }
     }
 
-    // object related
+    clear() {
+        if (this.#isObject) this.#clearChildren();
+        this.#value = undefined;
+        this.#isObject = null;
+        this.#io?.dispose();
+        this.#io = null;
+    }
+
+    /* object related */
 
     item(key) {
         key = String(key);
-        if (key === '') throw new Error('key must not be empty');
         if (!this.#isObject) this.#value = Object.create(null);
         this.#isObject = true;
         if (!(key in this.#value)) {
+            if (this.ChildClass === false) throw new Error(`${this.constructor.name} has no children`);
             const Klass = this.ChildClass ?? this.constructor;
             const item = new Klass(this, key);
             this.#value[key] = item;
-            dispatch(this, 'change', { item: this, add: item });
+            dispatch(this, "change", { add: item });
         }
         return this.#value[key];
     }
@@ -116,88 +125,119 @@ export class Item extends Emitter {
     }
 
     remove() {
-        if (!this.#parent) throw new Error('cannot remove root item');
+        if (!this.#parent) throw new Error("cannot remove root item");
         delete this.#parent.#value[this.#key];
-        dispatch(this.#parent, 'change', { item: this.#parent, remove: this });
+        dispatch(this.#parent, "change", { remove: this });
     }
 
     has(key) {
-        registerCurrentEffectFor(this);
+        track(this);
         return this.#isObject && key in this.#value ? this.item(key) : undefined;
     }
 
     get keys() {
-        registerCurrentEffectFor(this);
-        return this.#isObject ? Object.keys(this.#value ?? {}) : [];
+        track(this);
+        return this.#isObject ? Object.keys(this.#value ?? {}) : EMPTY_ARRAY;
     }
+    get path() {
+        return this.#path ??= this.#parent == null ? EMPTY_ARRAY : [...this.#parent.path, this.key];
+    }
+    get root() { return this.#root ??= this.#parent?.root ?? this; }
 
     *[Symbol.iterator]() {
         for (const key of this.keys) yield this.#value[key];
     }
 
     items() {
-        registerCurrentEffectFor(this);
-        if (this.#isObject !== true) return [];
+        track(this);
+        if (this.#isObject !== true) return EMPTY_ARRAY;
         return Object.values(this.#value);
     }
 
+    /* AsyncDataPoint (beta) */
+    #io = null;
 
-    /** @beta Metadata slot for drivers/subclasses. Not reactive. Consistency is the driver's responsibility. */
-    meta = null;
+    get io() {
+        if (!this.#io) {
+            this.#io = new AsyncDataPoint({
+                get: (signal) => this.reader(signal),
+                set: (v, signal) => this.writer(v, signal),
+            });
+            this.#io.onchange = ({value, error}) => {
+                if (error) return dispatch(this, "change", { error });
+                if (value === undefined) return; // reader adds subitems by itself
+                this.set(value, {patch: true});
+            }
+            this.#io.onpending = () => dispatch(this, "change", { pending: true });
+        }
+        return this.#io;
+    }
 
-    // async 
-
-    loadItems = null;
-    // loadItems() {}
-    // Can be used by inherited item-class or item-instance.
-    // It should load the keys of the items, but not necessarily the values
-    // async loadItems() { await getKeys(); for (const key of keys) this.item(key); }
-    // not implemented:
-    // hasRemote() async
+    async read()  {
+        if (this.reader) await this.io.get();
+        return this.get();
+    }
 
     async *[Symbol.asyncIterator]() {
         for (const item of Object.values(this.#value ?? {})) yield item;
         const abortCtrl = new AbortController();
-        const iterator = asyncIteratorFromEventTarget(this, 'change', { signal: abortCtrl.signal });
-        this.loadItems?.().then(() => abortCtrl.abort());
+        const iterator = asyncIteratorFromEventTarget(this, "change", { signal: abortCtrl.signal });
+        this.read().then(() => abortCtrl.abort()); // hm... read will call get but should only create direct child-items...
         for await (const { detail: { add } } of iterator) if (add) yield add;
     }
 
-    // Promise setter
-
-    #pending = false;
-    #error;
-    #promise;
-    get pending() { registerCurrentEffectFor(this); return this.#pending; }
-    get error() { registerCurrentEffectFor(this); return this.#error; }
-    get promise() {
-        if (!this.#pending) return Promise.resolve(this.get());
-        registerCurrentEffectFor(this);
-        return this.#promise;
-    }
-    set promise(promise) {
-        this.#promise = promise;
-        this.#pending = true;
-        this.#error = undefined;
-        dispatch(this, 'change', { item: this, pending: true });
-        promise.then(
-            resolved => {
-                if (this.#promise !== promise) return; // wurde überschrieben
-                this.#pending = false;
-                this.#promise = undefined;
-                this.$set(resolved);
-            },
-            error => {
-                if (this.#promise !== promise) return;
-                this.#error = error;
-                this.#pending = false;
-                this.#promise = undefined;
-                dispatch(this, 'change', { item: this, error });
+    async *[Symbol.asyncIterator]() {
+        for (const item of Object.values(this.#value ?? {})) {
+            if (!this.isObject) return; // no longer an object (or cleared)
+            yield item;
+        }
+        if (!this.isObject) return; // no longer an object (or cleared)
+        const abortCtrl = new AbortController();
+        const iterator = asyncIteratorFromEventTarget(this, "change", { signal: abortCtrl.signal });
+        this.read().then(() => abortCtrl.abort()); // hm... read will call get but should only create direct child-items...
+        for await (const { detail: { add } } of iterator) {
+            if (add) {
+                if (!this.isObject) return; // no longer an object (or cleared)
+                yield add;
             }
-        );
+        }
     }
 
-    // misc
+    set promise(promise) { this.io.setFromPromise(promise); }
+    get pending()        { track(this); return this.#io?.isPending ?? false; }
+    get error()          { track(this); return this.#io?.lastError ?? undefined; }
+
+
+    /* JSON Schema */
+
+    #schema = null;
+
+    /**
+     * Assign a JSON Schema to this item. Throws if any ancestor already has a schema.
+     * @param {Object} schema - A valid JSON Schema object.
+     */
+    setSchema(schema) {
+        for (let p = this.#parent; p; p = p.#parent) {
+            if (p.#schema) throw new Error(`ancestor "${p.path.join('.')}" already has a schema`);
+        }
+        this.#schema = schema;
+    }
+
+    /**
+     * The effective JSON Schema for this item, inherited from the nearest ancestor schema
+     * via properties, items, or additionalProperties traversal.
+     * @type {Object|null}
+     */
+    get schema() {
+        if (!this.#parent) return this.#schema;
+        const parentSchema = this.#parent.schema;
+        if (!parentSchema) return null;
+        return parentSchema.properties?.[this.#key] ?? parentSchema.items ?? parentSchema.additionalProperties ?? null;
+    }
+    set schema(v) { throw new Error('use setSchema() to assign a schema'); }
+
+
+    /* misc */
 
     get proxy() { return toProxy(this); }
 
@@ -206,32 +246,32 @@ export class Item extends Emitter {
 
     toString() {
         if (this.#isObject) {
-            registerCurrentEffectFor(this); // needed? key will not change, but it can change to a primitive...
-            return this.#key ?? '';
+            track(this); // needed: item could change from object to primitive
+            return this.#key ?? "";
         }
-        return String(this.get() ?? '');
+        return String(this.get() ?? "");
     }
 
     [Symbol.toPrimitive](hint) {
-        if (hint === 'string') return this.toString();
+        if (hint === "string") return this.toString();
         const value = this.#isObject ? this.#key : this.get();
-        if (hint === 'number') return Number(value);
+        if (hint === "number") return Number(value);
         return this.#value;
     }
 
-    // static members
-
-    static isPrimitive(value) {
-        return value !== Object(value);
-    }
-    static equals(a, b) {
-        return Object.is(a, b); // question: should use deepEqual as "primitive" can be an object?
-    }
-
     ChildClass = this.constructor.ChildClass;
+
+    /** @beta Metadata slot for drivers/subclasses. Not reactive. Consistency is the driver's responsibility. */
+    meta = null;
+
+    /* static members */
+
+    static isPrimitive(value) { return value !== Object(value); }
+
+    static equals(a, b) { return Object.is(a, b); } // question: should use deepEqual as "primitive" can be an object?
+
     static ChildClass;
 }
-
 
 /**
  * Create a new Item instance.
@@ -245,60 +285,6 @@ export function item(...args) {
 }
 
 
-// signal / effect
-// todo: better cleaning. state object instead of properties on the function?
-const relatedEffects = new WeakMap();
-let activeEffect = null;
-let queue = null;
-
-/**
- * Execute the provided function and re-execute it when dependencies change.
- * @param {function} fn - A function that executes immediately and collects the containing items.
- * @return {function} A function to dispose the effect.
- */
-export function effect(fn) { // async?
-    const parent = activeEffect;
-    if (parent) {
-        (parent.nested ??= new Set()).add(fn);
-        if (fn.parent && fn.parent !== parent) throw new Error('effect(cb) callbacks should not be reused for other effects');
-        fn.parent = parent;
-    }
-    activeEffect = fn;
-    try { fn({ self: fn }); } // await, so that signals in async functions are collected?
-    finally { activeEffect = parent; }
-    return () => fn.disposed = true;
-}
-
-function batch(effect) {
-    if (queue) return queue.add(effect); // currently collecting
-    queue = new Set([effect]);
-    queueMicrotask(() => {
-        for (const fn of queue) {
-            if (queue.has(fn?.parent)) continue; // skip if parent already runs. needed as nested effects are disposed anyway
-            activeEffect = fn; // effect() called inside fn(callback) has to know his parent effect
-            try { fn({ self: fn }); } catch (err) { console.error(err); } // hm? fn({rerun:fn})/fn({self:fn}) to rerun effect? https://github.com/nuxodin/item.js/issues/2
-        }
-        activeEffect = null;
-        queue = null; // restart collecting, todo? we could also keep collecting while running, but it can cause infinite loops if not careful
-    });
-}
-
-function registerCurrentEffectFor(signal) {
-    if (!activeEffect) return;
-    (relatedEffects.get(signal) ?? relatedEffects.set(signal, new Set()).get(signal)).add(activeEffect);
-}
-
-function triggerEffectsFor(signal) {
-    const effects = relatedEffects.get(signal);
-    if (!effects) return;
-    for (const fn of effects) {
-        fn.nested?.forEach(fn => fn.disposed = true); // dispose child-effects
-        if (fn.disposed) effects.delete(fn);
-        else batch(fn);
-    }
-}
-
-
 /**
  * Dispatch a custom event on the item and its ancestors.
  * @param {Item} item - The item to dispatch the event on.
@@ -309,15 +295,7 @@ function triggerEffectsFor(signal) {
 export function dispatch(item, eventName, detail) {
     const event = new ItemEvent(eventName, detail);
     item.dispatchEvent(event);
-    const eventIn = new ItemEvent(eventName + 'In', detail);
-    let current = item;
-    while (current) {
-        current.dispatchEvent(eventIn);
-        current = current.parent;
-    }
-    return {
-        defaultPrevented: eventIn.defaultPrevented || event.defaultPrevented,
-    }
+    event.type = eventName+'In'; // reuse event object
+    for (let i = item; i; i = i.parent) i.dispatchEvent(event);
+    return { defaultPrevented: event.defaultPrevented };
 }
-
-

@@ -20,6 +20,9 @@ i = item()
 i = item(42)
 i = item({ a: 1, b: { b1: 2 } })
 
+// ! Primitive values live directly on the item.
+// ! Objects turn the item into a container of child items.
+
 i.value
 i.value = 99
 i.get()           // = i.value, registers effect dependency
@@ -29,15 +32,12 @@ i.filled          // false until first set
 
 // set replaces, patch merges:
 i = item({ a: 1, b: 2 })
-i.value = { b: 3 }   // → { b: 3 }       'a' deleted
+i.value = { b: 3 }   // → { b: 3 }       'a' removed
 i.patch({ b: 3 })    // → { a: 1, b: 3 } 'a' kept (deep)
 
 // equality: Object.is
 i = item(NaN); i.value = NaN  // no change event
 i = item(0);   i.value = -0   // change fires
-
-// primitives → value !== Object(value)
-// objects → nested child items
 
 i.item('key')     // get/create child Item, fires change on parent
 i.has('key');     // subitem / undefined
@@ -49,6 +49,7 @@ b.key             // 'b' (undefined for root)
 b.parent          // a (undefined for root)
 b.path            // ['a','b'] ([] for root)
 b.remove()        // fires change on parent, root throws
+b.root            // root Item
 
 for (const child of i) { }
 
@@ -56,21 +57,6 @@ JSON.stringify(i) // → i.get()
 `${i}`            // primitive: String(value ?? ''); object: key or ''
 +i                // primitive: Number(value); object: NaN
 
-// promise state
-i.promise = fetch('/api').then(r => r.json())
-i.pending
-i.error           // Error | undefined
-i.promise         // pending → Promise, resolved → Promise.resolve(i.get())
-// new assignment cancels previous (race-safe)
-// resolve → only changed keys fire change; reject → sets i.error, value unchanged
-
-// async streaming children
-i.loadItems = async function() {
-    for (const key of await fetchKeys()) this.item(key)
-}
-for await (const child of i) { }
-// yields existing, then new children as loadItems() adds them
-```
 
 ## effect()
 
@@ -96,14 +82,14 @@ p(42)            // i.set(42), returns true or Promise
 p(1, 2)          // throws
 p.xyz            // child proxy (auto-created)
 p.xyz = v
-delete p.xyz
+delete p.xyz     // i.item('xyz').delete()
 'xyz' in p
 Object.keys(p)
 { ...p }                 // { xyz: Proxy, ... }
 Object.assign(p, src)    // sets each key on underlying items
 p[$item]                 // underlying Item
 for (const c of p) { }   // child proxies
-for await (const c of p) { } // calls loadItems
+for await (const c of p) { } // calls reader
 JSON.stringify(p())      // ✓
 JSON.stringify(p)        // ✗ logs warning
 await p()                // ✓
@@ -116,14 +102,13 @@ await p                  // ✗ logs warning
 
 ```js
 // fire on item
-i.addEventListener('get',    e => e.detail) // { item, value }
 i.addEventListener('set',    e => e.detail) // { item, oldValue, value, options } — preventable
 i.addEventListener('change', e => e.detail)
 // { item, oldValue, value } | { item, add } | { item, remove } | { item, pending } | { item, error }
 // item, add, remove are items, pending bool, error error-object 
 // only track value changes? use if ('value' in detail)
 // bubbles:
-root.addEventListener('changeIn', e => e.detail.item.path) // also setIn, getIn
+root.addEventListener('changeIn', e => e.target.path) // also setIn, getIn
 ```
 
 ## Custom Subclass
@@ -137,7 +122,33 @@ class MyItem extends Item {
 ## Gotchas
 
 ```js
-i.addEventListener('get', () => i.value)      // throws 'circular get'
 i.addEventListener('set', () => i.value = x)  // throws 'circular set'
 // effects batch async — not synchronous
 ```
+
+
+## Async I/O (reader / writer / io)
+```js
+// quick-and-dirty async data point
+i.reader = () => fetch('/api/value').then(r => r.json());
+i.writer = v => fetch('/api/value', {method:'PUT', body: JSON.stringify(v)});
+
+await i.read();   // like get, but triggers reader for the item (not recursive)
+// primitive → sets value
+// object → creates child items (keys only, values unfilled)
+i.set(99);        // set locally + call writer;
+await i.set(99);  // wait for server confirmation
+await i.patch({a:3}); // like set, but with patch merge
+
+// io: AsyncDataPoint instance (lazy, created on first access)
+i.io.options.ttl = 10000;       // cache for 10s
+i.io.options.optimistic = false;
+i.io.options.debounceMs = 5;    // debounce period for setter in ms, default 5
+i.io.setLocal(value); // set cached value without writing to master (use when value originates from master via other channel)
+
+// Driver subclass pattern
+class MyItem extends Item {
+    reader() { return fetch('/api/'+this.key).then(r => r.json()); }
+    writer(v) { return fetch('/api/'+this.key, {method:'PUT', body: JSON.stringify(v)}); }
+    static ChildClass = false; // no children allowed
+}

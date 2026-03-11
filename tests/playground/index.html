@@ -21,8 +21,8 @@ const editorEl = document.querySelector('#editor');
 const editorBinding = reactiveInput(editorEl, {saveOnInput: true, saveOnBlur: false});
 
 // files http:
-import { createItemClient as createHttpClient } from "../../tools/httpClient.js";
-import { createItemClient as createWsClient } from "../../tools/wsClient.js";
+import { createItemClient as createHttpClient } from "../../adapter/httpClient.js";
+import { createItemClient as createWsClient } from "../../adapter/wsClient.js";
 
 const fs = createHttpClient("http://localhost:3495/files");
 const tree = document.getElementById('filesHttp');
@@ -32,18 +32,18 @@ console.log('write files.item("test.html").value = "hello world" in the console 
 
 setTimeout(()=>{
     tree.bindItem(fs);
-    fs.loadItems();
+    fs.read();
     tree.setAttribute('aria-expanded', 'true');
     tree.addEventListener('u2-tree-select', async (event) => {
         const treeEl = event.target;
         const path = treeEl.path().map(el => el.dataset.key).filter(k => k);
         const item = fs.sub(path);
-        const value = await item.promise;
+        const value = await item.read();
         if (typeof value === 'string') {
             editorBinding.setItem(item);
         } else {
             editorEl.value = '';
-            item.loadItems();
+            item.read();
         }
     });
 },300);
@@ -53,18 +53,18 @@ const fsWs = createWsClient("ws://localhost:3495/ws");
 const treeWs = document.getElementById('filesWs');
 setTimeout(()=>{
     treeWs.bindItem(fsWs);
-    fsWs.loadItems();
+    fsWs.read();
     treeWs.setAttribute('aria-expanded', 'true');
     treeWs.addEventListener('u2-tree-select', async (event) => {
         const treeEl = event.target;
         const path = treeEl.path().map(el => el.dataset.key).filter(k => k);
         const item = fsWs.sub(path);
-        const value = await item.promise;
+        const value = await item.read();
         if (typeof value === 'string') {
             editorBinding.setItem(item);
         } else {
             editorBinding.setItem();
-            item.loadItems();
+            item.read();
         }
     });
 },300)
@@ -112,7 +112,7 @@ function reactiveInput(element, options = {}) {
         element.value = '';
         if (!currentReactiveItem) return;
         element.value = 'loading...';
-        element.value = await currentReactiveItem.promise;
+        element.value = await currentReactiveItem.read();
         currentReactiveItem?.addEventListener('change', onItemChange);
     };
 
@@ -213,12 +213,10 @@ function reactiveInput(element, options = {}) {
         <div>
             <u2-tree id="cookiesTree" aria-expanded="true"></u2-tree>
             <script type=module>
-                import { cookies } from "../../drivers/cookies.js";
+                import { cookie } from "../../adapter/cookie.js";
                 const cookiesTree = document.getElementById('cookiesTree');
                 setTimeout(() => {
-                    const cooks = cookies();
-                    cookiesTree.bindItem(cooks);
-                    cooks.loadItems({ url: location.href });
+                    cookie.read();
                 }, 500);
             </script>
         </div>

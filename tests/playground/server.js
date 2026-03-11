@@ -1,13 +1,13 @@
 // deno
 
-import { denoFs } from "../../drivers/denoFs.js";
+import { fs } from "../../adapter/deno/fs.js";
 import { createItemRouter } from "../../tools/httpRouter.js";
 import { createItemWsRouter } from "../../tools/wsDenoRouter.js";
 
 const PORT = 3495;
 
 // Use the real filesystem from the files directory
-const serverRoot = denoFs('./files', { watch: true });
+const serverRoot = fs('./files', { watch: true });
 
 const router = createItemRouter(serverRoot, '/files');
 const wsRouter = createItemWsRouter(serverRoot, '/ws');
