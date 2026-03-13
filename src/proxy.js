@@ -16,7 +16,7 @@ const proxyHandler = {
         }
         const childItem = targetItem.item(property);
 
-        if (property === 'then') console.error('item.js: Proxy is not a Promise. Use `await proxy.bald()` instead of `await proxy`');
+        if (property === 'then') console.error('item.js: Proxy is not a Promise. Use `await proxy.item1()` instead of `await proxy`');
         if (property === 'toJSON') console.error('item.js: toJSON accessed on proxy. Use `JSON.stringify(proxy())` instead of `JSON.stringify(proxy)`');
 
         return toProxy(childItem);

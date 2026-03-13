@@ -35,6 +35,7 @@ export class Item extends Emitter {
     get isObject() { return this.#isObject; }
 
     get() {
+        //dispatchEvent(this, 'get', { value: this.#value }); useful?
         track(this);
         return this.$get();
     }
@@ -43,7 +44,7 @@ export class Item extends Emitter {
         this.#isSetting = true;
         const obj = dispatch(this, "set", { oldValue: this.#value, value, options });
         if (!obj.defaultPrevented) this.$set(value, options);
-        const ioPromise = !obj.defaultPrevented && !options?.fromIO && this.writer ? this.io.set(value) : null;
+        const ioPromise = !obj.defaultPrevented && this.writer ? this.io.set(value) : null; // loop from io.onchange??
         this.#isSetting = false;
         return ioPromise; // what about nested items? await also?
     }
@@ -71,26 +72,14 @@ export class Item extends Emitter {
                 dispatch(this, "change", { oldValue, value });
             }
         } else {
+            this.#ensureObject();
             const entries = Object.entries(value);
-            if (!this.#isObject) {
-                this.#value = Object.create(null);
-                this.#isObject = true;
-            }
             for (const [key, val] of entries) this.item(key).set(val, options);
-
             if (!options?.patch) {
                 for (const key in this.#value) {
                     entries.some(([k]) => k === key) || this.#value[key].remove();
                 }
             }
-        }
-    }
-
-
-    #clearChildren() {
-        for (const child of Object.values(this.#value)) {
-            //child.dead = true; not used for now
-            child.clear();
         }
     }
 
@@ -104,10 +93,23 @@ export class Item extends Emitter {
 
     /* object related */
 
+    #clearChildren() {
+        for (const child of Object.values(this.#value)) {
+            //child.dead = true; not used for now
+            child.clear();
+        }
+    }
+
+    #ensureObject() {
+        if (!this.#isObject) {
+            this.#value = Object.create(null);
+            this.#isObject = true;
+        }
+    }
+
     item(key) {
         key = String(key);
-        if (!this.#isObject) this.#value = Object.create(null);
-        this.#isObject = true;
+        this.#ensureObject();
         if (!(key in this.#value)) {
             if (this.ChildClass === false) throw new Error(`${this.constructor.name} has no children`);
             const Klass = this.ChildClass ?? this.constructor;
@@ -174,7 +176,7 @@ export class Item extends Emitter {
     }
 
     async read()  {
-        if (this.reader) await this.io.get();
+        if (this.reader || this.#io?.isPending) await this.io.get();
         return this.get();
     }
 

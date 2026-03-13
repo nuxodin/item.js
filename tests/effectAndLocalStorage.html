@@ -11,13 +11,13 @@
 <h1>Stored in and synced from localStorage!</h1>
 
 <script type=module>
-import {getStore} from "../drivers/localStorage.js";
+import {local} from "../adapter/storage.js";
 import {effect} from "../item.js";
 
-window.ls = getStore().proxy;
+window.ls = local.proxy;
 
 effect(()=>{
-    sayHi.innerHTML = 'Hi '+ls.firstname+' '+ls.lastname+'!';
+    sayHi.innerHTML = `Hi ${ls.firstname} ${ls.lastname}!`;
 });
 </script>
 

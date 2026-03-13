@@ -5,8 +5,9 @@ class StorageItem extends Item {
         return this.parent.nativeStorage.getItem(this.key) ?? '';
     }
     $set(value) {
-        this.parent.nativeStorage.setItem(this.key, String(value));
-        super.$set(String(value));
+        const str = (value == null) ? '' : String(value);
+        this.parent.nativeStorage.setItem(this.key, str);
+        super.$set(str);
     }
     remove() {
         this.parent.nativeStorage.removeItem(this.key);
@@ -24,7 +25,8 @@ function createStore(nativeStorage) {
     };
     addEventListener('storage', e => {
         if (e.storageArea !== nativeStorage) return;
-        root.item(e.key).io.setLocal(e.newValue);
+        if (e.newValue === null) root.item(e.key).remove();
+        else root.item(e.key).io.setLocal(e.newValue);
     });
     return root;
 }

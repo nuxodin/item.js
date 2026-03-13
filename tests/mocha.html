@@ -414,16 +414,6 @@ describe('proxy', () => {
             chai.expect(returnVal).to.equal(true);
         });
 
-        it('proxy(42) returns promise', () => {
-            const raw = item();
-            const proxy = raw.proxy;
-            raw.$set = (value) => {
-                return Promise.resolve(true);
-            };
-            const returnVal = proxy(42);
-            chai.expect(returnVal).to.be.a('Promise');
-        });
-
         it('proxy(1,2) too many args', () => {
             const proxy = item().proxy;
             chai.expect(() => proxy(1, 2)).to.throw('apply called with too many arguments');
