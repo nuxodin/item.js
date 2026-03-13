@@ -6,8 +6,8 @@ class MysqlDb extends Db {
     async connect(){
         if (this.connection) return;
         this.connection = await new Client().connect(this.parent.options);
-        await this.connection.execute("CREATE DATABASE IF NOT EXISTS `"+this.key+"` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"); // Encryption = 'Y'?
-        await this.connection.execute("USE `"+this.key+"`");
+        await this.connection.execute("CREATE DATABASE IF NOT EXISTS "+this.quoteId(this.key)+" CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"); // Encryption = 'Y'?
+        await this.connection.execute("USE "+this.quoteId(this.key));
     }
     async close(){
         await this.connection.close();
@@ -21,12 +21,11 @@ class MysqlDb extends Db {
             throw e;
         }
     }
-    quote(value){
-        return "'"+(value+'').replace(/'/g, "''")+"'";
-    }
+    quote(value){ return "'"+(value+'').replace(/'/g, "''")+"'"; }
+    quoteId(name){ return `\`${String(name).replace(/`/g, '``')}\``; }
     async remove(){
         await this.connect();
-        await this.connection.execute("DROP DATABASE `"+this.key+"`");
+        await this.connection.execute("DROP DATABASE "+this.quoteId(this.key));
         await this.close();
         super.remove();
     }

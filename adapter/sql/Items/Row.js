@@ -5,7 +5,7 @@ export class Row extends Item {
     constructor(table, key){
         super(table, key);
         this.table  = this.parent;
-        this.db     = this.parent.parent;
+        this.db     = this.parent.db;
     }
     async reader() {
         const fields = await this.table.fields();
@@ -43,7 +43,8 @@ export class Row extends Item {
 
     async #select(values){ // select, not batched ❌, not cached ❌
         const where = await this.table.rowIdToWhere(this.key);
-        const data = await this.db.query(`SELECT ${Object.keys(values).join(", ")} FROM ${this.table} WHERE ${where}`);
+        const names = Object.keys(values).map(name => this.db.quoteId(name)).join(', ');
+        const data = await this.db.query(`SELECT ${names} FROM ${this.db.quoteId(this.table.key)} WHERE ${where}`);
         if (!data.length) throw new Error("Row not found");
         if (data.length > 1) throw new Error("Multiple rows found");
         return data[0];
@@ -84,7 +85,7 @@ export class Row extends Item {
         const where = await this.table.rowIdToWhere(this.key);
         const sets  = await this.table.objectToSet(values);
         if (!sets) return;
-        const done = await this.db.query(`UPDATE ${this.table} SET ${sets} WHERE ${where}`);
+        const done = await this.db.query(`UPDATE ${this.db.quoteId(this.table.key)} SET ${sets} WHERE ${where}`);
         if (done.affectedRows === 0) throw new Error("Row not found");
         if (done.affectedRows > 1) throw new Error("Multiple rows affected");
 
@@ -98,7 +99,7 @@ export class Row extends Item {
 
     async remove() {
         const where = await this.table.rowIdToWhere(this.key);
-        await this.db.query(`DELETE FROM ${this.table} WHERE ${where}`);
+        await this.db.query(`DELETE FROM ${this.db.quoteId(this.table.key)} WHERE ${where}`);
         super.remove();
     }
 

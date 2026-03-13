@@ -6,8 +6,6 @@ import { Row } from './Items/Row.js';
 import { DB } from 'https://deno.land/x/sqlite@v3.9.1/mod.ts';
 import { fromFileUrl, resolve } from 'https://deno.land/std/path/mod.ts';
 
-const quoteId = (name) => `"${String(name).replace(/"/g, '""')}"`;
-
 function coerceDefault(value, schema) {
     if (value == null || /^current_(time|date|timestamp)$/i.test(value)) return undefined;
     let parsed = String(value);
@@ -61,7 +59,7 @@ class SqliteTable extends Table {
     }
     async fields() {
         if (!this.a_fields) {
-            const all = await this.parent.query(`PRAGMA table_info(${quoteId(this.key)})`);
+            const all = await this.parent.query(`PRAGMA table_info(${this.parent.quoteId(this.key)})`);
             this.a_fields = [];
             this.a_primaries = [];
             for (const info of all) {
@@ -77,22 +75,18 @@ class SqliteTable extends Table {
         }
         return this.a_fields;
     }
-    async remove() {
-        await this.parent.query(`DROP TABLE ${quoteId(this.key)}`);
-        super.remove();
-    }
     async insert(data) {
         const fields = await this.fields();
         const names = [];
         const values = [];
         for (const field of fields) {
             if (data[field.name] === undefined) continue;
-            names.push(quoteId(field.name));
+            names.push(this.parent.quoteId(field.name));
             values.push(await field.valueToSql(data[field.name]));
         }
         const sql = names.length
-            ? `INSERT INTO ${quoteId(this.key)} (${names.join(', ')}) VALUES (${values.join(', ')})`
-            : `INSERT INTO ${quoteId(this.key)} DEFAULT VALUES`;
+            ? `INSERT INTO ${this.parent.quoteId(this.key)} (${names.join(', ')}) VALUES (${values.join(', ')})`
+            : `INSERT INTO ${this.parent.quoteId(this.key)} DEFAULT VALUES`;
         const done = await this.parent.query(sql);
         if (!done.affectedRows) return false;
         const auto = await this.autoincrement();
@@ -141,6 +135,9 @@ export class Sqlite extends Db {
     }
     quote(value) {
         return "'" + (value + '').replace(/'/g, "''") + "'";
+    }
+    quoteId(name) {
+        return `"${String(name).replace(/"/g, '""')}"`;
     }
     setSchema(schema) {
         Item.prototype.setSchema.call(this, schema);

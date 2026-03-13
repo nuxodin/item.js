@@ -5,10 +5,11 @@ import { Field } from './Field.js';
 export const Table = class extends Item {
     constructor(db, name){
         super(db, name);
+        this.db = this.parent;
         this._fields = {};
     }
     async reader() {
-        const rows = await this.parent.query("SELECT * FROM "+this.key);
+        const rows = await this.parent.query("SELECT * FROM "+this.db.quoteId(this.key));
         for (const data of rows) {
             const id = await this.rowId(data);
             const row = this.item(id);
@@ -18,7 +19,7 @@ export const Table = class extends Item {
         }
     }
     async remove() {
-        await this.parent.query("DROP TABLE " + this);
+        await this.parent.query("DROP TABLE " + this.db.quoteId(this.key));
         super.remove();
     }
 
@@ -55,7 +56,7 @@ export const Table = class extends Item {
     async fields(){
         //console.debug('used?')
         if (!this.a_fields) {
-            const all = await this.parent.query("SHOW FIELDS FROM " + this.key); // just "this"?
+            const all = await this.db.query("SHOW FIELDS FROM " + this.db.quoteId(this.key)); // just "this"?
             this.a_fields = [];
             this.a_primaries = [];
             all.forEach(values=>{
@@ -123,7 +124,7 @@ export const Table = class extends Item {
         for (const field of fields) {
             if (object[field.name] === undefined) continue;
             const sqlValue = await field.valueToSql(object[field.name]);
-            const sqlField = (alias?alias+'.':'') + field.name;
+            const sqlField = (alias?alias+'.':'') + this.db.quoteId(field.name);
 			const equal = (!isSet && sqlValue==='NULL'?' IS ':' = ');
 			sqls.push(sqlField + equal + sqlValue);
         }
@@ -143,7 +144,7 @@ export const Table = class extends Item {
     async insert(data) {
         //console.debug('used?')
         const set = await this.objectToSet(data);
-        const done = await this.parent.query("INSERT INTO " + this + (set ? " SET "+set : " () values () "));
+        const done = await this.parent.query("INSERT INTO " + this.db.quoteId(this.key) + (set ? " SET "+set : " () values () "));
         if (!done.affectedRows) return false;
         const auto = await this.autoincrement();
         if (auto) data[auto.name] = done.lastInsertId;
@@ -159,12 +160,12 @@ export const Table = class extends Item {
     async setSchema(schema){
 
         // const {fromShowFields} = await import('../../../../jema.js/tools/toSql.js');
-        // const fields = await this.parent.query("SHOW FULL FIELDS FROM " + this.key);
+        // const fields = await this.db.query("SHOW FULL FIELDS FROM " + this.key);
         // const existingSchema = fromShowFields(fields);
 
         this.schema = schema;
-        const query = "CREATE TABLE IF NOT EXISTS `"+this+"` ( _qgtmp varchar(0) NOT NULL ) ENGINE = MYISAM";
-        await this.parent.query(query);
+        const query = "CREATE TABLE IF NOT EXISTS "+this.db.quoteId(this.key)+" ( _qgtmp varchar(0) NOT NULL ) ENGINE = MYISAM";
+        await this.db.query(query);
         for (const [name, schema] of Object.entries(this.schema.properties)) {
             this.field(name).setSchema(schema);
         }
@@ -181,9 +182,9 @@ export const Table = class extends Item {
         }
         if (changed) {
             try {
-                await this.parent.query("ALTER TABLE "+this+" DROP PRIMARY KEY");
+                await this.db.query("ALTER TABLE "+this+" DROP PRIMARY KEY");
             } catch {}
-            await this.parent.query("ALTER TABLE "+this+" ADD PRIMARY KEY ("+newPrimaries.join(',')+")");
+            await this.db.query("ALTER TABLE "+this+" ADD PRIMARY KEY ("+newPrimaries.join(',')+")");
             this.a_field = null; // remove cache
         }
     }

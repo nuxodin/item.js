@@ -20,4 +20,7 @@ export class PgDb extends Db {
     quote(value){
         return "'"+(value+'').replace(/'/g, "\'")+"'";
     }
+    quoteId(name){
+        return `"${String(name).replace(/"/g, '""')}"`;
+    }
 }

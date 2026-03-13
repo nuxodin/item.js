@@ -15,6 +15,9 @@ export class Db extends Item {
     quote(value){
         return "'"+(value+'').replace(/'/g, "\'")+"'";
     }
+    quoteId(name){
+        return `"${String(name).replace(/"/g, '""')}"`;
+    }
 
     async reader(){
         const tables = await this.query("SHOW TABLES");
@@ -23,6 +26,7 @@ export class Db extends Item {
 
 
     // schema
+    /*
     async setSchema(schema){
         this.schema = schema;
         for (const [name, schema] of Object.entries(this.schema.properties)) {
@@ -41,6 +45,7 @@ export class Db extends Item {
             this.schema.properties[table.key] = schema;
         }
     }
+    */
 
     static isPrimitive() { return false; }
     static ChildClass = Table;

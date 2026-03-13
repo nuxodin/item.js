@@ -4,8 +4,8 @@ export class Cell extends Item {
     constructor(row, name) {
         super(row, name);
         this.row = this.parent;
-        this.table = this.parent.parent;
-        this.db = this.table.parent;
+        this.table = this.row.table;
+        this.db = this.table.db;
         this.field = this.table.field(name);
     }
     async reader() {

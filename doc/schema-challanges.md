@@ -72,7 +72,6 @@
 
 ## Architecture
 
-- [x] `currentTarget` added to `Emitter`
 - [ ] All in one `schema.mixin.js` or split into `schema.mixin.js`, `validate.mixin.js`, `form.mixin.js`?
 - [ ] Which validator library? ajv (full JSON Schema support, heavy) vs. custom mini-validator (lightweight, incomplete)?
 - [ ] Performance: `schema` getter recomputes on every access — cache needed? When to invalidate?

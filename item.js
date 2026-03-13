@@ -229,8 +229,8 @@ export class Item extends Emitter {
      * @type {Object|null}
      */
     get schema() {
-        if (!this.#parent) return this.#schema;
-        const parentSchema = this.#parent.schema;
+        if (this.#schema != null) return this.#schema;
+        const parentSchema = this.#parent?.schema;
         if (!parentSchema) return null;
         return parentSchema.properties?.[this.#key] ?? parentSchema.items ?? parentSchema.additionalProperties ?? null;
     }

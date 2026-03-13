@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>x-dataref demo</title>
+</head>
+<body>
+
+
+<select id="selectEl"></select>
+<br>
+User 7 name: <input id="u7NameEl">
+
+<pre id="log"></pre>
+
+
+<script type="module">
+import { item, effect } from '../../item.js';
+import * as run from '../../tools/schema.experiments.js';
+
+const log = s => { document.getElementById('log').textContent += s + '\n'; console.log(s) }
+
+// --- Daten ---
+const root = item({
+    users: {
+        42: { name: 'Anna', age: 30 },
+        7:  { name: 'Beat', age: 25 },
+    },
+    products: {
+        p1: { name: 'Stuhl', owner_id: 42, manager_id: 7 },
+        p2: { name: 'Tisch', owner_id: 7  },
+    }
+})
+
+// --- Schema ---
+root.setSchema({
+    properties: {
+        products: {
+            additionalProperties: {
+                type: 'object',
+                properties: {
+                    owner_id: { type: 'number', 'x-dataref': '#/users/$' },
+                    manager_id: { type: 'number', 'x-dataref': '../../../users/$' }
+                }
+            }
+        }
+    }
+});
+
+const p1OwnerId = root.sub('products', 'p1', 'owner_id');
+const p1ManagerId = root.sub('products', 'p1', 'manager_id');
+
+// --- Auflösen ---
+const ownerItem = run.resolveDataRef(p1OwnerId)
+log('owner (direkt): ' + ownerItem?.item('name').value)  // → Anna
+
+const manager = run.resolveDataRef(p1ManagerId);
+log('manager (direkt relativ): ' + manager?.item('name').value)
+
+// --- Reaktiv ---
+effect(() => {
+    log('owner (reaktiv): ' + run.resolveDataRef(p1OwnerId)?.item('name')?.value)
+})
+
+root.sub('products', 'p1', 'owner_id').value = 7  // → Beat
+
+selectEl.onchange = e => {
+    p1OwnerId.value = parseInt(e.target.value);
+};
+
+for (const user of root.item('users')) {
+    selectEl.appendChild(new Option('User ' + user.key, user.key));
+}
+
+u7NameEl.oninput = e => {
+    root.sub('users',7,'name').value = e.target.value;
+};
+u7NameEl.value = root.sub('users',7,'name').value;
+
+</script>

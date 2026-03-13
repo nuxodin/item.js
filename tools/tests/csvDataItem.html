@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>csvDataItem Test</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+        h1 { color: #333; }
+        .test-section { margin: 2rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 4px; }
+        h2 { margin-top: 0; color: #666; }
+        pre { background: #f5f5f5; padding: 1rem; overflow-x: auto; border-radius: 4px; }
+        button { padding: 0.5rem 1rem; margin: 0.5rem 0.5rem 0 0; cursor: pointer; }
+        .output { background: #e8f4e8; padding: 1rem; margin-top: 1rem; border-radius: 4px; }
+        .error { background: #ffe8e8; }
+    </style>
+</head>
+<body>
+    <h1>csvDataItem Test</h1>
+    <p>Tests the CSV data synchronization tool for Item.js</p>
+
+    <div class="test-section">
+        <h2>Test 1: Parse CSV to Item</h2>
+        <p>Parses CSV data and creates Item structure:</p>
+        <pre id="csv1">name,age,city
+Alice,30,New York
+Bob,25,London
+Charlie,35,Tokyo</pre>
+        <button onclick="testParse()">Parse CSV</button>
+        <pre id="output1" class="output"></pre>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Item to CSV Stringify</h2>
+        <p>Converts Item data to CSV format:</p>
+        <button onclick="testStringify()">Stringify to CSV</button>
+        <pre id="output2" class="output"></pre>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Custom Delimiter</h2>
+        <p>Uses semicolon as delimiter:</p>
+        <pre id="csv3">name;age;city
+Alice;30;New York
+Bob;25;London</pre>
+        <button onclick="testDelimiter()">Parse with ; delimiter</button>
+        <pre id="output3" class="output"></pre>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Key Column</h2>
+        <p>Uses 'id' column as item key:</p>
+        <pre id="csv4">id,name,age
+001,Alice,30
+002,Bob,25</pre>
+        <button onclick="testKeyColumn()">Parse with keyColumn</button>
+        <pre id="output4" class="output"></pre>
+    </div>
+
+    <script type="module">
+        import { item } from '../../item.js';
+        import { csvDataItem } from '../csvDataItem.js';
+
+        // Mock CSV item for testing
+        function createMockCsvItem(initialValue = '') {
+            const mockItem = item();
+            mockItem.value = initialValue;
+            
+            // Mock read method
+            mockItem.read = async () => mockItem.value;
+            
+            return mockItem;
+        }
+
+        window.testParse = async () => {
+            const output = document.getElementById('output1');
+            try {
+                const csvContent = document.getElementById('csv1').textContent;
+                const mockItem = createMockCsvItem(csvContent);
+                
+                const data = await csvDataItem(mockItem);
+                
+                let result = 'Parsed items:\n';
+                for (const child of data.items()) {
+                    result += `- ${child.key}: ${JSON.stringify(child.value)}\n`;
+                }
+                output.textContent = result;
+            } catch (err) {
+                output.textContent = 'Error: ' + err.message;
+                output.classList.add('error');
+            }
+        };
+
+        window.testStringify = async () => {
+            const output = document.getElementById('output2');
+            try {
+                // Create mock item with sample data
+                const mockItem = createMockCsvItem('');
+                const data = await csvDataItem(mockItem);
+                
+                // Add some data
+                data.item('0').set({ name: 'Alice', age: '30', city: 'NYC' });
+                data.item('1').set({ name: 'Bob', age: '25', city: 'LA' });
+                
+                // Wait a bit for debounce
+                await new Promise(r => setTimeout(r, 150));
+                
+                output.textContent = 'Generated CSV:\n' + mockItem.value;
+            } catch (err) {
+                output.textContent = 'Error: ' + err.message;
+                output.classList.add('error');
+            }
+        };
+
+        window.testDelimiter = async () => {
+            const output = document.getElementById('output3');
+            try {
+                const csvContent = document.getElementById('csv3').textContent;
+                const mockItem = createMockCsvItem(csvContent);
+                
+                const data = await csvDataItem(mockItem, { delimiter: ';' });
+                
+                let result = 'Parsed with semicolon delimiter:\n';
+                for (const child of data.items()) {
+                    result += `- ${child.key}: ${JSON.stringify(child.value)}\n`;
+                }
+                output.textContent = result;
+            } catch (err) {
+                output.textContent = 'Error: ' + err.message;
+                output.classList.add('error');
+            }
+        };
+
+        window.testKeyColumn = async () => {
+            const output = document.getElementById('output4');
+            try {
+                const csvContent = document.getElementById('csv4').textContent;
+                const mockItem = createMockCsvItem(csvContent);
+                
+                const data = await csvDataItem(mockItem, { keyColumn: 'id' });
+                
+                let result = 'Parsed with keyColumn="id":\n';
+                for (const child of data.items()) {
+                    result += `- Key: ${child.key}, Value: ${JSON.stringify(child.value)}\n`;
+                }
+                
+                // Test accessing by key
+                const alice = data.item('001');
+                result += `\nDirect access '001': ${alice.value?.name || 'not found'}`;
+                
+                output.textContent = result;
+            } catch (err) {
+                output.textContent = 'Error: ' + err.message;
+                output.classList.add('error');
+            }
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="UTF-8"><title>schemaDiff</title></head>
+<script type=module src="http://localhost/u2/u2/auto.js"></script>
+
+<body>
+
+<style>
+html { font-size:14px; }
+h1 { margin:0; padding:2rem; }
+u2-code { font-size:12px; }
+#result { overflow:auto; white-space:pre; padding:2rem; }
+</style>
+
+<h1>Schema Diff original → new</h1>
+<u2-splitpanel style="height:70vh; border: 3px solid #333">
+    <u2-code editable trim id="orig">
+        <textarea>
+        {
+            "type": "object",
+            "properties": {
+                "name":  { "type": "string",  "maxLength": 100 },
+                "email": { "type": "string",  "x-unique": true },
+                "age":   { "type": "integer", "minimum": 0, "maximum": 150 }
+            },
+            "required": ["name"]
+        }
+        </textarea>
+    </u2-code>
+    <u2-code editable trim id="next">
+        <textarea>
+        {
+            "type": "object",
+            "properties": {
+                "name":  { "type": "string",  "maxLength": 22 },
+                "email": { "type": "number" },
+                "age":   { "type": "integer", "minimum": 18, "maximum": 120 },
+                "score": { "type": "number" }
+            },
+            "required": ["name", "email"]
+        }
+        </textarea>
+    </u2-code>
+</u2-splitpanel>
+<div id="result"></div>
+
+<script type="module">
+
+import { schemaDiff } from '../diff.js';
+
+const icons = { true: '🔴', false: '🟢', null: '🟡' }
+
+function render() {
+    console.log(next.value, orig.value)
+  try {
+    const diffs = schemaDiff(JSON.parse(next.value), JSON.parse(orig.value))
+    result.textContent = diffs.length
+      ? diffs.map(d => `${icons[d.destructive]}  ${d.path.join(' › ')}  ${d.msg}  (${JSON.stringify(d.prev)} → ${JSON.stringify(d.next)})`).join('\n')
+      : '✅  no changes'
+  } catch(e) { console.log(e); result.textContent = '⚠️  ' + e.message }
+}
+
+const orig = document.getElementById('orig');
+const next = document.getElementById('next');
+const result = document.getElementById('result');
+
+customElements.whenDefined('u2-code').then(() => {
+    setTimeout(function(){
+        orig.addEventListener('input', render)
+        next.addEventListener('input', render);
+        render();
+    },100)
+})
+
+</script>

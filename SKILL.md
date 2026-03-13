@@ -102,10 +102,10 @@ await p                  // ✗ logs warning
 
 ```js
 // fire on item
-i.addEventListener('set',    e => e.detail) // { item, oldValue, value, options } — preventable
+i.addEventListener('set',    e => e) // { target, details: { oldValue, value, options } } — preventable
 i.addEventListener('change', e => e.detail)
-// { item, oldValue, value } | { item, add } | { item, remove } | { item, pending } | { item, error }
-// item, add, remove are items, pending bool, error error-object 
+// { oldValue, value } | { add } | { remove } | { pending } | { error }
+// add, remove are items, pending bool, error error-object 
 // only track value changes? use if ('value' in detail)
 // bubbles:
 root.addEventListener('changeIn', e => e.target.path) // also setIn, getIn
@@ -152,3 +152,9 @@ class MyItem extends Item {
     writer(v) { return fetch('/api/'+this.key, {method:'PUT', body: JSON.stringify(v)}); }
     static ChildClass = false; // no children allowed
 }
+```
+
+## Extensions
+
+- **[Tools](/tools/README.md)** — HTTP Router, WebSocket, Change Tracking, JSON Sync, Schema Tools
+- **[Adapters](/adapter/README.md)** — Filesystem (Deno), Cookies, Storage (localStorage/sessionStorage), HTTP Client, WebSocket Client

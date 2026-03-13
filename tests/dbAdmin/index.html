@@ -10,6 +10,7 @@ html{--color:#207acc; font-size:12px; --width:100% }
   <aside style="flex: 0 0 auto">
     <h2>Tabellen</h2>
     <nav>
+      <button id="addTableBtn">+</button>
       <ul id="tables" style="list-style:none;"></ul>
     </nav>
     <pre id="status">lade…</pre>
@@ -28,6 +29,7 @@ html{--color:#207acc; font-size:12px; --width:100% }
 <script type="module">
 import { item, effect } from '/__repo/item.js';
 import { createItemClient } from '/__repo/adapter/httpClient.js';
+import { toInput } from '/__repo/tools/schema/html/toInput.js';
 import { render, html } from 'https://esm.sh/uhtml@4';
 
 const db = createItemClient('/api');
@@ -45,6 +47,7 @@ let fieldsTable = null;
 
 saveBtn.onclick = save;
 deleteBtn.onclick = remove;
+addTableBtn.onclick = addTable
 
 await boot();
 
@@ -138,12 +141,15 @@ function selectRow(rowId) {
 
 function fieldTemplate(name, field) {
   const value = ui.item('draft').item(name).value;
-  const readonly = field['x-autoIncrement'] || (field['x-primary'] && ui.item('rowId').value);
+  const readonly = field['x-autoincrement'] || (field['x-index'] === 'primary' && ui.item('rowId').value);
   if (field.enum) return html`${label(name, field)}<select .value=${value ?? ''} .disabled=${readonly} oninput=${e => setDraft(name, e.target.value)}>${field.enum.map(option => html`<option value=${option}>${option}`)}</select>`;
   if (field.type === 'boolean') return html`${label(name, field)}<input type="checkbox" .checked=${!!value} .disabled=${readonly} oninput=${e => setDraft(name, e.target.checked)}>`;
   return html`${label(name, field)}<input type=${inputType(field)} .value=${value ?? ''} .disabled=${readonly} oninput=${e => setDraft(name, readFieldValue(e.target, field))}>`;
 }
-
+async function addTable() {
+  const tableName = prompt('Tabellenname');
+  db.item(tableName);
+}
 async function save() {
   if (!ui.item('table').value || !ui.item('rowId').value || !addressable()) return;
   const row = currentRow();
@@ -177,17 +183,17 @@ function emptyDraft() {
 function cleanDraft(draft) {
   return Object.fromEntries(Object.entries(draft).filter(([name, value]) => {
     const field = schema()?.properties?.[name];
-    return !!field && !field['x-autoIncrement'] && !field['x-primary'] && value !== undefined;
+    return !!field && !field['x-autoincrement'] && field['x-index'] !== 'primary' && value !== undefined;
   }));
 }
 
 function tableItem() { return db.has(ui.item('table')); }
 function schema() { return tableItem()?.schema?.additionalProperties; }
 function columns() { return Object.keys(schema()?.properties ?? {}); }
-function primaryKeys() { return tableItem()?.schema?.['x-primaryKeys'] ?? []; }
+function primaryKeys() { return Object.entries(schema()?.properties ?? {}).filter(([, f]) => f['x-index'] === 'primary').map(([n]) => n); }
 function addressable() { return primaryKeys().length > 0; }
 function currentRow() { return tableItem()?.has(ui.item('rowId').value); }
-function label(name, field) { return (schema()?.properties?.[name]?.title || name) + (field?.['x-primary'] ? ' *' : ''); }
+function label(name, field) { return (schema()?.properties?.[name]?.title || name) + (field?.['x-index'] === 'primary' ? ' *' : ''); }
 function inputType(field) { return field.format === 'date' ? 'date' : field.type === 'number' || field.type === 'integer' ? 'number' : 'text'; }
 function readFieldValue(input, field) {
   if (field.type === 'integer') return input.value === '' ? '' : Number.parseInt(input.value, 10);

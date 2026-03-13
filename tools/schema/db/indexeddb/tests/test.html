@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>IndexedDB Demo</title>
+    <meta name="viewport" content="width=device-width" />
+
+<body>
+
+<pre id="log"></pre>
+<script type="module">
+
+import { openDb } from '../to-db.js';
+
+// ── helpers ───────────────────────────────────────────────────────────────────
+
+function log(...args) { document.getElementById('log').textContent += args.join(' ') + '\n' }
+
+function put(db, table, record) {
+    return new Promise((res, rej) => {
+        const tx  = db.transaction(table, 'readwrite')
+        const req = tx.objectStore(table).put(record)
+        req.onsuccess = () => res(req.result)
+        req.onerror   = () => rej(req.error)
+    })
+}
+
+function getAll(db, table) {
+    return new Promise((res, rej) => {
+        const tx  = db.transaction(table, 'readonly')
+        const req = tx.objectStore(table).getAll()
+        req.onsuccess = () => res(req.result)
+        req.onerror   = () => rej(req.error)
+    })
+}
+
+// ── schema ────────────────────────────────────────────────────────────────────
+
+const schema = {
+    type: 'object',
+    properties: {
+        users: {
+            type: 'object',
+            additionalProperties: {
+                type: 'object',
+                properties: {
+                    id:    { 'x-index': 'primary', 'x-autoincrement': true },
+                    email: { type: 'string', 'x-index': 'unique' },
+                    name:  { type: 'string' },
+                    hallo:  { type: 'string', 'x-index': 'unique' },
+                }
+            }
+        },
+        posts: {
+            type: 'object',
+            additionalProperties: {
+                type: 'object',
+                properties: {
+                    id:      { 'x-index': 'primary', 'x-autoincrement': true },
+                    user_id: { type: 'integer', 'x-index': true, 'x-dataref': '../../users/$' },
+                    title:   { type: 'string' },
+                }
+            }
+        }
+    }
+}
+
+// ── run ───────────────────────────────────────────────────────────────────────
+
+const db = await openDb('demo', schema)
+log('✅  DB opened, version:', db.version)
+log('   stores:', Array.from(db.objectStoreNames).join(', '))
+
+const existing = await getAll(db, 'users')
+if (!existing.length) {
+    await put(db, 'users', { email: 'tobias@example.com', name: 'Tobias' })
+    await put(db, 'users', { email: 'anna@example.com',   name: 'Anna'   })
+    await put(db, 'posts', { user_id: 1, title: 'Hello World' })
+    await put(db, 'posts', { user_id: 1, title: 'item.js rocks' })
+}
+
+const users = await getAll(db, 'users')
+const posts = await getAll(db, 'posts')
+
+log('\nusers:')
+users.forEach(u => log(' ', JSON.stringify(u)))
+log('\nposts:')
+posts.forEach(p => log(' ', JSON.stringify(p)))
+
+log('\n📐 schema version hash:', db.version)
+log('   (change x-index or add/remove a field → new version → onupgradeneeded)')
+
+
+</script>
