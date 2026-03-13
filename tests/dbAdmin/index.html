@@ -2,10 +2,12 @@
 <meta charset="utf-8">
 <title>dbAdmin</title>
 <script type="module" async src="https://cdn.jsdelivr.net/gh/u2ui/u2@main/u2/auto.js"></script>
+
 <style>
 html{--color:#207acc; font-size:12px; --width:100% }
 [aria-current="true"]{background:var(--color-lighter)}
 </style>
+
 <u2-splitpanel style="height:100vh">
   <aside style="flex: 0 0 auto">
     <h2>Tabellen</h2>
@@ -26,6 +28,7 @@ html{--color:#207acc; font-size:12px; --width:100% }
     <div id="form"></div>
   </main>
 </u2-splitpanel>
+
 <script type="module">
 import { item, effect } from '/__repo/item.js';
 import { createItemClient } from '/__repo/adapter/httpClient.js';

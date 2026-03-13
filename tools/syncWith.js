@@ -3,7 +3,7 @@
 export function syncWith(rootItem, object={}) {
     rootItem.addEventListener('changeIn', ({target, detail}) => {
         if (!('value' in detail)) return;
-        const keys = target.path;
+        const keys = [...target.path];
         const lastKey = keys.pop();
         let current = object;
         keys.forEach(key => {

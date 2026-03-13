@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Signal/Effect Benchmark</title>
+</head>
+<body>
+<script type="module">
+import { effect, track, notify } from '../signal.js';
+
+const COUNT_FANOUT = 100_000;
+const COUNT_FANIN  = 100_000;
+const COUNT_DEPS   =  50_000;
+const COUNT_BATCH  = 100_000;
+
+async function measure(name, fn) {
+    const start = performance.now();
+    await fn();
+    return { name, ms: (performance.now() - start).toFixed(2) };
+}
+
+const wait = () => new Promise(r => setTimeout(r, 0));
+
+const results = [];
+
+const fanSignal = {};
+results.push(await measure(`1. Fan-out: ${COUNT_FANOUT} effects auf 1 Signal`, () => {
+    for (let i = 0; i < COUNT_FANOUT; i++) {
+        effect(() => { track(fanSignal); });
+    }
+}));
+
+results.push(await measure(`2. Fan-out: notify (${COUNT_FANOUT} effects feuern)`, async () => {
+    notify(fanSignal);
+    await wait();
+}));
+
+const fanSignals = Array.from({ length: COUNT_FANIN }, () => ({}));
+results.push(await measure(`3. Fan-in: 1 effect trackt ${COUNT_FANIN} signale`, () => {
+    effect(() => {
+        for (const s of fanSignals) track(s);
+    });
+}));
+
+const reruns = {};
+effect(() => {
+    track(reruns);
+    for (const s of fanSignals.slice(0, COUNT_DEPS)) track(s);
+});
+
+results.push(await measure(`4. Re-run mit ${COUNT_DEPS} deps (cleanup + re-track)`, async () => {
+    notify(reruns);
+    await wait();
+}));
+
+const batchSignal = {};
+let batchRuns = 0;
+effect(() => { track(batchSignal); batchRuns++; });
+
+results.push(await measure(`5. ${COUNT_BATCH} notifies gebatcht`, async () => {
+    for (let i = 0; i < COUNT_BATCH; i++) notify(batchSignal);
+    await wait();
+}));
+
+console.log(`   → effect lief ${batchRuns - 1}x nach dem batchen (sollte 1 sein)`);
+console.table(results.map(r => ({ Szenario: r.name, 'Dauer (ms)': r.ms })));
+
+</script>
+</body>
+</html>
