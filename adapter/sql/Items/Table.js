@@ -8,21 +8,34 @@ export const Table = class extends Item {
         this.db = this.parent;
         this._fields = {};
     }
-    async reader() {
-        const rows = await this.parent.query("SELECT * FROM "+this.db.quoteId(this.key));
+
+    // async reader() {
+    //     const rows = await this.parent.query("SELECT * FROM "+this.db.quoteId(this));
+    //     for (const data of rows) {
+    //         const id = await this.rowId(data);
+    //         const row = this.item(id);
+    //         for (const field in data) {
+    //             row.item(field).io.setLocal(data[field]);
+    //         }
+    //     }
+    // }
+
+
+    async reader(query) {
+        const depth = query?.depth ?? 1;
+        const primaries = await this.primaries();
+        const fields = depth > 1 ? '*' : primaries.map(f => this.db.quoteId(f.name)).join(', ');
+        const rows = await this.db.query(`SELECT ${fields} FROM ${this.db.quoteId(this.key)}`);
         for (const data of rows) {
             const id = await this.rowId(data);
             const row = this.item(id);
-            for (const field in data) {
-                row.item(field).io.setLocal(data[field]);
-            }
+            row.set(data, { local: true, patch: true });
         }
     }
-    async remove() {
-        await this.parent.query("DROP TABLE " + this.db.quoteId(this.key));
-        super.remove();
-    }
 
+    async remover() {
+        await this.db.query("DROP TABLE " + this.db.quoteId(this.key));
+    }
 
     // async ensure(filter) {
     //     console.error('used?')
@@ -49,12 +62,10 @@ export const Table = class extends Item {
 
 
     field(name) {
-        //console.debug('used?')
         if (!this._fields[name]) this._fields[name] = new Field(this, name);
         return this._fields[name];
     }
     async fields(){
-        //console.debug('used?')
         if (!this.a_fields) {
             const all = await this.db.query("SHOW FIELDS FROM " + this.db.quoteId(this.key)); // just "this"?
             this.a_fields = [];
@@ -72,17 +83,14 @@ export const Table = class extends Item {
     }
 
     async primaries(){
-        //console.debug('used?')
         await this.fields();
         return this.a_primaries;
     }
     async autoincrement(){
-        //console.debug('used?')
         await this.fields();
         return this._autoincrement;
     }
     async rowId(array){
-        //console.debug('used?')
         if ({string:1,number:1}[typeof array]) return array;
         return (await this.primaries()).map(field=>{
             //if (field instanceof Row) { ... }
@@ -91,7 +99,6 @@ export const Table = class extends Item {
         }).join('-:-');
     }
     async rowIdObject(id){
-        //console.debug('used?')
         const isObject = !{string:1,number:1}[typeof id];
         const object = Object.create(null);
         const primaries = await this.primaries();
@@ -111,13 +118,11 @@ export const Table = class extends Item {
         return object;
     }
     async rowIdToWhere(id){
-        //console.debug('used?')
         const obj = await this.rowIdObject(id);
         return await this.objectToWhere(obj);
     }
 
     async _objectToSqls(object, alias=null, isSet=false) {
-        //console.debug('used?')
         if (object == undefined) throw new Error('objectToSqls: object is undefined');
         const sqls = [];
         const fields = await this.fields();
@@ -131,27 +136,36 @@ export const Table = class extends Item {
         return sqls;
     }
 	async objectToWhere(data, alias=null) {
-        //console.debug('used?')
         const sqls = await this._objectToSqls(data, alias);
         return sqls.join(' AND ');
 	}
 	async objectToSet(data, alias=null) {
-        //console.debug('used?')
         const sqls = await this._objectToSqls(data, alias, true);
         return sqls.join(' , ');
 	}
 
-    async insert(data) {
-        //console.debug('used?')
+    // async insert(data) {
+    //     //console.debug('used?')
+    //     const set = await this.objectToSet(data);
+    //     const done = await this.parent.query("INSERT INTO " + this.db.quoteId(this.key) + (set ? " SET "+set : " () values () "));
+    //     if (!done.affectedRows) return false;
+    //     const auto = await this.autoincrement();
+    //     if (auto) data[auto.name] = done.lastInsertId;
+    //     const rowId = await this.rowId(data);
+    //     const item = this.item(rowId);
+    //     return item;
+    // }
+    async adder(data) {
         const set = await this.objectToSet(data);
         const done = await this.parent.query("INSERT INTO " + this.db.quoteId(this.key) + (set ? " SET "+set : " () values () "));
         if (!done.affectedRows) return false;
         const auto = await this.autoincrement();
         if (auto) data[auto.name] = done.lastInsertId;
         const rowId = await this.rowId(data);
-        const item = this.item(rowId);
-        return item;
+        return { key: rowId };
     }
+
+
 
     toString() { return this.key; }
     valueOf() { return this.key; }

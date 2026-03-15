@@ -11,7 +11,7 @@
 <script type=module>
 
 import {effect} from "../item.js";
-import {jsonItem} from "../drivers/localStorage.js";
+import {jsonItem} from "../adapter/storage.js";
 
 
 const track = window.track = (await jsonItem('track')).proxy;
@@ -27,7 +27,7 @@ addEventListener('beforeunload', () => {
 });
 
 effect(() => {
-    output.innerHTML = JSON.stringify(track, null, 2);
+    output.innerHTML = JSON.stringify(track(), null, 2);
 });
 
 </script>

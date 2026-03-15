@@ -14,10 +14,13 @@ class CookieItem extends Item {
     $set(value) {
         super.$set(String(value));
     }
-    remove() {
-        super.remove();
+    remover(){
         return cookieStore.delete(this.key);
     }
+    // remove() {
+    //     super.remove();
+    //     return cookieStore.delete(this.key);
+    // }
     static ChildClass = false;
 }
 

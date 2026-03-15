@@ -1,3 +1,5 @@
+import { validate as validateSchema } from './validator.js';
+
 // x-dataref convention:
 //   '../../groups'    → the groups table
 //   '../../groups/$'  → the specific entry: groups.item(this.value)
@@ -30,3 +32,42 @@ export function resolveDataRef(item) {
     }
     return anchor;
 }
+
+export function reportDeprecated(item) {
+    item.addEventListener('getIn', e => {
+        if (e.target.schema?.deprecated) {
+            console.error(`item deprecated: ${e.target.path.join('/')}`, e.target.schema);
+        }
+    });
+}
+
+export function validate(e, options = { log: true }) {
+    const schema = e.target.schema;
+    if (!schema) return;
+    const value = e.detail.value;
+    if (!validateSchema(schema, value).length) return;
+    e.preventDefault();
+    if (options.throw) throw new Error(`item invalid: ${e.target.path.join('/')}`);
+    if (options.log) console.error(`item invalid: ${e.target.path.join('/')}`, e.target.schema);
+}
+
+export function transform(e) {
+    const detail = e.detail;
+    if ('x-transform' in e.target.schema) {
+        const trim = e.target.schema['x-transform'].trim;
+        if (trim==='L') detail.value = detail.value?.trimStart?.();
+        if (trim==='R') detail.value = detail.value?.trimEnd?.();
+        if (trim===true) detail.value = detail.value?.trim?.();
+    }
+}
+
+// export function useDefault(item) {
+//     item.addEventListener('getIn', e => {
+//         if (!e.target.filled && 'default' in e.target.schema) {
+//             e.detail.value = e.target.schema.default;
+//         }
+//     });
+// }
+
+
+

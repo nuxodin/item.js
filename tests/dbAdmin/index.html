@@ -20,7 +20,7 @@ html{--color:#207acc; font-size:12px; --width:100% }
   <main>
     <h1 id="title">dbAdmin</h1>
     <menu>
-      <button disabled title="Insert folgt später">Neu</button>
+      <button id="addBtn">Neu</button>
       <button id="saveBtn">Speichern</button>
       <button id="deleteBtn" u2-confirm="Zeile löschen?">Löschen</button>
     </menu>
@@ -31,11 +31,13 @@ html{--color:#207acc; font-size:12px; --width:100% }
 
 <script type="module">
 import { item, effect } from '/__repo/item.js';
-import { createItemClient } from '/__repo/adapter/httpClient.js';
+import { createItemClient as createItemClientHttp } from '/__repo/adapter/httpClient.js';
+import { createItemClient as createItemClientWs } from '/__repo/adapter/wsClient.js';
 import { toInput } from '/__repo/tools/schema/html/toInput.js';
 import { render, html } from 'https://esm.sh/uhtml@4';
 
-const db = createItemClient('/api');
+//const db = await createItemClientHttp('http://localhost:3749/api');
+const db = await createItemClientWs('ws://localhost:3749/ws');
 const ui = item({ table: '', rowId: '', draft: {}, error: '' });
 
 const title = document.getElementById('title');
@@ -51,6 +53,7 @@ let fieldsTable = null;
 saveBtn.onclick = save;
 deleteBtn.onclick = remove;
 addTableBtn.onclick = addTable
+addBtn.onclick = addRow
 
 await boot();
 
@@ -153,6 +156,13 @@ async function addTable() {
   const tableName = prompt('Tabellenname');
   db.item(tableName);
 }
+async function addRow() {
+  const table = tableItem();
+  if (!table) return;
+  const newRow = await table.add(cleanDraft(ui.item('draft').value));
+  ui.item('rowId').value = newRow.key;
+  syncDraft();
+}
 async function save() {
   if (!ui.item('table').value || !ui.item('rowId').value || !addressable()) return;
   const row = currentRow();
@@ -167,7 +177,7 @@ async function remove() {
 
 async function loadTable(table) {
   for await (const row of table) {
-    for await (const cell of row) cell.read();
+    for (const cell of row) cell.read();
   }
 }
 

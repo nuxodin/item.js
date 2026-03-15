@@ -18,13 +18,10 @@ class WsAsyncItem extends Item {
         }
     }
 
-    writer(value) {
-        return this._ws.request({ action: 'set', path: this.path, value });
-    }
-    remove() {
-        super.remove();
-        return this._ws.request({ action: 'delete', path: this.path });
-    }
+    writer(value) { return this._ws.request({ action: 'set', path: this.path, value }); }
+    adder(value) { return this._ws.request({ action: 'post', path: this.path, value }); }
+    remover() { return this._ws.request({ action: 'delete', path: this.path }); }
+
     ChildClass = WsAsyncItem;
 }
 

@@ -19,7 +19,7 @@
     </script>
 
 <script type=module>
-import { item, $item } from '../item.js';
+import { item, Item, $item } from '../item.js';
 import { asyncIteratorFromEventTarget } from '../src/Emitter.js';
 
 describe('primitive value', () => {
@@ -956,6 +956,281 @@ describe('Transparent Data (Object.create(null) storage)', () => {
     });
 
 });
+
+
+describe('add()', () => {
+    it('add() without adder generates a UUID key', async () => {
+        const i = item()
+        const child = await i.add({ name: 'Hans' })
+        chai.expect(child.key).to.match(/^[0-9a-f-]{36}$/)
+    })
+    it('add() without adder sets value', async () => {
+        const i = item()
+        const child = await i.add({ name: 'Hans' })
+        chai.expect(child.value).to.deep.equal({ name: 'Hans' })
+    })
+    it('add() child is in parent', async () => {
+        const i = item()
+        const child = await i.add({ name: 'Hans' })
+        chai.expect(i.has(child.key)).to.equal(child)
+    })
+    it('add() with adder uses returned key', async () => {
+        const i = item()
+        i.adder = async (value) => ({ key: '42' })
+        const child = await i.add({ name: 'Hans' })
+        chai.expect(child.key).to.equal('42')
+    })
+    it('add() with adder does not trigger writer', async () => {
+        const i = item()
+        let writerCalled = false
+        i.adder = async (value) => ({ key: '42' })
+        const child = await i.add({ name: 'Hans' })
+        child.writer = () => { writerCalled = true }
+        child.set({ name: 'Hans' }, { local: true })
+        chai.expect(writerCalled).to.equal(false)
+    })
+    it('add() fires change event on parent', async () => {
+        const i = item()
+        let added = null
+        i.addEventListener('change', e => { if (e.detail.add) added = e.detail.add })
+        const child = await i.add({ name: 'Hans' })
+        chai.expect(added).to.equal(child)
+    })
+    it('add() with custom generateKey()', async () => {
+        class MyItem extends Item {
+            generateKey() { return 'custom-key' }
+        }
+        const i = new MyItem()
+        const child = await i.add({ name: 'Hans' })
+        chai.expect(child.key).to.equal('custom-key')
+    })
+    it('add() throws if adder returns no key', async () => {
+        const i = item()
+        i.adder = async () => ({})
+        try {
+            await i.add({ name: 'Hans' })
+            chai.expect.fail('should have thrown')
+        } catch(e) {
+            chai.expect(e.message).to.include('key must be generated')
+        }
+    })
+})
+
+describe('remove({local})', () => {
+    it('remove() calls remover', async () => {
+        const i = item({ a: 1 })
+        let removerCalled = false
+        const child = i.item('a')
+        child.remover = async () => { removerCalled = true }
+        await child.remove()
+        chai.expect(removerCalled).to.equal(true)
+    })
+    it('remove({local:true}) does not call remover', async () => {
+        const i = item({ a: 1 })
+        let removerCalled = false
+        const child = i.item('a')
+        child.remover = async () => { removerCalled = true }
+        await child.remove({ local: true })
+        chai.expect(removerCalled).to.equal(false)
+    })
+    it('remove() removes item from parent', async () => {
+        const i = item({ a: 1 })
+        await i.item('a').remove()
+        chai.expect(i.has('a')).to.equal(undefined)
+    })
+    it('remove() fires change event on parent', async () => {
+        const i = item({ a: 1 })
+        let removed = null
+        i.addEventListener('change', e => { if (e.detail.remove) removed = e.detail.remove })
+        const child = i.item('a')
+        await child.remove()
+        chai.expect(removed).to.equal(child)
+    })
+    it('remove() on root throws', async () => {
+        const i = item()
+        try {
+            await i.remove()
+            chai.expect.fail('should have thrown')
+        } catch(e) {
+            chai.expect(e.message).to.include('cannot remove root')
+        }
+    })
+})
+
+describe('set({local:true})', () => {
+    it('set({local:true}) does not trigger writer', () => {
+        const i = item()
+        let writerCalled = false
+        i.writer = () => { writerCalled = true; return Promise.resolve() }
+        i.set(42, { local: true })
+        chai.expect(writerCalled).to.equal(false)
+    })
+    it('set({local:true}) still updates value', () => {
+        const i = item()
+        i.set(42, { local: true })
+        chai.expect(i.value).to.equal(42)
+    })
+    it('set({local:true}) still fires change event', () => {
+        const i = item()
+        let changed = false
+        i.addEventListener('change', () => changed = true)
+        i.set(42, { local: true })
+        chai.expect(changed).to.equal(true)
+    })
+    it('set({local:true}) propagates to children', () => {
+        const i = item()
+        let writerCalled = false
+        i.set({ a: 1 }, { local: true })
+        i.item('a').writer = () => { writerCalled = true; return Promise.resolve() }
+        i.set({ a: 2 }, { local: true })
+        chai.expect(writerCalled).to.equal(false)
+    })
+    it('set() without local triggers writer', async () => {
+        const i = item()
+        let writerCalled = false
+        i.writer = () => { writerCalled = true; return Promise.resolve() }
+        i.set(42)
+        await new Promise(r => setTimeout(r, 10)) // wait for debounce
+        chai.expect(writerCalled).to.equal(true)
+    })
+})
+
+describe('set({depth:N})', () => {
+    it('set({depth:1}) only creates top-level keys, no values', () => {
+        const i = item()
+        i.set({ a: { b: 1 } }, { depth: 1 })
+        chai.expect(i.has('a')).to.be.ok
+        chai.expect(i.item('a').filled).to.equal(false)
+    })
+    it('set({depth:2}) sets values one level deep', () => {
+        const i = item()
+        i.set({ a: { b: 42 } }, { depth: 2 })
+        chai.expect(i.item('a').has('b')).to.be.ok
+        chai.expect(i.item('a').item('b').filled).to.equal(false)
+    })
+    it('set({depth:3}) sets values two levels deep', () => {
+        const i = item()
+        i.set({ a: { b: 42 } }, { depth: 3 })
+        chai.expect(i.item('a').item('b').value).to.equal(42)
+    })
+    it('set({depth:1}) sets primitive value directly', () => {
+        const i = item()
+        i.set(42, { depth: 1 })
+        chai.expect(i.value).to.equal(42)
+    })
+})
+
+describe('get({depth:N})', () => {
+    it('get({depth:1}) returns null for children', () => {
+        const i = item({ a: { b: 42 } })
+        const result = i.get({ depth: 1 })
+        chai.expect(result.a).to.equal(null)
+    })
+    it('get({depth:2}) returns first level fully, second level null', () => {
+        const i = item({ a: { b: 42 } })
+        const result = i.get({ depth: 2 })
+        chai.expect(result.a.b).to.equal(null)
+    })
+    it('get({depth:3}) returns two levels fully', () => {
+        const i = item({ a: { b: 42 } })
+        const result = i.get({ depth: 3 })
+        chai.expect(result.a.b).to.equal(42)
+    })
+    it('get({depth:1}) is JSON.stringify safe', () => {
+        const i = item({ a: { b: 1 }, c: 2 })
+        const result = i.get({ depth: 1 })
+        chai.expect(JSON.stringify(result)).to.equal('{"a":null,"c":null}')
+    })
+})
+
+
+describe('$set removes children not in new value', () => {
+    it('removes child not in new value', async () => {
+        const i = item({ a: 1, b: 2 })
+        i.value = { a: 1 }
+        await new Promise(r => setTimeout(r, 0))
+        chai.expect(i.has('b')).to.equal(undefined)
+    })
+    it('removed child calls remover when set without local', async () => {
+        const i = item({ a: 1, b: 2 })
+        let removerCalled = false
+        i.item('b').remover = async () => { removerCalled = true }
+        i.value = { a: 1 }
+        await new Promise(r => setTimeout(r, 10))
+        chai.expect(removerCalled).to.equal(true)
+    })
+    it('removed child does not call remover when set with local:true', async () => {
+        const i = item({ a: 1, b: 2 })
+        let removerCalled = false
+        i.item('b').remover = async () => { removerCalled = true }
+        i.set({ a: 1 }, { local: true })
+        await new Promise(r => setTimeout(r, 10))
+        chai.expect(removerCalled).to.equal(false)
+    })
+})
+
+describe('adder returns key only', () => {
+    it('add() with adder returning only key uses value from add() argument', async () => {
+        const i = item()
+        i.adder = async () => ({ key: '99' })
+        const child = await i.add({ name: 'Hans' })
+        chai.expect(child.key).to.equal('99')
+        chai.expect(child.value).to.deep.equal({ name: 'Hans' })
+    })
+})
+
+describe('io.onchange does not trigger writer', () => {
+    it('reader result does not trigger writer', async () => {
+        const i = item()
+        let writerCalled = false
+        i.reader = async () => ({ name: 'Hans' })
+        i.writer = () => { writerCalled = true; return Promise.resolve() }
+        await i.read()
+        await new Promise(r => setTimeout(r, 10))
+        chai.expect(writerCalled).to.equal(false)
+    })
+    it('reader result sets value correctly', async () => {
+        const i = item()
+        i.reader = async () => ({ name: 'Hans' })
+        i.writer = () => Promise.resolve()
+        await i.read()
+        chai.expect(i.item('name').value).to.equal('Hans')
+    })
+})
+
+
+it('remove() deletes from parent before remover completes', async () => {
+    const i = item({ a: 1 })
+    let removedFromParent = false
+    const child = i.item('a')
+    child.remover = async () => {
+        await new Promise(r => setTimeout(r, 50))
+        chai.expect(removedFromParent).to.equal(true) // schon weg
+    }
+    removedFromParent = true // simulieren dass parent check danach kommt
+    // eigentlich: prüfen dass has('a') sofort false ist
+    child.remove()
+    chai.expect(i.has('a')).to.equal(undefined) // sofort weg
+})
+
+it('add() does not trigger writer on child after creation', async () => {
+    const i = item()
+    let writerCalled = false
+    i.adder = async () => ({ key: '42' })
+    const child = await i.add({ name: 'Hans' })
+    child.writer = () => { writerCalled = true; return Promise.resolve() }
+    await new Promise(r => setTimeout(r, 10))
+    chai.expect(writerCalled).to.equal(false)
+})
+
+it('clear() disposes io and stops pending', async () => {
+    const i = item()
+    i.reader = () => new Promise(r => setTimeout(r, 1000))
+    i.read()
+    chai.expect(i.pending).to.equal(true)
+    i.clear()
+    chai.expect(i.pending).to.equal(false)
+})
 
 
 </script>

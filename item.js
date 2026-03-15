@@ -34,31 +34,35 @@ export class Item extends Emitter {
     get value() { return this.get(); }
     get isObject() { return this.#isObject; }
 
-    get() {
-        //dispatchEvent(this, 'get', { value: this.#value }); useful?
+    get(options) {
+        dispatch(this, 'get', { value: this.#value });
         track(this);
-        return this.$get();
+        return this.$get(options);
     }
     set(value, options = {}) {
         if (this.#isSetting) throw new Error("circular set");
         this.#isSetting = true;
-        const obj = dispatch(this, "set", { oldValue: this.#value, value, options });
-        if (!obj.defaultPrevented) this.$set(value, options);
-        const ioPromise = !obj.defaultPrevented && this.writer ? this.io.set(value) : null; // loop from io.onchange??
+        const detail = { oldValue: this.#value, value, options };
+        const obj = dispatch(this, "set", detail);
+        let ioPromise = null;
+        if (!obj.defaultPrevented) {
+            this.$set(detail.value, options);
+            if (!options?.local && this.writer) ioPromise = this.io.set(value);
+        }
         this.#isSetting = false;
         return ioPromise; // what about nested items? await also?
     }
     patch(value) { return this.set(value, { patch: true }); }
 
-    $get() {
-        if (!this.#isObject) {
-            return this.#value;
-        } else {
-            const value = this.#value ??= Object.create(null);
-            const result = Object.create(null);
-            for (const key in value) result[key] = value[key].value;
-            return result;
+    $get(options) {
+        if (!this.#isObject) return this.#value;
+        const depth = options?.depth ?? Infinity;
+        const value = this.#value ??= Object.create(null);
+        const result = Object.create(null);
+        for (const key in value) {
+            result[key] = depth > 1 ? value[key].get({ ...options, depth: depth - 1 }) : null;
         }
+        return result;
     }
     $set(value, options) {
         const oldValue = this.#value;
@@ -74,10 +78,14 @@ export class Item extends Emitter {
         } else {
             this.#ensureObject();
             const entries = Object.entries(value);
-            for (const [key, val] of entries) this.item(key).set(val, options);
+            const depth = options?.depth ?? Infinity;
+            for (const [key, val] of entries) {
+                const item = this.item(key);
+                if (depth > 1) item.set(val, { ...options, depth: depth - 1 });
+            }
             if (!options?.patch) {
                 for (const key in this.#value) {
-                    entries.some(([k]) => k === key) || this.#value[key].remove();
+                    entries.some(([k]) => k === key) || this.#value[key].remove(options);
                 }
             }
         }
@@ -102,6 +110,7 @@ export class Item extends Emitter {
 
     #ensureObject() {
         if (!this.#isObject) {
+            dispatch(this, "change", { value:this.#value, value:null }); // null ok?
             this.#value = Object.create(null);
             this.#isObject = true;
         }
@@ -120,16 +129,29 @@ export class Item extends Emitter {
         return this.#value[key];
     }
 
+    async add(value) {
+        let key = this.adder ? (await this.adder(value)).key : this.generateKey();
+        if (key == null) throw new Error("[item.js] a key must be generated");
+        if (this.has(key)) throw new Error(`[item.js] key "${key}" already exists`)
+        const item = this.item(key);
+        item.set(value, { local: true });
+        return item;
+    }
+
+    generateKey() { return crypto.randomUUID() } // items with no ".adder()"
+
+    async remove(options) {
+        if (!this.#parent) throw new Error("cannot remove root item");
+        delete this.#parent.#value[this.#key];
+        dispatch(this.#parent, "change", { remove: this });
+        if (this.remover && !options?.local) await this.remover();
+        this.clear();
+    }
+
     sub(...keys) {
         let current = this;
         for (const key of keys.flat()) current = current.item(key);
         return current;
-    }
-
-    remove() {
-        if (!this.#parent) throw new Error("cannot remove root item");
-        delete this.#parent.#value[this.#key];
-        dispatch(this.#parent, "change", { remove: this });
     }
 
     has(key) {
@@ -141,9 +163,9 @@ export class Item extends Emitter {
         track(this);
         return this.#isObject ? Object.keys(this.#value ?? {}) : EMPTY_ARRAY;
     }
-    get path() {
-        return this.#path ??= this.#parent == null ? EMPTY_ARRAY : [...this.#parent.path, this.key];
-    }
+
+    get path() { return this.#path ??= this.#parent == null ? EMPTY_ARRAY : [...this.#parent.path, this.key]; }
+
     get root() { return this.#root ??= this.#parent?.root ?? this; }
 
     *[Symbol.iterator]() {
@@ -156,36 +178,34 @@ export class Item extends Emitter {
         return Object.values(this.#value);
     }
 
-    /* AsyncDataPoint (beta) */
+    /* AsyncDataPoint */
     #io = null;
 
     get io() {
         if (!this.#io) {
             this.#io = new AsyncDataPoint({
-                get: (signal) => this.reader(signal),
-                set: (v, signal) => this.writer(v, signal),
+                get: (signal) => this.reader(null, {signal}),
+                set: (v, signal) => this.writer(v, {signal}),
             });
             this.#io.onchange = ({value, error}) => {
                 if (error) return dispatch(this, "change", { error });
                 if (value === undefined) return; // reader adds subitems by itself
-                this.set(value, {patch: true});
+                this.set(value, {patch: true, local: true});
             }
             this.#io.onpending = () => dispatch(this, "change", { pending: true });
         }
         return this.#io;
     }
 
-    async read()  {
-        if (this.reader || this.#io?.isPending) await this.io.get();
-        return this.get();
-    }
-
-    async *[Symbol.asyncIterator]() {
-        for (const item of Object.values(this.#value ?? {})) yield item;
-        const abortCtrl = new AbortController();
-        const iterator = asyncIteratorFromEventTarget(this, "change", { signal: abortCtrl.signal });
-        this.read().then(() => abortCtrl.abort()); // hm... read will call get but should only create direct child-items...
-        for await (const { detail: { add } } of iterator) if (add) yield add;
+    async read(query) {
+        //if (this.reader || this.#io?.isPending) await this.io.get();
+        if (!query) return (this.reader || this.#io?.isPending) ? await this.io.get() : false;
+        if (!this.reader) throw new Error('[item.js] read(query) requires a reader')
+        const data = await this.reader(query);
+        //if (data !== undefined) this.set(data, { local: true, depth: query?.depth??1 }); 
+        // open falsch, depth sollte remote definiert werden (im idealfall so wie geschickt zurück kommen)
+        //if (query?.depth && query.depth !== data.depth) console.log("reader depth mismatch", query.depth, data.depth);
+        if (data !== undefined) this.set(data, { local: true, depth: 1 });
     }
 
     async *[Symbol.asyncIterator]() {

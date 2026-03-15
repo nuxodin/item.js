@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
     <title>Test</title>
+    <script type="module" src="https://cdn.jsdelivr.net/gh/u1ui/u1/auto.js"></script>
+    <link rel=stylesheet href="https://cdn.jsdelivr.net/gh/u1ui/classless.css/simple.css">
 <body>
 
 <h1>Extend from Item</h1>
@@ -19,7 +21,6 @@ class UpperCaseItem extends Item {
     }
 }
 
-// Ussage:
 const obj = {a: 'Hello', b: 'World', c: {d: 'Hello', e: 'World'}};
 const a = new UpperCaseItem();
 a.value = obj;

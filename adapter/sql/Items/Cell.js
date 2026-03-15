@@ -15,4 +15,5 @@ export class Cell extends Item {
         return await this.row.updateForce({[this.key]:value});
     }
     remove() { throw new Error("Cannot remove a single cell"); }
+    add() { throw new Error("DB-Cells have no sub-items"); }
 }

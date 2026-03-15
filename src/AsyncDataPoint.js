@@ -135,7 +135,12 @@ export class AsyncDataPoint {
         this.onpending?.();
 
         promise.then(
-            data  => { if (this.#setter !== promise) return; this.setLocal(value); this.#setter = null; this.#expectedValue = null; },
+            data  => {
+                if (this.#setter !== promise) return;
+                this.setLocal(value);
+                this.#setter = null;
+                this.#expectedValue = null;
+            },
             error => {
                 if (this.#setter !== promise) return;
                 if (error?.name === 'AbortError') return;

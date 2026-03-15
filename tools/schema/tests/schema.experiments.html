@@ -15,8 +15,8 @@ User 7 name: <input id="u7NameEl">
 
 
 <script type="module">
-import { item, effect } from '../../item.js';
-import * as run from '../../tools/schema.experiments.js';
+import { item, effect } from '../../../item.js';
+import * as run from '../schema.experiments.js';
 
 const log = s => { document.getElementById('log').textContent += s + '\n'; console.log(s) }
 
@@ -32,6 +32,10 @@ const root = item({
     }
 })
 
+run.reportDeprecated(root);
+root.addEventListener('setIn', run.transform);
+root.addEventListener('setIn', e => run.validate(e, { log: true, throw: false }));
+
 // --- Schema ---
 root.setSchema({
     properties: {
@@ -40,7 +44,16 @@ root.setSchema({
                 type: 'object',
                 properties: {
                     owner_id: { type: 'number', 'x-dataref': '#/users/$' },
-                    manager_id: { type: 'number', 'x-dataref': '../../../users/$' }
+                    manager_id: { type: 'number', 'x-dataref': '../../../users/$', deprecated: true }
+                }
+            }
+        },
+        users: {
+            additionalProperties: {
+                type: 'object',
+                properties: {
+                    name: { type:'string', 'x-transform': { trim: true }, minLength: 2, maxLength: 100 },
+                    age: { type: 'number' }
                 }
             }
         }

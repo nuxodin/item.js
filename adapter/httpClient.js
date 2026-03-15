@@ -13,20 +13,19 @@ class HttpAsyncItem extends Item {
 
    constructor(parent, key) {
       super(parent, key);
-      this.baseUrl = key == null ? (parent?.baseUrl ?? '') : `${parent.baseUrl}/${key}`;
+      this.baseUrl = key == null ? (parent?.baseUrl ?? '') : `${parent.baseUrl}/${encodeURIComponent(key)}`;
    }
 
-   async reader(signal) {
-      const data = await httpFetch(this.baseUrl, 'GET', null, signal);
+   async reader(query, options) {
+      const url = this.baseUrl + buildQuery(query);
+      const data = await httpFetch(url, 'GET', null, options?.signal);
       if (Array.isArray(data)) data.forEach(({ key }) => this.item(key));
       else return data;
    }
 
-   writer(value, signal) { return httpFetch(this.baseUrl, 'PUT', value, signal); }
-   remove() {
-      super.remove();
-      return httpFetch(this.baseUrl, 'DELETE');
-   }
+   writer(value, options) { return httpFetch(this.baseUrl, 'PATCH', value, options?.signal); }
+   remover() { return httpFetch(this.baseUrl, 'DELETE'); }
+   adder(value) { return httpFetch(this.baseUrl, 'POST', value); }
 
    ChildClass = HttpAsyncItem;
 }
@@ -55,9 +54,11 @@ const httpFetch = async (url, method = 'GET', data, signal) => {
       signal,
    });
    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-   const text = await res.text(); // ← statt res.json()
+   const text = await res.text();
    return text ? JSON.parse(text) : undefined;
+};
 
-   return res.status !== 204 ? res.json() : undefined;
+const buildQuery = (query) => {
+    if (!query) return '';
+    return '?' + new URLSearchParams({ q: JSON.stringify(query) });
 };

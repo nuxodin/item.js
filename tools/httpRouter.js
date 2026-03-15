@@ -44,11 +44,19 @@ export function createItemRouter(rootItem, basePath = '') {
             // GET: Return item value
             if (method === 'GET') {
                 if (url.searchParams.has('$schema')) return jsonResponse(item.schema ?? null);
-                await item.io.get();
-                const data = item.isObject ? item.keys.map(key => ({ key })) : item.value;
-                //const data = item.isObject ? [...item].map(item => ({ key:item.key, meta: item.meta })) : item.value;
-                return jsonResponse(data);
+                const query = url.searchParams.has('q') ? JSON.parse(url.searchParams.get('q')) : null;
+                await item.read(query);
+                return jsonResponse(item.get({ depth: query?.depth ?? 1 }));
             }
+
+            // // GET: Return item value
+            // if (method === 'GET') {
+            //     if (url.searchParams.has('$schema')) return jsonResponse(item.schema ?? null);
+            //     await item.io.get();
+            //     const data = item.isObject ? item.keys.map(key => ({ key })) : item.value;
+            //     //const data = item.isObject ? [...item].map(item => ({ key:item.key, meta: item.meta })) : item.value;
+            //     return jsonResponse(data);
+            // }
 
             // PUT: Set/replace item value
             if (method === 'PUT') {
@@ -68,6 +76,12 @@ export function createItemRouter(rootItem, basePath = '') {
             if (method === 'DELETE') {
                 item.remove();
                 return new Response(null, { status: 204 });
+            }
+
+            if (method === 'POST') {
+                const body = await request.json();
+                const newItem = await item.add(body);
+                return jsonResponse({success:true, key:newItem.key});
             }
 
             return jsonResponse({ error: 'Method not allowed' }, 405);

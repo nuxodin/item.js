@@ -26,7 +26,7 @@ function createStore(nativeStorage) {
     addEventListener('storage', e => {
         if (e.storageArea !== nativeStorage) return;
         if (e.newValue === null) root.item(e.key).remove();
-        else root.item(e.key).io.setLocal(e.newValue);
+        else root.item(e.key).set(e.newValue);
     });
     return root;
 }

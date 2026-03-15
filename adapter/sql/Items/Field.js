@@ -9,7 +9,8 @@ export class Field {
 	async valueTransform(value) {
         const schema = await this.getSchema();
 
-        if (typeof value === 'object' && typeof value.valueOf === 'function') value = value.valueOf(); // what about date?
+        // todo: user this.table.schema.additionalProperties.properties[this.name]
+        //if (typeof value === 'object' && typeof value.valueOf === 'function') value = value.valueOf(); // what about date?
 
         if (!schema.required) {
             if (value == null) return null;

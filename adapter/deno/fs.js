@@ -38,7 +38,7 @@ export function fs(rootPath, options) {
                     }
 
                     if (event.kind === 'remove') {
-                        targetItem.remove();
+                        targetItem.remove({local:true});
                     }
                 }
             }
@@ -92,14 +92,15 @@ class FsItem extends Item {
         }
         return await Promise.all(promises);
     }
-    async remove() {
+    async remover() {
         try {
             await Deno.remove(this.fsPath, { recursive: true });
         } catch (e) {
-            if (!(e instanceof Deno.errors.NotFound)) throw e; // Re-throw wenn es kein "NotFound" Error ist
+            if (e instanceof Deno.errors.NotFound) return;
+            else throw e;
         }
-        if (this.parent) super.remove();
     }
+
     static ChildClass = FsItem;
 }
 

@@ -109,6 +109,12 @@ export function createItemWsRouter(rootItem, basePath = '/ws') {
                   break;
                }
 
+               case 'post': {
+                  const newItem = await item.add(msg.value);
+                  respond(id, 'ok', { key: newItem.key });
+                  break;
+               }
+
                case 'subscribe': {
                   subscribe(item);
                   const data = await item.read(); // needed?
