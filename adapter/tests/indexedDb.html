@@ -4,20 +4,20 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
     <title>Test</title>
+    <script type=module async src="https://cdn.jsdelivr.net/gh/u2ui/u2@main/u2/auto.js"></script>
+    <link rel=stylesheet href="https://cdn.jsdelivr.net/gh/u2ui/u2@main/css/classless/simple.css">
 <body>
 
 <h1>Test</h1>
 
 <script type=module>
 
-import {IDB} from "../drivers/indexedDb.js";
-
+import {IDB} from "../indexedDb.js";
 
 const idb = IDB();
-
 const db1 = idb.item('db1');
 
-db1.open(2, {
+db1.open(13, {
     upgrade(db, oldVersion, newVersion, transaction) {
         if (oldVersion < 1) {
             db.createObjectStore('store1');
@@ -45,7 +45,7 @@ db1.item('store1').value = {item3: 'value3', item4: 'value4'}; // add multiple i
 // proxy test
 
 let db2 = idb.item('db2');
-db2.open(15, {
+db2.open(444, {
     upgrade(db, oldVersion, newVersion, transaction) {
         const stores = new Set(db.objectStoreNames);
         !stores.has('user') && db.createObjectStore('user');

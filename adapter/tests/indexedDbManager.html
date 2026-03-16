@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Test</title>
+    <script type=module async src="https://cdn.jsdelivr.net/gh/u2ui/u2@main/u2/auto.js"></script>
+    <link rel=stylesheet href="https://cdn.jsdelivr.net/gh/u2ui/u2@main/css/classless/simple.css">
+    <style>
+        html {
+            font-size: 12px;
+            --width: 100rem
+        }
+    </style>
+
+<body>
+
+<script type=module>
+
+import { effect, item } from '../../item.js';
+import { iDB } from "../indexedDb.js";
+import * as view from "../../tools/view/uhtml.js";
+import { render, html } from "https://esm.sh/uhtml@4";
+
+
+const schema = {
+    properties: {
+        group: {
+            additionalProperties: {
+                properties: {
+                    id: { 'x-index': 'primary', 'x-autoincrement': true },
+                    name: {},
+                }
+            },
+            'x-display': 'name',
+        },
+        post: {
+            additionalProperties: {
+                properties: {
+                    id: { 'x-index': 'primary', 'x-autoincrement': true },
+                    title: { type: 'string' },
+                    content: { type: 'string' },
+                    user_id: { 'x-index': true, 'x-dataref': '../../../user/$' },
+                    group_id: { 'x-index': true, 'x-dataref': '../../../group/$' },
+                }
+            },
+            'x-display': 'title',
+        },
+        user_group: {
+            additionalProperties: {
+                properties: {
+                    user_id: { 'x-index': 'primary', 'x-dataref': '../../../user/$' },
+                    group_id: { 'x-index': 'primary', 'x-dataref': '../../../group/$' },
+                    relation: {},
+                }
+            }
+        },
+        user: {
+            additionalProperties: {
+                properties: {
+                    id: { 'x-index': 'primary', 'x-autoincrement': true },
+                    firstname: {},
+                    lastname: {},
+                    email: { 'x-index': 'unique' },
+                    age: { type: 'integer', title: 'Alter' },
+                }
+            },
+            'x-display': 'email',
+        },
+    }
+};
+
+
+
+
+let db = iDB.item('db3');
+db.setSchema(schema);
+db.open();
+
+await db.read();
+
+import {jsonItem} from "../storage.js";
+
+const ui = (await jsonItem('dbAdminUi')).proxy;
+
+effect(() => {
+
+    const store = db.item(ui.store());
+    store.read(); // its a promise and every time is internal "for await (const cursor ..." is called, it will trigger the effect
+
+    const fields = [...store.fields().values()];
+
+    render(appEl, html`
+        Select Store:
+        <select onchange="${(e) => { ui.store(e.target.value) }}" style="width:auto">
+            ${[...db].map(item => html`<option .selected="${item.key === ui.store()}"> ${item.key}` )}
+        </select>
+
+        <hr>
+
+        <b>${store.key}</b>
+        <button onclick="addUserDialog.showModal()">Add</button>
+        <dialog id=addUserDialog>
+            <form onsubmit="${(e) => {
+                e.preventDefault();
+                store.add(Object.fromEntries(new FormData(e.target).entries()));
+            }}">
+                <table style="width:auto">
+                    ${fields.map(field => html`<tr><td> ${field.name} <td> <input name="${field.name}">`)}
+                </table>
+                <button>add</button>
+            </form>
+        </dialog>                
+
+        <hr>
+
+        ${view.table(store, { editable: true })}
+    `);
+});
+
+</script>
+
+<h1>indexedDb Manager</h1>
+<div id=appEl></div>

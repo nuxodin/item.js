@@ -1,7 +1,6 @@
 import { Client } from 'https://deno.land/x/mqtt@0.1.2/deno/mod.ts';
 import { AsyncItem } from '../tools/AsyncItem.js';
 
-
 export async function mqtt(options){
     const client = new Client(options);
     await client.connect();

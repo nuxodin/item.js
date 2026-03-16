@@ -126,7 +126,7 @@ import { createItemClient } from './adapter/httpClient.js';
 const api = createItemClient('http://localhost:3000/api');
 
 // Load keys (list of children)
-await api.loadItems();
+await api.read();
 for (const child of api.items()) {
     console.log(child.key);
 }
@@ -144,7 +144,7 @@ api.item('users').item('123').remove();
 **HTTP Mapping:**
 | Item Operation | HTTP Method | URL |
 |----------------|-------------|-----|
-| `loadItems()` | `GET` | `/api` → Array of `{key}` |
+| `read()` | `GET` | `/api` → Array of `{key}` |
 | `promise` | `GET` | `/api/item` → Value |
 | `set(value)` | `PUT` | `/api/item` |
 | `remove()` | `DELETE` | `/api/item` |

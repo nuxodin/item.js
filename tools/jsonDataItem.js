@@ -4,7 +4,8 @@ export async function jsonDataItem(jsonItem) {
     const root = item();
     const syncFromJson = (json) => root.set(json ? JSON.parse(json) : null);    
     const syncToJson = () => jsonItem.set(JSON.stringify(root.value, null, 2));
-    syncFromJson(await jsonItem.read());
+    await jsonItem.read();
+    syncFromJson(jsonItem.get());
     root.addEventListener('changeIn', debounce(syncToJson, 1));
     jsonItem.addEventListener('change', () => syncFromJson(jsonItem.value));
     return root;

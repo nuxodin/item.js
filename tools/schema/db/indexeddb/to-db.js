@@ -28,19 +28,40 @@ async function schemaVersion(schema, dbName = 'default') {
     return map[hash]
 }
 
-export async function openDb(name, schema, { patch = true } = {}) {
-    const version = await schemaVersion(schema, name)
+/**
+ * @param {string} name
+ * @param {object|null} schema
+ * @param {object} [options]
+ * @param {number|null} [options.version=null]
+ * @param {boolean} [options.patch=true]
+ * @param {function|null} [options.upgrade=null] - Called in onupgradeneeded after schema migration. (e: IDBVersionChangeEvent) => void
+ */
+export async function openDb(name, schema, { patch = true, version = null, upgrade = null } = {}) {
+    if (upgrade && version == null) throw new Error('openDb: "upgrade" requires a manual "version"')
+    if (version == null && schema) version = await schemaVersion(schema, name);
     return new Promise((resolve, reject) => {
-        const req = indexedDB.open(name, version)
+        const req = indexedDB.open(name, version);
         req.onupgradeneeded = (e) => {
-            const db = e.target.result
-            const tx = e.target.transaction
-            schemaToDb(schema, db, tx, { patch })
+            if (schema) schemaToDb(schema, e.target.result, e.target.transaction, { patch });
+            upgrade?.(e)
         }
-        req.onsuccess = (e) => resolve(e.target.result)
-        req.onerror   = (e) => reject(e.target.error)
+        req.onsuccess = (e) => resolve(e.target.result);
+        req.onerror = (e) => reject(e.target.error);
     })
 }
+// export async function openDb(name, schema, { patch = true } = {}) {
+//     const version = await schemaVersion(schema, name)
+//     return new Promise((resolve, reject) => {
+//         const req = indexedDB.open(name, version)
+//         req.onupgradeneeded = (e) => {
+//             const db = e.target.result
+//             const tx = e.target.transaction
+//             schemaToDb(schema, db, tx, { patch })
+//         }
+//         req.onsuccess = (e) => resolve(e.target.result)
+//         req.onerror   = (e) => reject(e.target.error)
+//     })
+// }
 
 // tx = upgrade transaction from onupgradeneeded (e.target.transaction)
 export function schemaToDb(schema, db, tx, { patch = false } = {}) {

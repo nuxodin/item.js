@@ -1,7 +1,6 @@
 import { Client } from 'https://deno.land/x/mqtt@0.1.2/deno/mod.ts';
 import { Item } from '../../item.js';
 
-
 export async function mqtt(options){
     const client = new Client(options);
     await client.connect();
@@ -12,7 +11,8 @@ export async function mqtt(options){
         const text = decoder.decode(payload);
         const pathArray = topic.split('/');
         const targetItem = root.sub(pathArray);
-        targetItem.asyncHandler.setLocal(text);
+        //targetItem.asyncHandler.setLocal(text);
+        targetItem.set(text, { local: true });
     });
 
     class MQTTItem extends Item {
