@@ -1,6 +1,9 @@
 import { Item } from '../item.js';
 
 class CookieItem extends Item {
+    $set(value) {
+        super.$set(String(value));
+    }
     reader() {
         return cookieStore.get(this.key).then(data => data?.value ?? '');
     }
@@ -11,16 +14,9 @@ class CookieItem extends Item {
             expires: new Date(Date.now() + 1000*60*60*24*365*2),
         });
     }
-    $set(value) {
-        super.$set(String(value));
-    }
     remover(){
         return cookieStore.delete(this.key);
     }
-    // remove() {
-    //     super.remove();
-    //     return cookieStore.delete(this.key);
-    // }
     static ChildClass = false;
 }
 

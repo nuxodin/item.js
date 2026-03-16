@@ -12,9 +12,7 @@ export function createItemWsRouter(rootItem, basePath = '/ws') {
       const segments = url.pathname.split('/').filter(Boolean);
 
       // Validate path prefix
-      if (pathPrefix && segments.slice(0, prefixLength).join('/') !== pathPrefix) {
-         return new Response(null, { status: 404 });
-      }
+      if (pathPrefix && segments.slice(0, prefixLength).join('/') !== pathPrefix) return null;
 
       // Require WebSocket upgrade
       if (!request.headers.get('upgrade')?.toLowerCase().includes('websocket')) {

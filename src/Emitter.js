@@ -23,6 +23,10 @@ export class Emitter {
         }
         return !e.defaultPrevented;
     }
+
+    removeAllListeners() {
+        this.#listeners?.clear();
+    }
 }
 
 // Leichtes Event-Objekt – kein CustomEvent-Overhead

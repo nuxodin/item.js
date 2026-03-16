@@ -24,9 +24,7 @@ export function createItemRouter(rootItem, basePath = '') {
             const allSegments = url.pathname.split('/').filter(Boolean);
 
             // Check if request matches basePath
-            if (pathPrefix && !allSegments.slice(0, prefixLength).join('/').startsWith(pathPrefix)) {
-                return jsonResponse({ error: 'Not Found' }, 404);
-            }
+            if (pathPrefix && !allSegments.slice(0, prefixLength).join('/').startsWith(pathPrefix)) return null;
 
             const path = allSegments.slice(prefixLength);
             const method = request.method;

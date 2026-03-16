@@ -24,7 +24,6 @@ export class Item extends Emitter {
         super();
         this.#parent = parent;
         this.#key = key;
-        this.addEventListener("change", () => notify(this));
     }
 
     get key() { return this.#key; }
@@ -39,7 +38,7 @@ export class Item extends Emitter {
         track(this);
         return this.$get(options);
     }
-    set(value, options = {}) {
+    set(value, options) {
         if (this.#isSetting) throw new Error("circular set");
         this.#isSetting = true;
         const detail = { oldValue: this.#value, value, options };
@@ -97,6 +96,7 @@ export class Item extends Emitter {
         this.#isObject = null;
         this.#io?.dispose();
         this.#io = null;
+        this.removeAllListeners();
     }
 
     /* object related */
@@ -110,7 +110,7 @@ export class Item extends Emitter {
 
     #ensureObject() {
         if (!this.#isObject) {
-            dispatch(this, "change", { value:this.#value, value:null }); // null ok?
+            dispatch(this, "change", { oldValue:this.#value, value:null }); // null ok?
             this.#value = Object.create(null);
             this.#isObject = true;
         }
@@ -198,7 +198,6 @@ export class Item extends Emitter {
     }
 
     async read(query) {
-        //if (this.reader || this.#io?.isPending) await this.io.get();
         if (!query) return (this.reader || this.#io?.isPending) ? await this.io.get() : false;
         if (!this.reader) throw new Error('[item.js] read(query) requires a reader')
         const data = await this.reader(query);
@@ -283,12 +282,12 @@ export class Item extends Emitter {
 
     ChildClass = this.constructor.ChildClass;
 
-    /** @beta Metadata slot for drivers/subclasses. Not reactive. Consistency is the driver's responsibility. */
-    meta = null;
-
     /* static members */
 
-    static isPrimitive(value) { return value !== Object(value); }
+    static isPrimitive(value) {
+        const t = typeof value;
+        return t !== 'object' && t !== 'function' || value === null;
+    }
 
     static equals(a, b) { return Object.is(a, b); } // question: should use deepEqual as "primitive" can be an object?
 
@@ -317,6 +316,7 @@ export function item(...args) {
 export function dispatch(item, eventName, detail) {
     const event = new ItemEvent(eventName, detail);
     item.dispatchEvent(event);
+    if (eventName === 'change') notify(item);  // ← direkt hier
     event.type = eventName+'In'; // reuse event object
     for (let i = item; i; i = i.parent) i.dispatchEvent(event);
     return { defaultPrevented: event.defaultPrevented };
