@@ -156,5 +156,5 @@ class MyItem extends Item {
 
 ## Extensions
 
-- **[Tools](/tools/README.md)** — HTTP Router, WebSocket, Change Tracking, JSON Sync, Schema Tools
-- **[Adapters](/adapter/README.md)** — Filesystem (Deno), Cookies, Storage (localStorage/sessionStorage), HTTP Client, WebSocket Client
+- **[Tools](./tools/README.md)** — HTTP Router, WebSocket, Change Tracking, JSON Sync, Schema Tools
+- **[Adapters](./adapter/README.md)** — Filesystem (Deno), Cookies, Storage (localStorage/sessionStorage), HTTP Client, WebSocket Client

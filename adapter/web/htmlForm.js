@@ -1,19 +1,19 @@
 // TODO: Radio-items (RadioNodeList)
 
-import { Item } from '../item.js';
+import { Item } from '../../item.js';
 
 class FormItem extends Item {
     setElement(form) {
         this.formElement = form;
     }
-    getAll() {
+    reader() {
         for (const input of this.formElement.elements) {
             if (!input.name) continue;
             this.item(input.name);
         }
     }
     $get() {
-        this.getAll();
+        this.reader();
         return super.$get();
     }
     ChildClass = InputItem;

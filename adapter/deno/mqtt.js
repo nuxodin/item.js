@@ -6,7 +6,6 @@ export async function mqtt(options){
     client.connect(); // await? or lazy? when disconnect?
 
     const decoder = new TextDecoder();
-
     client.on('message', (topic, payload) => {
         const text = decoder.decode(payload);
         const pathArray = topic.split('/');
@@ -15,8 +14,7 @@ export async function mqtt(options){
     });
 
     class MQTTItem extends Item {
-        reader() { // // mqtt does not have a concept of getting a value
-            console.log(this.path)
+        reader() { // mqtt does not have a concept of getting a value
             const topic = [...this.path, '#'].join('/');
             client.subscribe(topic); // ok? or should we subscribe to all children?
         }

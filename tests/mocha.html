@@ -102,10 +102,16 @@ describe('object value', () => {
         chai.expect(String(b)).to.equal('b');
     });
     it('has("existing") returns the item', () => {
-        chai.expect(i.has('b')).to.equal(i.item('b'))
+        chai.expect(i.has('b')).to.equal(i.item('b'));
     });
-    it('has("no") returns the false', () => {
-        chai.expect(i.has('no')).to.equal(undefined)
+    it('has("no") returns undefined', () => {
+        chai.expect(i.has('no')).to.equal(undefined);
+    });
+    it('has(["existing","no"]) returns undefined', () => {
+        chai.expect(i.has(['b','no'])).to.equal(undefined);
+    });
+    it('has("existing","existing") returns the item', () => {
+        chai.expect(i.has('b','b1')?.key).to.equal('b1')
     });
     it('add a new property', () => {
         b.item('c').value = 4;

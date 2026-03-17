@@ -154,9 +154,16 @@ export class Item extends Emitter {
         return current;
     }
 
-    has(key) {
+    #has(key) {
         track(this);
         return this.#isObject && key in this.#value ? this.item(key) : undefined;
+    }
+    has(...keys) {
+        let current = this;
+        for (const key of keys.flat()) {
+            if (!(current = current.#has(key))) return;
+        }
+        return current;
     }
 
     get keys() {

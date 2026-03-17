@@ -52,7 +52,6 @@ function itemTree(item, tree){
             const active = current;
             setTimeout(() => active.classList.remove('blink'), 500);
         }
-        
     });
     tree.addEventListener('u2-tree-select', async (event) => {
         const treeEl = event.target;
@@ -63,13 +62,13 @@ function itemTree(item, tree){
     });
 }
 
-setTimeout(async ()=>{
+customElements.whenDefined('u2-code').then(async () => {
+    const demoJson = await jsonDataItem(fsWs.item('demo.json'));
     itemTree(fs, document.getElementById('filesHttp'));
     itemTree(fsWs, document.getElementById('filesWs'));
-    const demoJson = await jsonDataItem(fsWs.item('demo.json'));
     itemTree(demoJson, document.getElementById('demoJsonTree'));
     itemTree(mqttItem.item('dev'), document.getElementById('mqttTree'));
-},300);
+});
 
 
 

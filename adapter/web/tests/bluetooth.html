@@ -4,26 +4,20 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">
     <title>Test</title>
-    <script src="https://cdn.jsdelivr.net/gh/nuxodin/lazyfill@main/mod.min.js"></script>
-    <link rel=stylesheet href="http://gcdn.li/u1ui/base.css/full.css">
-    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/variables.css">
-    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/classless.css">
-    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/more.css">
-    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/simple.css">    
-</head>
+    <script type=module async src="https://cdn.jsdelivr.net/gh/u2ui/u2@main/u2/auto.js"></script>
+    <link rel=stylesheet href="https://cdn.jsdelivr.net/gh/u2ui/u2@main/css/classless/simple.css">
+
 <body>
 
 <section>
     <h1>Test</h1>
 
     <button id=puckBtn>connect puck.js</button><br>
-    <label>
-        Rote LED: <input type=checkbox id=check value="1">
-    </label>
+    <label>Rote LED: <input type=checkbox id=check value="1"></label>
 
     <script type=module>
 
-    import {requestDevice} from './bluetooth.js';
+    import {requestDevice} from '../bluetooth.js';
     import {createInputItem} from '../htmlForm.js';
 
     puckBtn.addEventListener('click', async e=>{
@@ -37,13 +31,9 @@
 
     function initDevice(device) {
         alert('connected');
-        
-        const redLight = device.item('0000bcde-0000-1000-8000-00805f9b34fb').item('0000abcd-0000-1000-8000-00805f9b34fb');
-        
+        const redLight = device.item('0000bcde-0000-1000-8000-00805f9b34fb').item('0000abcd-0000-1000-8000-00805f9b34fb');        
         sync(redLight, checkRed);
     }
-
-
 
 
     /* helper */
@@ -88,14 +78,14 @@
         console.log(device.realDevice);
 
         try {
-            await device.loadAll();
+            await device.read();
         } catch (error) {
             console.log(error);
         }
 
         for (const service of device) {
             try {
-                await service.loadAll();
+                await service.read();
             } catch (error) {
                 console.log(error);
             }
@@ -121,9 +111,5 @@
     <br><br>    
     <button id=connBtn>connect</button>
     <div id=connData></div>
-    <script>
-
-
-    </script>
 
 </section>

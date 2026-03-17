@@ -4,12 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width">    
     <title>Test</title>
-    <script src="https://cdn.jsdelivr.net/gh/nuxodin/lazyfill@main/mod.min.js"></script>
-    <link rel=stylesheet href="http://gcdn.li/u1ui/base.css/full.css">
-    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/variables.css">
-    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/classless.css">
-    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/more.css">
-    <link rel=stylesheet href="http://gcdn.li/u1ui/classless.css@main/simple.css">    
+    <script type=module async src="https://cdn.jsdelivr.net/gh/u2ui/u2@main/u2/auto.js"></script>
+    <link rel=stylesheet href="https://cdn.jsdelivr.net/gh/u2ui/u2@main/css/classless/simple.css">
 
 <body>
 
@@ -63,13 +59,12 @@
 
     <script type=module>
 
-    import {createFormItem, createInputItem} from "./htmlForm.js";
-    import {effect} from "../item.js";
+    import {createFormItem, createInputItem} from "../htmlForm.js";
+    import {effect} from "../../../item.js";
     import {dump} from 'https://cdn.jsdelivr.net/gh/nuxodin/dump.js@x/mod.min.js';
 
     const formItem = createFormItem(document.querySelector('form'));
     const single = createInputItem(singleItem);
-
 
     effect(() => {
         console.log('changed formItem');

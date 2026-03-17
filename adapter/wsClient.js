@@ -11,11 +11,8 @@ class WsAsyncItem extends Item {
 
     async reader() {
         const data = await this._ws.request({ action: 'get', path: this.path, subscribe: true });
-        if (Array.isArray(data)) { // object
-            for (const info of data) this.item(info.key);
-        } else {
-            return data;
-        }
+        if (!Array.isArray(data)) return data;
+        for (const info of data) this.item(info.key);
     }
 
     writer(value) { return this._ws.request({ action: 'set', path: this.path, value }); }
