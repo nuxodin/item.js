@@ -102,11 +102,11 @@ await p                  // ✗ logs warning
 
 ```js
 // fire on item
-i.addEventListener('set',    e => e) // { target, details: { oldValue, value, options } } — preventable
-i.addEventListener('change', e => e.detail)
+i.addEventListener('set',    e => e) // { target, oldValue, value, options } — preventable
+i.addEventListener('change', e => e)
 // { oldValue, value } | { add } | { remove } | { pending } | { error }
 // add, remove are items, pending bool, error error-object 
-// only track value changes? use if ('value' in detail)
+// only track value changes? use if ('value' in event)
 // bubbles:
 root.addEventListener('changeIn', e => e.target.path) // also setIn, getIn
 ```

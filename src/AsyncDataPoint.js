@@ -1,3 +1,5 @@
+// @ts-check
+
 /*
 // Usage:
 const datapoint = new AsyncDataPoint({
@@ -15,22 +17,35 @@ datapoint.debounceMs = 5; // debounce period for setter in ms, default 5
 datapoint.setLocal({title: 'foo', completed: true}); // set value without saving it to the master (the value comes from the master through an other channel / trusted source)
 */
 
+/**
+ * @typedef {Promise<any> & { state: 'pending'|'fulfilled'|'rejected', value: any, controller: AbortController, reason?: any }} TransparentPromise
+ */
+
 export class AsyncDataPoint {
 
-    createGetter = null; // function that returns a promise
-    createSetter = null; // function that returns a promise, if it failed, the promise must be rejected
-
+    /** @type {(signal?: AbortSignal) => Promise<any>|undefined} */
+    createGetter;
+    /** @type {(value: any, signal?: AbortSignal) => Promise<any>|undefined} */
+    createSetter;
+    /** @type {any|null} */
     #expectedValue = null; // value while saving
+    /** @type {TransparentPromise|null} */
     #setter = null; // current setter promise
+    /** @type {TransparentPromise|null} */
     #getter = null; // current/cached getter promise
-    #cacheGetterTimeout = null;
-
+    /** @type {number|undefined} */
+    #cacheGetterTimeout = undefined;
+    /** @type {function|null} */
+    onpending = null;
+    /** @type {function|null} */
+    onchange = null;
+    
     constructor({get, set, ...options}) {
         this.options = {
             optimistic: true,
             ttl: 5000,
             debounceMs: 5,
-            getRetry: 2,
+            getRetry: 1,
             getRetryDelay: 500,
             setRetry: 0,
             setRetryDelay: 500,
@@ -40,6 +55,9 @@ export class AsyncDataPoint {
         this.createSetter = set;
     }
 
+    /**
+     * @returns {TransparentPromise}
+     */
     #createGetter() {
         const {getRetry, getRetryDelay} = this.options;
         const controller = new AbortController();
@@ -53,6 +71,10 @@ export class AsyncDataPoint {
         return promise;
     }
 
+    /**
+     * @param {any} value 
+     * @returns {TransparentPromise}
+     */
     #createSetter(value) {
         const {setRetry, setRetryDelay, debounceMs} = this.options;        
         const promise = abortablePromise((resolve, reject) => {
@@ -67,6 +89,9 @@ export class AsyncDataPoint {
         return promise;
     }
 
+    /**
+     * @param {TransparentPromise} promise
+     */
     #cacheGetter(promise){
         // trigger onchange if the value changes
         // note: triggers also if the getter is no more cached as we dont know if the value has changed
@@ -101,13 +126,22 @@ export class AsyncDataPoint {
         }, duration);
     }
 
+    /**
+     * @param {any} value
+     */
     setLocal(value) { this.#cacheGetter(transparentPromiseResolve(value)); }
+    /**
+     * @param {Promise<any>} promise
+     */
     setFromPromise(promise) { this.#cacheGetter(makePromiseTransparent(promise)); }
     get isPending() { return this.#getter?.state === 'pending' || this.#setter?.state === 'pending'; }
     get lastError() { return this.#getter?.reason ?? this.#setter?.reason ?? undefined; }
 
     get recentValue() { return this.#getter?.value; }
 
+    /**
+     * @returns {TransparentPromise|Promise<any>}
+     */
     get() {
         if (this.#setter?.state === 'pending') {
             if (this.options.optimistic) {
@@ -119,6 +153,11 @@ export class AsyncDataPoint {
         if (!this.#getter) this.#cacheGetter(this.#createGetter());
         return this.#getter;
     }
+
+    /**
+     * @param {any} value
+     * @returns {TransparentPromise|undefined} - promise if setter is called
+     */
     set(value) {
         // Already setting this value
         if (this.#setter?.state === 'pending' && isEqual(this.#expectedValue, value)) return this.#setter;
@@ -162,7 +201,7 @@ export class AsyncDataPoint {
         this.#setter = null;
         this.#getter = null;
         this.#expectedValue = null;
-        this.#cacheGetterTimeout = null;
+        this.#cacheGetterTimeout = undefined;
         this.onchange = null;
     }
     getDebugState() {
@@ -179,8 +218,8 @@ export class AsyncDataPoint {
 
 /**
  * Adds state and value properties to a Promise, making it transparent.
- * @param {Promise} promise - The Promise to make transparent.
- * @returns void
+ * @param {Promise<any>|TransparentPromise} promise - The Promise to make transparent.
+ * @returns {TransparentPromise} - The transparent Promise.
  * @example
  * const promise = makePromiseTransparent(new Promise(resolve => resolve('foo')));
  * promise.state; // 'pending'
@@ -207,14 +246,14 @@ function makePromiseTransparent(promise) {
     return promise;
 }
 
+
 /**
  * Returns a transparent Promise (see makePromiseTransparent) that is resolved with the specified value.
  * @param {any} value - The value to resolve the Promise with.
- * @returns {Promise} - A transparent Promise.
+ * @returns {TransparentPromise} - A transparent Promise.
  */
 function transparentPromiseResolve(value) {
-    const promise = Promise.resolve(value);
-    makePromiseTransparent(promise);
+    const promise = makePromiseTransparent(Promise.resolve(value));
     promise.state = 'fulfilled';
     promise.value = value;
     return promise;
@@ -222,9 +261,9 @@ function transparentPromiseResolve(value) {
 
 /**
  * Returns a delayed Promise that can be aborted within the specified time (ms).
- * @param {Function} fn - A function that returns a Promise.
+ * @param {Promise<any>} fn - A function that returns a Promise.
  * @param {Number} [ms=1] - The time in milliseconds to delay before resolving the Promise.
- * @returns {Promise} - A delayed Promise that can be aborted.
+ * @returns {Promise<any>} - A delayed Promise that can be aborted.
  */
 function abortablePromise(fn, ms=1) { // delayed and therfore abortable within ms
     const controller = new AbortController();
@@ -243,7 +282,7 @@ function abortablePromise(fn, ms=1) { // delayed and therfore abortable within m
  * @param {Function} fn - The async function to retry.
  * @param {Number} retries - Number of retries (0 = no retry, just one attempt).
  * @param {Number} baseDelay - Base delay in milliseconds for exponential backoff.
- * @returns {Promise} - The result of the operation.
+ * @returns {Promise<any>} - The result of the operation.
  */
 async function retryAsync(fn, retries = 2, baseDelay = 1000) {
     let lastError;
@@ -251,6 +290,7 @@ async function retryAsync(fn, retries = 2, baseDelay = 1000) {
         try {
             return await fn();
         } catch (error) {
+            // @ts-ignore
             if (error?.name === 'AbortError') return;
             lastError = error;
             if (attempt < retries) {
@@ -264,6 +304,12 @@ async function retryAsync(fn, retries = 2, baseDelay = 1000) {
 }
 
 
+/**
+ * Compares two values for equality.
+ * @param {any} a - The first value to compare.
+ * @param {any} b - The second value to compare.
+ * @returns {boolean} - True if the values are equal, false otherwise.
+ */
 function isEqual(a, b) {
     if (a === b) return true;
     if (typeof a !== 'object' || typeof b !== 'object') return false;

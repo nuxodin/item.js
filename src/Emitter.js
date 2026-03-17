@@ -1,5 +1,6 @@
 
 export class Emitter {
+    
     #listeners = null;
 
     addEventListener(type, fn, opts) {
@@ -13,7 +14,6 @@ export class Emitter {
         this.#listeners?.get(type)?.delete(fn);
     }
 
-    /** @returns {{ defaultPrevented: boolean }} */
     dispatchEvent(e) {
         e.target ??= this;
         const fns = this.#listeners?.get(e.type);
@@ -29,36 +29,49 @@ export class Emitter {
     }
 }
 
-// Leichtes Event-Objekt – kein CustomEvent-Overhead
+
 export class ItemEvent {
+    type;
+    target;
+    currentTarget;
     defaultPrevented = false;
-    type = null;
-    detail = null;
-    constructor(type, detail) {
+
+    constructor(type, options) {
         this.type = type;
-        this.detail = detail;
-        /*
-        Object.defineProperty(this.detail, "item", {
-            get() {
-                console.error("detail.item is deprecated use event.target instead");
-                return detail._item;
-            },
-            set(v) {
-                detail._item = v;
-            }
-        });
-        */
+        Object.assign(this, options);
     }
     preventDefault() { this.defaultPrevented = true; }
+    toJSON() {
+        return {
+            path: this.target.path,
+            //currentPath: this.currentTarget.path,
+            //oldValue: this.oldValue,
+            value: this.value,
+            add: this.add?.key,
+            remove: this.remove?.key,
+            pending: this.pending,
+            error: this.error,
+            options: this.options,
+        }
+    }
+
+    get detail() {
+        console.warn('event.detail.x is deprecated, use event.x directly');
+        return new Proxy(this, {
+            get:    (target, key) => target[key],
+            set:    (target, key, val) => (target[key] = val, true),
+            has:    (target, key) => key in target,
+        });
+    }    
 }
 
 
 /**
  * Creates a async iterator from an event target.
- * @param {EventTarget} eventTarget - The event target.
+ * @param {EventTarget|Emitter} eventTarget - The event target.
  * @param {string} eventName - The name of the event.
  * @param {Object} [options] - The event listener options.
- * @return {Generator} A generator that yields events.
+ * @return {AsyncGenerator} A generator that yields events.
  * @example
  * const abortCtrl = new AbortController();
  * for await (const event of asyncIteratorFromEventTarget(document, 'click', {signal: abortCtrl.signal})) {
@@ -92,7 +105,7 @@ export async function* asyncIteratorFromEventTarget(eventTarget, eventName, opti
             } else if (stopAfterQueue) {
                 return;
             } else {
-                await new Promise(res => resolve = res); // Promise.withResolvers()?
+                await new Promise(res => resolve = res);
             }
         }
     } finally {

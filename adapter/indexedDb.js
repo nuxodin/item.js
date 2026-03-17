@@ -1,4 +1,4 @@
-// beta
+// @ts-check
 
 import { Item, item } from "../item.js";
 import { AsyncChild } from "../tools/AsyncChild.js";

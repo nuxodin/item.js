@@ -51,20 +51,19 @@ export function validate(e, options = { log: true }) {
     if (options.log) console.error(`item invalid: ${e.target.path.join('/')}`, e.target.schema);
 }
 
-export function transform(e) {
-    const detail = e.detail;
+export function transform(event) {
     if ('x-transform' in e.target.schema) {
         const trim = e.target.schema['x-transform'].trim;
-        if (trim==='L') detail.value = detail.value?.trimStart?.();
-        if (trim==='R') detail.value = detail.value?.trimEnd?.();
-        if (trim===true) detail.value = detail.value?.trim?.();
+        if (trim==='L') event.value = event.value?.trimStart?.();
+        if (trim==='R') event.value = event.value?.trimEnd?.();
+        if (trim===true) event.value = event.value?.trim?.();
     }
 }
 
 // export function useDefault(item) {
-//     item.addEventListener('getIn', e => {
-//         if (!e.target.filled && 'default' in e.target.schema) {
-//             e.detail.value = e.target.schema.default;
+//     item.addEventListener('getIn', event => {
+//         if (!event.target.filled && 'default' in event.target.schema) {
+//             event.value = event.target.schema.default;
 //         }
 //     });
 // }

@@ -1,3 +1,5 @@
+// @ts-check
+
 /**
  * HTTP Client for remote Item access
  * Creates remote Item instances that fetch data on demand via HTTP
@@ -46,6 +48,11 @@ export function createItemClient(baseUrl) {
  * HTTP helpers
  */
 
+/** @param {string} url
+ *  @param {string} [method]
+ *  @param {any} [data]
+ *  @param {AbortSignal} [signal]
+ */
 const httpFetch = async (url, method = 'GET', data, signal) => {
    const res = await fetch(url, {
       method,
@@ -58,6 +65,7 @@ const httpFetch = async (url, method = 'GET', data, signal) => {
    return text ? JSON.parse(text) : undefined;
 };
 
+/** @param {object} query */
 const buildQuery = (query) => {
     if (!query) return '';
     return '?' + new URLSearchParams({ q: JSON.stringify(query) });

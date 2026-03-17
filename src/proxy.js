@@ -1,7 +1,12 @@
+// @ts-check
+
+/** @import {Item} from "../item.js" */
 
 export const $item = Symbol('item.js [proxy target]');
 
+/** @type {ProxyHandler<{item: Item}>} */
 const proxyHandler = {
+
     get: function (target, property, receiver) {
         const targetItem = target.item;
         if (property === $item) return targetItem;
@@ -34,7 +39,7 @@ const proxyHandler = {
         throw new Error('apply called with too many arguments');
     },
 
-    has: (target, property) => target.item.has(property),
+    has: (target, property) => typeof property === 'string' && !!target.item.has(property),
 
     ownKeys: (target) => target.item.keys,
 
@@ -51,6 +56,9 @@ const proxyHandler = {
 
 const cachedProxies = new WeakMap();
 
+/**
+ * @param {Item} itm
+ */
 export const toProxy = (itm) => {
     let p = cachedProxies.get(itm);
     if (!p) {

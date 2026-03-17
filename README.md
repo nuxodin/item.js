@@ -64,25 +64,25 @@ b.item("c").value = 3;
 ## Events
 
 ```js
-a.addEventListener("change", ({ detail }) => {
-    console.log(detail.oldValue, detail.value);
+a.addEventListener("change", (event) => {
+    console.log(event.oldValue, event.value);
 });
 a.value = 3; // triggers 'change' event
 
 // bubbling (changeIn)
-a.addEventListener("changeIn", ({ target, detail }) => {
+a.addEventListener("changeIn", ({ target, oldValue, value }) => {
     target === a.item("b"); // true
-    console.log(target, detail.oldValue, detail.value);
+    console.log(target, oldValue, value);
 });
 a.item("b").value = 2; // triggers 'changeIn' event on 'a' (bubbles up)
 
 // object-related:
-a.addEventListener("changeIn", (event) => {
-    if (detail.add) {
-        console.log(event.target, "added property", event.detail.add); // child-item
+a.addEventListener("changeIn", event => {
+    if (event.add) {
+        console.log(event.target, "added property", event.add); // child-item
     }
-    if (detail.delete) {
-        console.log(event.target, "removed property", event.detail.remove);
+    if (event.remove) {
+        console.log(event.target, "removed property", event.remove);
     }
 });
 ```

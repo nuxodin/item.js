@@ -68,6 +68,9 @@ export function createItemWsRouter(rootItem, basePath = '/ws') {
          const key = item.path.join('/');
          if (subscriptions.has(key)) return;
          const listener = ({ target, detail }) => {
+
+            if (!detail?.options?.local) return;
+
             // Simple payloads only — clients apply the exact change locally.
             const payload = { type: 'update', path: target.path };
             if (detail.add)             payload.add = detail.add.key;

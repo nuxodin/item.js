@@ -36,8 +36,9 @@ export function createItemRouter(rootItem, basePath = '') {
             const newItem = await rootItem.sub(path).add(await request.json());
             return jsonResponse({ success: true, key: newItem.key });
         },
-        async OPTIONS({ path }) {
-            return jsonResponse({ methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], path });
+        async OPTIONS() {
+            const headers = new Headers({'Access-Control-Max-Age': '86400'});
+            return new Response(null, { status: 204, headers });
         },
     };
 

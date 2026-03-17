@@ -162,11 +162,10 @@ Difference from `set({local:true})`: goes directly through `io`, sets TTL cache,
 ## Change Events (async-relevant)
 
 ```js
-item.addEventListener('change', e => {
-    const { pending, error, value } = e.detail
+item.addEventListener('change', ({ pending, error, value }) => {
     if (pending) // reader/writer is running
     if (error)   // failed
-    if ('value' in e.detail) // value changed
+    if (value !== undefined) // value changed
 })
 ```
 

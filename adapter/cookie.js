@@ -1,3 +1,5 @@
+// @ts-check
+
 import { Item } from '../item.js';
 
 class CookieItem extends Item {

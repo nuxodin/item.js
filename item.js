@@ -1,4 +1,3 @@
-
 import { toProxy, $item } from "./src/proxy.js";
 import { asyncIteratorFromEventTarget, Emitter, ItemEvent, } from "./src/Emitter.js";
 import { AsyncDataPoint } from "./src/AsyncDataPoint.js";
@@ -7,62 +6,51 @@ export { effect, $item };
 
 const EMPTY_ARRAY = Object.freeze([]);
 
-/**
- * Class representing an item.
- * @extends Emitter
- */
 export class Item extends Emitter {
+    
     #value;
-    #parent;
-    #key;
+    #parent = null;
+    #key = null;
     #path;
     #root;
-    #isObject = null; // null:filled, true:object, false:primitive value
+    #isObject = null; // null:not filled, true:object, false:primitive value
     #isSetting = false;
-
+    
     constructor(parent, key) {
         super();
-        this.#parent = parent;
-        this.#key = key;
+        this.#parent = parent ?? null
+        this.#key = key ?? null;
     }
 
-    get key() { return this.#key; }
-    get parent() { return this.#parent; }
-    get filled() { return this.#isObject !== null; }
+    get key()        { return this.#key; }
+    get parent()     { return this.#parent; }
+    get filled()     { return this.#isObject !== null; }
+    get isObject()   { return this.#isObject; }
     set value(value) { this.set(value); }
-    get value() { return this.get(); }
-    get isObject() { return this.#isObject; }
+    get value()      { return this.get(); }
 
     get(options) {
         dispatch(this, 'get', { value: this.#value });
         track(this);
         return this.$get(options);
     }
+
     set(value, options) {
         if (this.#isSetting) throw new Error("circular set");
         this.#isSetting = true;
-        const detail = { oldValue: this.#value, value, options };
-        const obj = dispatch(this, "set", detail);
-        let ioPromise = null;
-        if (!obj.defaultPrevented) {
-            this.$set(detail.value, options);
-            if (!options?.local && this.writer) ioPromise = this.io.set(value);
+        const event = dispatch(this, "set", {oldValue: this.#value, value, options});
+        let ioPromise = undefined;
+        if (!event.defaultPrevented) {
+            value = event.value;
+            this.$set(value, options);
+            if (this.writer && !options?.local) ioPromise = this.io.set(value);
         }
         this.#isSetting = false;
         return ioPromise; // what about nested items? await also?
     }
+
     patch(value) { return this.set(value, { patch: true }); }
 
-    $get(options) {
-        if (!this.#isObject) return this.#value;
-        const depth = options?.depth ?? Infinity;
-        const value = this.#value ??= Object.create(null);
-        const result = Object.create(null);
-        for (const key in value) {
-            result[key] = depth > 1 ? value[key].get({ ...options, depth: depth - 1 }) : null;
-        }
-        return result;
-    }
     $set(value, options) {
         const oldValue = this.#value;
 
@@ -72,7 +60,7 @@ export class Item extends Emitter {
                 if (this.#isObject) this.#clearChildren();
                 this.#value = value;
                 this.#isObject = false;
-                dispatch(this, "change", { oldValue, value });
+                dispatch(this, "change", { oldValue, value, options });
             }
         } else {
             this.#ensureObject();
@@ -84,12 +72,23 @@ export class Item extends Emitter {
             }
             if (!options?.patch) {
                 for (const key in this.#value) {
-                    entries.some(([k]) => k === key) || this.#value[key].remove(options);
+                    (key in value) || this.#value[key].remove(options);
                 }
             }
         }
     }
 
+    $get(options) {
+        if (!this.#isObject) return this.#value;
+        const depth = options?.depth ?? Infinity;
+        const value = this.#value ??= Object.create(null); // kann eigentlich nicht null/undefined sein.
+        const result = Object.create(null);
+        for (const key in value) {
+            result[key] = depth > 1 ? value[key].get({ ...options, depth: depth - 1 }) : null;
+        }
+        return result;
+    }
+    
     clear() {
         if (this.#isObject) this.#clearChildren();
         this.#value = undefined;
@@ -102,10 +101,7 @@ export class Item extends Emitter {
     /* object related */
 
     #clearChildren() {
-        for (const child of Object.values(this.#value)) {
-            //child.dead = true; not used for now
-            child.clear();
-        }
+        for (const child of Object.values(this.#value)) child.clear();
     }
 
     #ensureObject() {
@@ -158,11 +154,10 @@ export class Item extends Emitter {
         track(this);
         return this.#isObject && key in this.#value ? this.item(key) : undefined;
     }
+
     has(...keys) {
         let current = this;
-        for (const key of keys.flat()) {
-            if (!(current = current.#has(key))) return;
-        }
+        for (const key of keys.flat()) if (!(current = current.#has(key))) return;
         return current;
     }
 
@@ -171,7 +166,7 @@ export class Item extends Emitter {
         return this.#isObject ? Object.keys(this.#value ?? {}) : EMPTY_ARRAY;
     }
 
-    get path() { return this.#path ??= this.#parent == null ? EMPTY_ARRAY : [...this.#parent.path, this.key]; }
+    get path() { return this.#path ??= this.#parent == null ? EMPTY_ARRAY : [...this.#parent.path, this.#key]; }
 
     get root() { return this.#root ??= this.#parent?.root ?? this; }
 
@@ -185,7 +180,8 @@ export class Item extends Emitter {
         return Object.values(this.#value);
     }
 
-    /* AsyncDataPoint */
+    /* Async */
+
     #io = null;
 
     get io() {
@@ -223,7 +219,7 @@ export class Item extends Emitter {
         const abortCtrl = new AbortController();
         const iterator = asyncIteratorFromEventTarget(this, "change", { signal: abortCtrl.signal });
         this.read().then(() => abortCtrl.abort()); // hm... read will call get but should only create direct child-items...
-        for await (const { detail: { add } } of iterator) {
+        for await (const { add } of iterator) {
             if (add) {
                 if (!this.isObject) return; // no longer an object (or cleared)
                 yield add;
@@ -235,15 +231,10 @@ export class Item extends Emitter {
     get pending()        { track(this); return this.#io?.isPending ?? false; }
     get error()          { track(this); return this.#io?.lastError ?? undefined; }
 
-
     /* JSON Schema */
 
     #schema = null;
 
-    /**
-     * Assign a JSON Schema to this item. Throws if any ancestor already has a schema.
-     * @param {Object} schema - A valid JSON Schema object.
-     */
     setSchema(schema) {
         for (let p = this.#parent; p; p = p.#parent) {
             if (p.#schema) throw new Error(`ancestor "${p.path.join('.')}" already has a schema`);
@@ -251,32 +242,23 @@ export class Item extends Emitter {
         this.#schema = schema;
     }
 
-    /**
-     * The effective JSON Schema for this item, inherited from the nearest ancestor schema
-     * via properties, items, or additionalProperties traversal.
-     * @type {Object|null}
-     */
     get schema() {
         if (this.#schema != null) return this.#schema;
         const parentSchema = this.#parent?.schema;
         if (!parentSchema) return null;
         return parentSchema.properties?.[this.#key] ?? parentSchema.items ?? parentSchema.additionalProperties ?? null;
     }
-    set schema(v) { throw new Error('use setSchema() to assign a schema'); }
 
+    set schema(v) { throw new Error('use setSchema() to assign a schema'); }
 
     /* misc */
 
     get proxy() { return toProxy(this); }
 
-    toJSON() { return this.get(); }
-    valueOf() { return this.get(); }
-
+    toJSON()   { return this.get(); }
+    valueOf()  { return this.get(); }
     toString() {
-        if (this.#isObject) {
-            track(this); // needed: item could change from object to primitive
-            return this.#key ?? "";
-        }
+        if (this.#isObject) { track(this); return this.#key ?? ""; }
         return String(this.get() ?? "");
     }
 
@@ -296,35 +278,22 @@ export class Item extends Emitter {
         return t !== 'object' && t !== 'function' || value === null;
     }
 
-    static equals(a, b) { return Object.is(a, b); } // question: should use deepEqual as "primitive" can be an object?
+    static equals(a, b) { return Object.is(a, b); }
 
     static ChildClass;
 }
 
-/**
- * Create a new Item instance.
- * @param {any} [value] - The initial value.
- * @return {Item} A new Item instance.
- */
 export function item(...args) {
     const v = new Item();
     if (args.length > 0) v.set(args[0]);
     return v;
 }
 
-
-/**
- * Dispatch a custom event on the item and its ancestors.
- * @param {Item} item - The item to dispatch the event on.
- * @param {string} eventName - The name of the event. eventName+"In" will be dispatched on the ancestors. (bubbles)
- * @param {Object} detail - The event details.
- * @return {Object} An object containing a `defaultPrevented` property.
- */
-export function dispatch(item, eventName, detail) {
-    const event = new ItemEvent(eventName, detail);
+export function dispatch(item, eventName, options) {
+    const event = new ItemEvent(eventName, options);
     item.dispatchEvent(event);
-    if (eventName === 'change') notify(item);  // ← direkt hier
+    if (eventName === 'change') notify(item);
     event.type = eventName+'In'; // reuse event object
     for (let i = item; i; i = i.parent) i.dispatchEvent(event);
-    return { defaultPrevented: event.defaultPrevented };
+    return event;
 }

@@ -1,4 +1,5 @@
 import { Hono } from 'jsr:@hono/hono';
+import { serveStatic } from 'jsr:@hono/hono/deno';
 import { createItemRouter } from '../../tools/httpRouter.js';
 import { createItemWsRouter } from '../../tools/wsDenoRouter.js';
 import { createDbAdmin } from './dbAdmin.js';
@@ -14,18 +15,11 @@ const wsRouter = createItemWsRouter(db, '/ws');
 
 app.get('/', async c => c.html(await Deno.readTextFile(indexHtml)));
 app.get('/health', c => c.json({ ok: true }));
-
 app.all('/api/*', c => httpRouter(c.req.raw));
-
-app.get('/__repo/*', async c => {
-    const rel = c.req.path.slice('/__repo/'.length);
-    if (!/^[a-zA-Z0-9_./-]+$/.test(rel) || rel.includes('..')) return c.text('Bad path', 400);
-    const fileUrl = new URL(rel, repoRoot);
-    const source = await Deno.readTextFile(fileUrl);
-    const type = rel.endsWith('.js') ? 'text/javascript' : 'text/plain';
-    return new Response(source, { headers: { 'content-type': type } });
-});
-
+app.use('/__repo/*', serveStatic({
+  root: '../../', // root: new URL('../../', import.meta.url).pathname ??
+  rewriteRequestPath: (path) => path.replace(/^\/__repo/, ''),  // /__repo/foo.js → /foo.js
+}));
 app.onError((error, c) => c.json({ error: error.message }, 500));
 
 console.log(`dbAdmin: http://localhost:${port}`);

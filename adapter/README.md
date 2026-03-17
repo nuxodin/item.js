@@ -169,7 +169,7 @@ const ws = createItemClient('ws://localhost:3000/ws');
 
 // Real-time updates
 ws.item('chat').item('messages').addEventListener('changeIn', (e) => {
-    console.log('New message:', e.detail);
+    console.log('New message:', e);
 });
 
 // Set value (immediately sent to server)

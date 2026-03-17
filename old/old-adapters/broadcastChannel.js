@@ -15,10 +15,9 @@ export function broadcastChannelItem({channelName='item.js-default channel',init
 
     root.addEventListener('changeIn', e => {
         if (byMe) return;
-        const {add, remove, value} = e.detail;
-        const item = e.target;
+        const {target, add, remove, value} = e;
         byMe = true;
-        channel.postMessage({path: item.path, add: add?.key, remove: remove?.key, value});
+        channel.postMessage({path: target.path, add: add?.key, remove: remove?.key, value});
         byMe = false;
     });
 

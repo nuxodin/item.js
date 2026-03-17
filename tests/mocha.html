@@ -47,13 +47,13 @@ describe('primitive value', () => {
         let i = item(22);
         chai.expect(JSON.stringify(i)).to.equal('22');
     });
-    it('.parent is undefined', () => {
+    it('.parent is null', () => {
         let i = item(22);
-        chai.expect(i.parent).to.equal(undefined);
+        chai.expect(i.parent).to.equal(null);
     });
-    it('.key is undefined', () => {
+    it('.key is null', () => {
         let i = item(22);
-        chai.expect(i.key).to.equal(undefined);
+        chai.expect(i.key).to.equal(null);
     });
     it('change value', () => {
         let i = item(22);
@@ -222,18 +222,18 @@ describe('object value', () => {
 });
 
 describe('events', () => {
-    it('event.details.oldValue', done => {
+    it('event.oldValue', done => {
         let i = item(1);
         i.addEventListener('set', e => {
-            chai.expect(e.detail.oldValue).to.equal(1);
+            chai.expect(e.oldValue).to.equal(1);
             done();
         });
         i.value = 2;
     });
-    it('event.details.value', done => {
+    it('event.value', done => {
         let i = item(1);
         i.addEventListener('set', e => {
-            chai.expect(e.detail.value).to.equal(2);
+            chai.expect(e.value).to.equal(2);
             done();
         });
         i.value = 2;
@@ -298,12 +298,37 @@ describe('events', () => {
         let i = item(1);
         let changeTriggered = false;
         i.addEventListener('change', e => {
-            console.log(e)
             changeTriggered = true;
         });
         i.value = {};
         chai.expect(changeTriggered).to.equal(true);
     });
+
+    it('ItemEvent.toJSON serializes correctly', () => {
+        const i = item({a:2});
+        let captured;
+        i.addEventListener('changeIn', e => captured = e);
+        i.item('a').set(3);
+        const json = captured.toJSON();
+        chai.expect(json.value).to.equal(3);
+        chai.expect(json.path).to.deep.equal(['a']);
+    });
+
+    it('ItemEvent.toJSON includes add key on child creation', () => {
+        const i = item({});
+        let captured;
+        i.addEventListener('change', e => { if (e.add) captured = e; });
+        i.item('foo');
+        const json = captured.toJSON();
+        chai.expect(json.add).to.equal('foo');
+    });
+
+    it('preventDefault stops $set from being called', () => {
+        const i = item(1);
+        i.addEventListener('set', e => e.preventDefault());
+        i.set(99);
+        chai.expect(i.value).to.equal(1);
+    });    
 
 });
 
@@ -580,8 +605,9 @@ describe('proxy', () => {
         it('convert to number', () => {
             chai.expect(item(9).proxy + 0).to.equal(9);
             chai.expect(+item("9").proxy).to.equal(9);
-            chai.expect(+item({ a: 1 }).proxy).to.be.NaN;
+            chai.expect(+item({ a: 1 }).proxy).to.equal(0);
             chai.expect(+item({ '9': { x: 1 } }).proxy['9']).to.equal(9);
+            chai.expect(+item({ 'not number': {} }).proxy['not number']).to.be.NaN;
             chai.expect(+item(true).proxy).to.equal(1);
             chai.expect(+item(false).proxy).to.equal(0);
             chai.expect(+item(null).proxy).to.equal(0);
@@ -796,29 +822,28 @@ describe('promise handling', () => {
 
     it('change event contains correct oldValue after promise resolves', async () => {
         let i = item(100);
-        let eventDetail;
-        i.addEventListener('change', e => eventDetail = e.detail);
+        let event;
+        i.addEventListener('change', e => event = e);
 
         i.promise = Promise.resolve(200);
         await new Promise(resolve => setTimeout(resolve, 0));
 
-        chai.expect(eventDetail.oldValue).to.equal(100);
-        chai.expect(eventDetail.value).to.equal(200);
+        chai.expect(event.oldValue).to.equal(100);
+        chai.expect(event.value).to.equal(200);
     });
 
-    /*
-    it('change event contains correct oldValue after promise rejects', async () => {
+    it('todo? change event contains correct oldValue after promise rejects', async () => {
         let i = item(100);
-        let eventDetail;
-        i.addEventListener('change', e => eventDetail = e.detail);
+        let event;
+        i.addEventListener('change', e => event = e);
         
         i.promise = Promise.reject(new Error('test'));
         await new Promise(resolve => setTimeout(resolve, 0));
         
-        chai.expect(eventDetail.oldValue).to.equal(100);
-        chai.expect(eventDetail.value).to.equal(100); // bleibt gleich bei error
+        chai.expect(event.oldValue).to.equal(100);
+        chai.expect(event.value).to.equal(100); // bleibt gleich bei error
     });
-    */
+
 });
 
 
@@ -998,7 +1023,7 @@ describe('add()', () => {
     it('add() fires change event on parent', async () => {
         const i = item()
         let added = null
-        i.addEventListener('change', e => { if (e.detail.add) added = e.detail.add })
+        i.addEventListener('change', e => { if (e.add) added = e.add })
         const child = await i.add({ name: 'Hans' })
         chai.expect(added).to.equal(child)
     })
@@ -1047,7 +1072,7 @@ describe('remove({local})', () => {
     it('remove() fires change event on parent', async () => {
         const i = item({ a: 1 })
         let removed = null
-        i.addEventListener('change', e => { if (e.detail.remove) removed = e.detail.remove })
+        i.addEventListener('change', e => { if (e.remove) removed = e.remove })
         const child = i.item('a')
         await child.remove()
         chai.expect(removed).to.equal(child)
