@@ -25,12 +25,6 @@ function resolveRef(ref, item) {
         if (part === '#') anchor = getSchemaRoot(item); // schema-root, besser!?
         else if (part === '..') anchor = anchor.parent;
         else if (part === '.') {}
-        else if (part === '$') {
-            const value = anchor.get();
-            if (value == undefined) return undefined;
-            if (typeof value === 'object') console.error('x-dataref: value is object', anchor.path, value);
-            anchor = anchor.item(item.value);
-        }
         else anchor = anchor.item(part);
     }
     return anchor;
@@ -46,14 +40,10 @@ function resolveRef(ref, item) {
 export function resolveDataRef(item) {
     const xref = item.schema?.['x-dataref'];
     if (!xref) return undefined;
-    // $ abschneiden für parent, behalten für refItem
     const hasValueRef = xref.endsWith('/$');
     const parentRef = hasValueRef ? xref.slice(0, -2) : xref;
-    
     const parent = resolveRef(parentRef, item);
-    if (typeof item.value == 'object') console.error('x-dataref: value is object', item.path, item.get());
-    const refItem = parent?.has(String(item.value));
-    
+    const refItem = parent?.has(item);
     return { parent, refItem };
 }
 

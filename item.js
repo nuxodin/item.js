@@ -62,7 +62,6 @@ export class Item extends Emitter {
 
             if (this.writer && !options?.local) {
                 const realValue = this.get({ silent: true });
-console.log('set remote:', realValue, this.path);
                 ioPromise = this.io.set(realValue);
             }
 

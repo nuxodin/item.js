@@ -250,7 +250,6 @@ async function retryAsync(fn, retries = 2, baseDelay = 1000) {
         try {
             return await fn();
         } catch (error) {
-            // @ts-ignore
             if (error?.name === 'AbortError') return;
             lastError = error;
             if (attempt < retries) {

@@ -48,7 +48,6 @@ export class ItemEvent {
             remove: this.remove?.key,
             pending: this.pending,
             error: this.error?.message,
-            options: this.options,
             value: this.value,
         }
     }

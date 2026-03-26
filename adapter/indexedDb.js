@@ -93,7 +93,7 @@ class Table extends Item { // store
                     if (field.primary) this.#primaries.set(name, field);
                 }
             } else {
-                console.log("no scheme for table", this.key);
+                console.log("no schema for table", this.key);
                 // fields() should not be async
                 // // Fallback: aus DB auslesen
                 // const store = await this.store();
