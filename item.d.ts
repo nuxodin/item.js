@@ -51,7 +51,6 @@ export class Item extends Emitter {
     // Misc
     readonly proxy: any;
     toJSON(): any;
-    valueOf(): any;
     toString(): string;
     [Symbol.toPrimitive](hint: "string" | "number" | "default"): any;
 

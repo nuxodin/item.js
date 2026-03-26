@@ -14,12 +14,10 @@
 
 import {local} from "../adapter/storage.js";
 
-local.item('random').addEventListener('change', ({detail}) => {
-    document.body.insertAdjacentHTML('beforeend', 'change localStorageItem, old: '+detail.oldValue+', new:'+detail.value+'<br>');
+local.item('random').addEventListener('change', event => {
+    document.body.insertAdjacentHTML('beforeend', 'change localStorageItem, old: '+event.oldValue+', new:'+event.value+'<br>');
 });
 
 local.item('random').value = Math.random().toString();
-
-
 
 </script>

@@ -13,11 +13,11 @@ export function collectChanges(rootItem, onchange) {
 
     const startPathLevel = rootItem.path.length;
 
-    rootItem.addEventListener('changeIn', e => {
-        const {value, remove, add} = e.detail;
+    rootItem.addEventListener('changeIn', event => {
+        const {target, value, remove, add} = event;
         if (add) return; // will be handled if the value is set (an other changeIn event)
 
-        const relativePath = e.target.path.slice(startPathLevel);
+        const relativePath = target.path.slice(startPathLevel);
         const path = ['changes', ...relativePath];
         const last = path.pop();
 

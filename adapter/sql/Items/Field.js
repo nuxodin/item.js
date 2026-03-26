@@ -11,6 +11,7 @@ export class Field {
 
         // todo: user this.table.schema.additionalProperties.properties[this.name]
         //if (typeof value === 'object' && typeof value.valueOf === 'function') value = value.valueOf(); // what about date?
+        //if (typeof value === 'object' && typeof value[Symbol.toPrimitive] === 'function') value = value[Symbol.toPrimitive]('string');
 
         if (!schema.required) {
             if (value == null) return null;

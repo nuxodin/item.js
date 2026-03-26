@@ -192,7 +192,7 @@ describe('Collection: events', () => {
         const root = item();
         const c = new Collection(root, { active: true });
         const added = [];
-        c.addEventListener('change', e => { if (e.detail.add) added.push(e.detail.add.key); });
+        c.addEventListener('change', e => { if (e.add) added.push(e.add.key); });
         root.item('a').set({ active: true });
         expect(added).to.deep.equal(['a']);
     });
@@ -202,7 +202,7 @@ describe('Collection: events', () => {
         root.item('a').set({ active: true });
         const c = new Collection(root, { active: true });
         const removed = [];
-        c.addEventListener('change', e => { if (e.detail.remove) removed.push(e.detail.remove.key); });
+        c.addEventListener('change', e => { if (e.remove) removed.push(e.remove.key); });
         root.item('a').item('active').set(false);
         expect(removed).to.deep.equal(['a']);
     });

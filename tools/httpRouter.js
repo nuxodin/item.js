@@ -18,7 +18,8 @@ export function createItemRouter(rootItem, basePath = '') {
             if (url.searchParams.has('$schema')) return jsonResponse(item.schema ?? null);
             const query = url.searchParams.has('q') ? JSON.parse(url.searchParams.get('q')) : null;
             await item.read(query);
-            return jsonResponse(item.get({ depth: query?.depth ?? 1 }));
+            const value = item.get({ depth: query?.depth ?? 1 });
+            return jsonResponse({value, depth: query?.depth ?? 1});
         },
         async PUT({ path, request }) {
             await rootItem.sub(path).set(await request.json());

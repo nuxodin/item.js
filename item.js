@@ -18,7 +18,7 @@ export class Item extends Emitter {
     
     constructor(parent, key) {
         super();
-        this.#parent = parent ?? null
+        this.#parent = parent ?? null;
         this.#key = key ?? null;
     }
 
@@ -30,10 +30,25 @@ export class Item extends Emitter {
     get value()      { return this.get(); }
 
     get(options) {
-        dispatch(this, 'get', { value: this.#value });
-        track(this);
+        if (!options?.silent) {
+            dispatch(this, 'get', { value: this.#value });
+            track(this);
+        }
         return this.$get(options);
     }
+
+    $get(options) {
+        if (!this.#isObject) return this.#value;
+        const depth = options?.depth ?? Infinity;
+        const value = this.#value;
+        const result = Object.create(null);
+        for (const key in value) {
+            result[key] = depth > 1 ? value[key].get({ ...options, depth: depth - 1 }) : null;
+        }
+        return result;
+    }
+
+    peek() { return this.get({ silent: true }); }
 
     set(value, options) {
         if (this.#isSetting) throw new Error("circular set");
@@ -42,8 +57,15 @@ export class Item extends Emitter {
         let ioPromise = undefined;
         if (!event.defaultPrevented) {
             value = event.value;
-            this.$set(value, options);
-            if (this.writer && !options?.local) ioPromise = this.io.set(value);
+
+            this.$set(value, { ...options, local: options?.local || !!this.writer }); // children "local only" if i have a writer
+
+            if (this.writer && !options?.local) {
+                const realValue = this.get({ silent: true });
+console.log('set remote:', realValue, this.path);
+                ioPromise = this.io.set(realValue);
+            }
+
         }
         this.#isSetting = false;
         return ioPromise; // what about nested items? await also?
@@ -78,24 +100,12 @@ export class Item extends Emitter {
         }
     }
 
-    $get(options) {
-        if (!this.#isObject) return this.#value;
-        const depth = options?.depth ?? Infinity;
-        const value = this.#value ??= Object.create(null); // kann eigentlich nicht null/undefined sein.
-        const result = Object.create(null);
-        for (const key in value) {
-            result[key] = depth > 1 ? value[key].get({ ...options, depth: depth - 1 }) : null;
-        }
-        return result;
-    }
-    
     clear() {
         if (this.#isObject) this.#clearChildren();
-        this.#value = undefined;
-        this.#isObject = null;
         this.#io?.dispose();
-        this.#io = null;
         this.removeAllListeners();
+        this.#value = undefined;
+        this.#isObject = this.#io = this.#path = this.#root = null;        
     }
 
     /* object related */
@@ -106,7 +116,7 @@ export class Item extends Emitter {
 
     #ensureObject() {
         if (!this.#isObject) {
-            dispatch(this, "change", { oldValue:this.#value, value:null }); // null ok?
+            //dispatch(this, "change", { oldValue:this.#value, value:null }); // null ok?
             this.#value = Object.create(null);
             this.#isObject = true;
         }
@@ -139,7 +149,7 @@ export class Item extends Emitter {
     async remove(options) {
         if (!this.#parent) throw new Error("cannot remove root item");
         delete this.#parent.#value[this.#key];
-        dispatch(this.#parent, "change", { remove: this });
+        dispatch(this.#parent, "change", { remove: this, options });
         if (this.remover && !options?.local) await this.remover();
         this.clear();
     }
@@ -190,10 +200,10 @@ export class Item extends Emitter {
                 get: (signal) => this.reader(null, {signal}),
                 set: (v, signal) => this.writer(v, {signal}),
             });
+            if (this.#parent?.#io) this.#io.options = this.#parent.#io.options;
             this.#io.onchange = ({value, error}) => {
                 if (error) return dispatch(this, "change", { error });
-                if (value === undefined) return; // reader adds subitems by itself
-                this.set(value, {patch: true, local: true});
+                this.#onReceiveData(value);
             }
             this.#io.onpending = () => dispatch(this, "change", { pending: true });
         }
@@ -201,15 +211,23 @@ export class Item extends Emitter {
     }
 
     async read(query) {
-        if (!query) return (this.reader || this.#io?.isPending) ? await this.io.get() : false;
-        if (!this.reader) throw new Error('[item.js] read(query) requires a reader')
-        const data = await this.reader(query);
-        //if (data !== undefined) this.set(data, { local: true, depth: query?.depth??1 }); 
-        // open falsch, depth sollte remote definiert werden (im idealfall so wie geschickt zurück kommen)
-        //if (query?.depth && query.depth !== data.depth) console.log("reader depth mismatch", query.depth, data.depth);
-        if (data !== undefined) this.set(data, { local: true, depth: 1 });
+        return (this.reader || this.#io?.isPending) ? await this.io.get() : false;
+        // querys cant be used with io, because io is always the whole data
+        // if (!query) return (this.reader || this.#io?.isPending) ? await this.io.get() : false;
+        // if (!this.reader) throw new Error('[item.js] read(query) requires a reader');
+        // const data = await this.reader(query);
+        // this.#onReceiveData(data);
     }
-
+    #onReceiveData(data) {
+        // if (query?.depth && query.depth !== data.depth) console.log("reader depth mismatch", query.depth, data.depth);
+        if (data === undefined) return;
+        if (data?.depth !== undefined && data?.value !== undefined) {
+            const depth = data.depth === true ? Infinity : data.depth;
+            this.set(data.value, { local: true, depth });
+        } else {
+            this.set(data, { local: true, depth: 1 });
+        }
+    }
     async *[Symbol.asyncIterator]() {
         for (const item of Object.values(this.#value ?? {})) {
             if (!this.isObject) return; // no longer an object (or cleared)
@@ -218,7 +236,7 @@ export class Item extends Emitter {
         if (!this.isObject) return; // no longer an object (or cleared)
         const abortCtrl = new AbortController();
         const iterator = asyncIteratorFromEventTarget(this, "change", { signal: abortCtrl.signal });
-        this.read().then(() => abortCtrl.abort()); // hm... read will call get but should only create direct child-items...
+        this.read().then(() => abortCtrl.abort());
         for await (const { add } of iterator) {
             if (add) {
                 if (!this.isObject) return; // no longer an object (or cleared)
@@ -244,9 +262,16 @@ export class Item extends Emitter {
 
     get schema() {
         if (this.#schema != null) return this.#schema;
-        const parentSchema = this.#parent?.schema;
-        if (!parentSchema) return null;
-        return parentSchema.properties?.[this.#key] ?? parentSchema.items ?? parentSchema.additionalProperties ?? null;
+        const p = this.#parent?.schema;
+        if (!p) return null;
+        const k = this.#key;
+        return (
+            p.properties?.[k] ??
+            Object.entries(p.patternProperties ?? {}).find(([pat]) => new RegExp(pat).test(k))?.[1] ??
+            (/^\d+$/.test(k) ? p.items : undefined) ??
+            p.additionalProperties ??
+            null
+        );
     }
 
     set schema(v) { throw new Error('use setSchema() to assign a schema'); }
@@ -256,17 +281,15 @@ export class Item extends Emitter {
     get proxy() { return toProxy(this); }
 
     toJSON()   { return this.get(); }
-    valueOf()  { return this.get(); }
     toString() {
         if (this.#isObject) { track(this); return this.#key ?? ""; }
         return String(this.get() ?? "");
     }
-
+    valueOf() { return this[Symbol.toPrimitive](); }
     [Symbol.toPrimitive](hint) {
         if (hint === "string") return this.toString();
         const value = this.#isObject ? this.#key : this.get();
-        if (hint === "number") return Number(value);
-        return this.#value;
+        return hint === "number" ? Number(value) : value;
     }
 
     ChildClass = this.constructor.ChildClass;

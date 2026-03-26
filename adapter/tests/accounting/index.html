@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Buchhaltung</title>
+<script type=module async src="https://cdn.jsdelivr.net/gh/u2ui/u2@main/u2/auto.js"></script>
+<style>
+html {
+    font-size: 13px;
+    --width: 120rem;
+    color-scheme: light dark;
+    --color: #885FA5;
+}
+body { display: flex; height: 100dvh; overflow: hidden; }
+
+nav {
+    width: 210px; flex-shrink: 0;
+    background: var(--color-background-primary, #fff);
+    border-right: 0.5px solid var(--color-border-tertiary, #e0e0e0);
+    display: flex; flex-direction: column; overflow-y: auto;
+}
+.logo {
+    padding: 16px 14px 12px; font-weight: 500; font-size: 14px;
+    border-bottom: 0.5px solid var(--color-border-tertiary, #e0e0e0);
+    display: flex; align-items: center; gap: 8px;
+}
+nav section { padding: 8px 0; border-bottom: 0.5px solid var(--color-border-tertiary, #e0e0e0); }
+nav section > label {
+    display: block; font-size: 10px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.07em; color: var(--color-text-tertiary, #aaa); padding: 2px 14px 4px;
+}
+nav a {
+    display: flex; align-items: center; gap: 8px; padding: 6px 14px;
+    text-decoration: none; color: var(--color-text-secondary, #555); font-size: 13px;
+}
+nav a:hover { background: var(--color-background-secondary, #f5f5f3); color: var(--color-text-primary); }
+nav a.active { background: var(--color-lighter); color: var(--color-dark); font-weight: 500; }
+nav a i { width: 15px; text-align: center; font-style: normal; font-size: 13px; }
+.nav-bottom {
+    margin-top: auto; padding: 10px 14px;
+    border-top: 0.5px solid var(--color-border-tertiary, #e0e0e0);
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--color-text-secondary, #666);
+}
+.avatar {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: #B5D4F4; color: #0C447C;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 500; flex-shrink: 0;
+}
+
+main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.topbar {
+    background: var(--color-background-primary, #fff);
+    border-bottom: 0.5px solid var(--color-border-tertiary, #e0e0e0);
+    padding: 0 20px; height: 48px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0;
+}
+.topbar h1 { font-size: 14px; font-weight: 500; }
+.topbar .actions { display: flex; gap: 8px; align-items: center; }
+.content { flex: 1; overflow-y: auto; padding: 20px; }
+
+.card {
+    background: var(--color-background-primary, #fff);
+    border: 0.5px solid var(--color-border-tertiary, #e0e0e0);
+    border-radius: 10px; overflow: hidden;
+}
+.card-header {
+    padding: 12px 16px;
+    border-bottom: 0.5px solid var(--color-border-tertiary, #e0e0e0);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    & h2 { font-size: 13px; font-weight: 500; }
+}
+
+button {
+    border: .5px solid var(--color);
+    color: var(--color);
+    background: transparent;
+    border-radius: .3rem;
+    font-size: 12px; 
+    color: var(--color-text, #111);
+}
+:is(button, .btn):not(:disabled):where(:hover, :focus, [aria-pressed="true"]) {
+    background-color: var(--color-lighter);
+}
+.btn-primary { background: var(--color-dark); border-color: var(--color-darker); color:#fff; }
+.btn-primary:hover { background: var(--color-darker); }
+.btn-del { padding: 2px 8px; font-size: 11px; color: #A32D2D; border-color: #F7C1C1; }
+.btn-del:hover { background: #FCEBEB; }
+
+input[type=search], select.toolbar-sel {
+    padding: 4px 8px;
+    border: 0.5px solid var(--color-border-secondary, #ccc);
+    border-radius: 6px; font-size: 12px;
+    background: var(--color-background-primary, #fff);
+    color: var(--color-text-primary);
+}
+
+/* Table — inline-editable */
+.tbl-wrap { overflow-x: auto; }
+th {
+    text-align: left; padding: 8px 12px;
+    font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--color-text-secondary, #888);
+    border-bottom: 0.5px solid var(--color-border-tertiary, #e0e0e0);
+    white-space: nowrap;
+}
+td { padding: 5px 12px; border-bottom: 0.5px solid var(--color-border-tertiary, #e0e0de); }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--color-background-secondary, #f9f9f7); }
+td :is(input, select, textarea) {
+    width: 100%; min-width: 80px;
+    border: 0.5px solid transparent; border-radius: 4px;
+    padding: .2rem .4rem; font-size: 13px;
+    background: transparent; color: var(--color-text-primary);
+
+    &:hover { border-color: var(--color-border-secondary, #ccc); }
+    &:focus {
+        outline: none; border-color: #185FA5;
+        background: var(--color-background-primary, #fff);
+        &:is(textarea) {
+            height: 8em;
+            margin:auto;
+        }
+    }
+
+}
+textarea {
+    transition:height .2s;
+    height:1.8em;
+}
+td input[type=checkbox] { min-width: unset; }
+
+:where(input, textarea, select) {
+    &[state="saving"] {
+        cursor: wait;
+        animation: pulse-blue 1s infinite alternate;
+    }
+
+    &[state="saved"] {
+        animation: flash-green 0.8s ease-out forwards;
+    }
+
+    &[state="error"] {
+        box-shadow: 0 0 5px 2px rgba(231, 76, 60, 0.6); /* Rot bei Fehler */
+    }
+}
+    /* Animationen */
+    @keyframes pulse-blue {
+        from { box-shadow: 0 0 2px 1px rgba(52, 152, 219, 0.3); }
+        to { box-shadow: 0 0 8px 2px rgba(52, 152, 219, 0.6); }
+    }
+
+    @keyframes flash-green {
+        0% { box-shadow: 0 0 0 0px rgba(46, 204, 113, 0); }
+        30% { box-shadow: 0 0 10px 2px rgba(46, 204, 113, 0.7); }
+        100% { box-shadow: 0 0 0 0px rgba(46, 204, 113, 0); }
+    }
+
+
+/* Dialog */
+dialog {
+    border: 0.5px solid var(--color-border-secondary, #ccc);
+    border-radius: .8rem;
+    box-shadow: var(--shadow);
+    min-width: 20rem;
+}
+dialog::backdrop { background: rgba(0,0,0,.35); }
+.dlg-head { padding: 14px 18px; font-weight: 500; font-size: 14px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.dlg-body { padding: 16px 18px; }
+.dlg-foot { padding: 10px 18px; border-top: 0.5px solid var(--color-border-tertiary); display: flex; justify-content: flex-end; gap: 8px; }
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field { display: flex; flex-direction: column; gap: 3px; }
+.field.full { grid-column: 1/-1; }
+.field label { font-size: 11px; color: var(--color-text-secondary, #777); }
+.field input, .field select {
+    padding: 5px 8px;
+    border: 0.5px solid var(--color-border-secondary, #ccc);
+    border-radius: 6px; font-size: 12.5px;
+    background: var(--color-background-primary); color: var(--color-text-primary);
+}
+
+.empty { padding: 40px 20px; text-align: center; color: var(--color-text-tertiary, #aaa); font-size: 13px; }
+.count { font-weight: 400; color: var(--color-text-tertiary); margin-left: 6px; }
+</style>
+</head>
+<body>
+
+<nav>
+    <div class="logo">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+            <rect x="2" y="2" width="7" height="7" rx="1.5" fill="#185FA5"/>
+            <rect x="11" y="2" width="7" height="7" rx="1.5" fill="#185FA5" opacity=".4"/>
+            <rect x="2" y="11" width="7" height="7" rx="1.5" fill="#185FA5" opacity=".4"/>
+            <rect x="11" y="11" width="7" height="7" rx="1.5" fill="#185FA5"/>
+        </svg>
+        Buchhaltung
+    </div>
+    <section>
+        <label>Buchungen</label>
+        <a href="#" data-store="entry"         ><i>≡</i> Journal</a>
+        <a href="#" data-store="entry_line"    ><i>⊟</i> Buchungszeilen</a>
+        <a href="#" data-store="invoice"       ><i>◳</i> Rechnungen</a>
+        <a href="#" data-store="invoice_line"  ><i>◱</i> Rechnungszeilen</a>
+        <a href="#" data-store="payment"       ><i>⇄</i> Zahlungen</a>
+        <a href="#" data-store="payment_invoice"><i>⇌</i> Zahlung–Rechnung</a>
+        <a href="#" data-store="bank_statement_line"><i>⊟</i> Kontoauszug</a>
+    </section>
+    <section>
+        <label>Stammdaten</label>
+        <a href="#" data-store="account"       ><i>◈</i> Kontenplan</a>
+        <a href="#" data-store="contact"       ><i>◯</i> Kontakte</a>
+        <a href="#" data-store="product"       ><i>▦</i> Artikel</a>
+        <a href="#" data-store="tax_rate"      ><i>%</i> MWST-Sätze</a>
+        <a href="#" data-store="cost_center"   ><i>◑</i> Kostenstellen</a>
+        <a href="#" data-store="journal"       ><i>◫</i> Journale</a>
+    </section>
+    <section>
+        <label>System</label>
+        <a href="#" data-store="fiscal_year"   ><i>◷</i> Geschäftsjahre</a>
+        <a href="#" data-store="currency"      ><i>$</i> Währungen</a>
+        <a href="#" data-store="user"          ><i>◯</i> Benutzer</a>
+    </section>
+    <section>
+        <label>
+            <button id="loadDemo">Demodaten laden</button>
+        </label>
+    </section>
+
+    <div class="nav-bottom">
+        <div class="avatar">AK</div>
+        <div>
+            <div style="font-weight:500">Anna Keller</div>
+            <div style="font-size:10px;opacity:.7">Buchhalterin</div>
+        </div>
+    </div>
+</nav>
+
+<main>
+    <div class="topbar">
+        <h1 id="page-title">—</h1>
+        <div class="actions" id="topbar-actions"></div>
+    </div>
+    <div class="content" id="app"></div>
+</main>
+
+<dialog id="addDialog"></dialog>
+
+<script type=module>
+
+import { effect, item } from '../../../item.js';
+import { iDB } from "../../indexedDb.js";
+import * as view from "../../../tools/view/uhtml.js";
+import { render, html } from "https://esm.sh/uhtml@4";
+import { toInput } from "../../../tools/schema/dom/toInput.js";
+import { transform } from "../../../tools/schema/utils.js";
+
+// ── DB ───────────────────────────────────────────────────────────────────────
+const db = iDB.item('buchhaltung_v3');
+
+import schema from './schema.js';
+db.setSchema(schema);
+db.open();
+db.addEventListener('setIn', transform);
+
+loadDemo.addEventListener('click', async e => {
+    const data = await import('./demodata.js');
+    db.set(data.default);
+});
+
+await db.read();
+
+// ── UI state ─────────────────────────────────────────────────────────────────
+const ui = item({ store: 'entry', search: '' });
+const uip = ui.proxy;
+
+// ── Navigation ───────────────────────────────────────────────────────────────
+document.querySelectorAll('nav a[data-store]').forEach(a => {
+    a.addEventListener('click', e => {
+        e.preventDefault();
+        uip.store(a.dataset.store);
+        uip.search('');
+    });
+});
+
+// ── Add dialog ────────────────────────────────────────────────────────────────
+const dlg = document.getElementById('addDialog');
+
+function openAdd(store) {
+
+    const props = store.schema?.additionalProperties?.properties ?? {};
+    const fields = Object.entries(props).filter(([name]) => name !== 'id');
+
+    const onsubmit = async e => {
+        e.preventDefault();
+        const data = Object.fromEntries(
+            [...new FormData(e.target)].filter(([, v]) => v !== '')
+        );
+        await store.add(data);
+        dlg.close();
+    };
+
+    render(dlg, html`
+        <div class="dlg-head">Neuer Eintrag — ${store.schema?.title ?? store.key}</div>
+        <form class="dlg-body" onsubmit="${onsubmit}">
+            <div class="field-grid">
+                ${fields.map(([name, s]) => html`
+                    <div class="${'field '+['description','notes','content'].includes(name) ? 'full' : ''}">
+                        <label>${s.title ?? name}</label>
+                        ${toInput(s, { name })}
+                    </div>
+                `)}
+            </div>
+            <div class="dlg-foot">
+                <button type="button" onclick="${() => dlg.close()}">Abbrechen</button>
+                <button type="submit" class="btn-primary">Speichern</button>
+            </div>
+        </form>
+    `);
+    dlg.showModal();
+}
+
+// ── Main render ───────────────────────────────────────────────────────────────
+const appEl    = document.getElementById('app');
+const titleEl  = document.getElementById('page-title');
+const actionsEl = document.getElementById('topbar-actions');
+
+db.addEventListener('changeIn', event => {
+    if (event.pending) return;
+    console.log('changeIn:', JSON.stringify(event));
+})
+
+effect(() => {
+    const storeKey = uip.store();
+    const search   = uip.search();
+
+    document.querySelectorAll('nav a[data-store]').forEach(a =>
+        a.classList.toggle('active', a.dataset.store === storeKey)
+    );
+
+    const store = db.item(storeKey);
+    store.read();
+
+    titleEl.textContent = store.schema?.title ?? storeKey;
+
+    const fields = store.schema?.additionalProperties?.properties ?? {};
+    const cols = Object.entries(fields).filter(([,s]) => {return s.title}).map(([n,s]) => n);
+
+    const rows = [...store].filter(row => {
+        if (!search) return true;
+        return Object.values(row.value ?? {})
+            .some(x => String(x ?? '').toLowerCase().includes(search.toLowerCase()));
+    });
+
+    render(actionsEl, html`
+        <input type=search placeholder="Suchen…" .value="${search}" oninput="${e => uip.search(e.target.value)}" style="width:180px">
+        <button class="btn-primary" onclick="${() => openAdd(store)}">+ Hinzufügen</button>
+    `);
+
+    render(appEl, html`
+        <div class="card">
+            <div class="card-header">
+                <h2>${store.schema?.title ?? storeKey} <span class="count">${rows.length}</span></h2>
+            </div>
+            ${rows.length === 0
+                ? html`<div class="empty">Keine Einträge${search ? ` für „${search}"` : ''}</div>`
+                : html`<div class="tbl-wrap">
+                    <u2-table>
+                        <table>
+                            <thead><tr>
+                                ${cols.map(col => html`<th data-sort-handler>${fields[col].title ?? col}</th>`)}
+                                <th></th>
+                            </tr></thead>
+                        <tbody>
+                            ${rows.map(row => {
+                                row.read();                                
+                                return html`<tr>
+                                    ${cols.map(col => {
+                                        const cell = row.item(col);
+                                        //cell.read(); // cell needs no read, indexeddb fetches the hole row
+                                        const field = cachedFields.get(cell) ?? cachedFields.set(cell, view.field(cell, true)).get(cell);
+                                        return html`<td key="${col}">${field}</td>`;
+                                    })}
+                                    <td><button class="btn-del" u2-confirm="delete?" onclick="${() => row.remove()}">✕</button></td>
+                                </tr>`
+                            })}
+                        </tbody>
+                    </table>
+                </u2-table>
+                </div>`
+            }
+        </div>
+    `);
+});
+const cachedFields = new WeakMap();
+
+
+</script>
+

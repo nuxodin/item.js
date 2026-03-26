@@ -117,6 +117,42 @@ describe('additionalProperties', () => {
     });
 });
 
+
+
+describe('patternProperties', () => {
+    it('matches key against pattern', () => {
+        const root = item();
+        const uuidPattern = '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+        root.setSchema({ patternProperties: { [uuidPattern]: { type: 'object' } } });
+        expect(root.item('80ab6c46-69d2-4154-8fda-f3967297b714').schema).to.deep.equal({ type: 'object' });
+    });
+
+    it('returns null for non-matching key', () => {
+        const root = item();
+        root.setSchema({ patternProperties: { '^foo': { type: 'string' } } });
+        expect(root.item('bar').schema).to.equal(null);
+    });
+
+    it('prefers properties over patternProperties', () => {
+        const root = item();
+        root.setSchema({
+            properties: { foo: { type: 'number' } },
+            patternProperties: { '^foo': { type: 'string' } }
+        });
+        expect(root.item('foo').schema).to.deep.equal({ type: 'number' });
+    });
+
+    it('prefers patternProperties over additionalProperties', () => {
+        const root = item();
+        root.setSchema({
+            patternProperties: { '^\\d+$': { type: 'integer' } },
+            additionalProperties: { type: 'string' }
+        });
+        expect(root.item('42').schema).to.deep.equal({ type: 'integer' });
+        expect(root.item('foo').schema).to.deep.equal({ type: 'string' });
+    });
+});
+
 describe('items (array-like)', () => {
     it('falls back to items for numeric-like keys', () => {
         const root = item();
@@ -124,7 +160,31 @@ describe('items (array-like)', () => {
         expect(root.item('0').schema).to.deep.equal({ type: 'string' });
         expect(root.item('99').schema).to.deep.equal({ type: 'string' });
     });
+
+    it('prefers items over additionalProperties for numeric keys', () => {
+        const root = item();
+        root.setSchema({
+            items: { type: 'string' },
+            additionalProperties: { type: 'number' }
+        });
+        expect(root.item('0').schema).to.deep.equal({ type: 'string' });
+        expect(root.item('foo').schema).to.deep.equal({ type: 'number' });
+    });
+
+    it('does not use items for non-numeric keys', () => {
+        const root = item();
+        root.setSchema({ items: { type: 'string' } });
+        expect(root.item('foo').schema).to.equal(null);
+        expect(root.item(NaN).schema).to.equal(null);
+        expect(root.item(null).schema).to.equal(null);
+        expect(root.item('-1').schema).to.equal(null);
+        expect(root.item('+1').schema).to.equal(null);
+        expect(root.item(+1).schema).to.deep.equal({ type: 'string' });
+        expect(root.item('0').schema).to.deep.equal({ type: 'string' });
+        expect(root.item('999999999').schema).to.deep.equal({ type: 'string' });
+    });
 });
+
 
 </script>
 

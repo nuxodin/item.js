@@ -1,9 +1,9 @@
 // beta, subject to change or deleted
 
 export function syncWith(rootItem, object={}) {
-    rootItem.addEventListener('changeIn', ({target, detail}) => {
-        if (!('value' in detail)) return;
-        const keys = [...target.path];
+    rootItem.addEventListener('changeIn', event => {
+        if (!('value' in event)) return;
+        const keys = [...event.target.path];
         const lastKey = keys.pop();
         let current = object;
         keys.forEach(key => {
@@ -12,7 +12,7 @@ export function syncWith(rootItem, object={}) {
             }
             current = current[key];
         });
-        current[lastKey] = target.value; // await if promise?
+        current[lastKey] = event.target.value;
     });
     return object;
 }

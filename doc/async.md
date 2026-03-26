@@ -16,10 +16,10 @@ Hooks that connect an item to a data source. All optional, defined on the protot
 The `reader` is responsible for determining whether its item is a leaf or a collection. It must return:
 
 - **primitive** (string, number, null, ...) → item becomes a leaf node, value is set
-- **object** → item becomes an object, all keys are set recursively via `$set`
+- **object** → item becomes an object, but only the keys of the object are created as children, the values are not set! The subitem must be read separately.
 - **`undefined`** → reader added children itself via `this.item(key)` — no further `$set`
 
-The third pattern is the most flexible and recommended for collections, as it gives full control over which children are created and what values they receive:
+The third pattern is the most flexible, as it gives full control over which children are created and what values they receive:
 
 ```js
 async reader(query, options) {
@@ -58,7 +58,7 @@ item.io.options.debounceMs = 5     // writer debounce
 
 ## read()
 
-Explicitly load data — waits for `reader`, then returns `get()`.
+Explicitly load data — waits for `reader`, returns a `Promise` that resolves with `undefined` when the reader is done.
 
 ```js
 const value = await item.read()
@@ -70,7 +70,7 @@ Use when you need to ensure data is loaded before reading it.
 
 ## add(value)
 
-Create a new child — with or without a server.
+Create a new child with an auto-generated key — with or without a server.
 
 ```js
 const newItem = await users.add({ name: 'Hans', age: 33 })

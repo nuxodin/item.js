@@ -6,7 +6,6 @@ import { createDbAdmin } from './dbAdmin.js';
 
 const app = new Hono();
 const port = Number(Deno.env.get('PORT') ?? 3749);
-const repoRoot = new URL('../../', import.meta.url);
 const indexHtml = new URL('./index.html', import.meta.url);
 
 const db = await createDbAdmin();
@@ -16,8 +15,9 @@ const wsRouter = createItemWsRouter(db, '/ws');
 app.get('/', async c => c.html(await Deno.readTextFile(indexHtml)));
 app.get('/health', c => c.json({ ok: true }));
 app.all('/api/*', c => httpRouter(c.req.raw));
+
 app.use('/__repo/*', serveStatic({
-  root: '../../', // root: new URL('../../', import.meta.url).pathname ??
+  root: new URL('../../', import.meta.url).pathname,
   rewriteRequestPath: (path) => path.replace(/^\/__repo/, ''),  // /__repo/foo.js → /foo.js
 }));
 app.onError((error, c) => c.json({ error: error.message }, 500));

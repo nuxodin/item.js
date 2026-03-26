@@ -23,7 +23,10 @@ import { item, effect } from '../item.js';
 const { expect } = chai;
 
 // Wait for the next microtask (after the batch flush)
-const nextTick = () => new Promise(resolve => queueMicrotask(resolve));
+//const nextTick = () => new Promise(resolve => queueMicrotask(resolve));
+const nextTick = () => new Promise(resolve => requestAnimationFrame(resolve)); // for now its requestAnimationFrame in the browser, bad?
+
+
 
 // ─── effect() ────────────────────────────────────────────────────────────────
 
@@ -151,7 +154,6 @@ describe('APIs that register effect', () => {
     }
     testAccess(true, item => item.value );
     testAccess(true, item => item.get() );
-    testAccess(true, item => item.valueOf() );
     testAccess(true, item => item.toString() );
     testAccess(true, item => item[Symbol.toPrimitive]() );
     testAccess(true, item => item.toJSON() );
@@ -397,6 +399,26 @@ describe('effect fn.parent reuse guard', () => {
         expect(() => effect(parentB)).to.throw();
     });
 });
+
+describe('effect() – error handling', () => {
+    it('first run throws', () => {
+        expect(() => {
+            effect(() => { throw new Error('intentional'); });
+        }).to.throw();
+    });
+
+    it('re-run swallows', async () => {
+        const s = item(0);
+        effect(() => {
+            s.value;
+            if (s.value > 0) throw new Error('intentional');
+        });
+        s.value = 1;
+        await nextTick(); // du hast nextTick bereits definiert
+        // kein throw = test passed
+    });
+});
+
 
 </script>
 

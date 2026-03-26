@@ -1,27 +1,25 @@
-// @ts-check
-
-/** @import {Item} from "../item.js" */
 
 export const $item = Symbol('item.js [proxy target]');
 
-/** @type {ProxyHandler<{item: Item}>} */
 const proxyHandler = {
 
-    get: function (target, property, receiver) {
+    get: function (target, property) {
         const targetItem = target.item;
         if (property === $item) return targetItem;
         if (property === Symbol.iterator) {
+            !targetItem.filled && targetItem.read(); // read?
             return function* () {
                 for (const childItem of targetItem) yield toProxy(childItem);
             };
         }
         if (typeof property === 'symbol') {
             if (typeof targetItem[property] === 'function') return targetItem[property].bind(targetItem);
-            return Reflect.get(targetItem, property, receiver);
+            return targetItem[property];
         }
+        
         const childItem = targetItem.item(property);
 
-        if (property === 'then') console.error('item.js: Proxy is not a Promise. Use `await proxy.item1()` instead of `await proxy`');
+        if (property === 'then') console.error('item.js: Proxy is not a Promise. Use `await proxy.item()` instead of `await proxy`');
         if (property === 'toJSON') console.error('item.js: toJSON accessed on proxy. Use `JSON.stringify(proxy())` instead of `JSON.stringify(proxy)`');
 
         return toProxy(childItem);
@@ -34,14 +32,20 @@ const proxyHandler = {
 
     apply: function (target, thisArg, args) {
         const targetItem = target.item;
-        if (args.length === 0) return targetItem.pending ? targetItem.read() : targetItem.get();
+        if (args.length === 0) {
+            if (!targetItem.filled) targetItem.read();
+            return targetItem.get();
+        }
         if (args.length === 1) return targetItem.set(args[0]) ?? true;
         throw new Error('apply called with too many arguments');
     },
 
     has: (target, property) => typeof property === 'string' && !!target.item.has(property),
 
-    ownKeys: (target) => target.item.keys,
+    ownKeys: (target) => {
+        if (!target.item.filled) target.item.read();
+        return target.item.keys;
+    },
 
     getOwnPropertyDescriptor(target, property) {
         if (typeof property === 'symbol') return Reflect.getOwnPropertyDescriptor(target.item, property);
@@ -49,16 +53,13 @@ const proxyHandler = {
     },
 
     deleteProperty: function (target, property) {
-        target.item.item(property).remove();
+        target.item.has(property)?.remove();
         return true;
     },
 };
 
 const cachedProxies = new WeakMap();
 
-/**
- * @param {Item} itm
- */
 export const toProxy = (itm) => {
     let p = cachedProxies.get(itm);
     if (!p) {

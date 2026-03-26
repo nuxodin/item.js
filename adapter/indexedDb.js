@@ -1,9 +1,9 @@
-// @ts-check
-
 import { Item, item } from "../item.js";
 import { AsyncChild } from "../tools/AsyncChild.js";
 
-import * as idb from "https://cdn.jsdelivr.net/npm/idb@7.1.1/with-async-ittr/+esm";
+//import * as idb from "https://cdn.jsdelivr.net/npm/idb@7.1.1/with-async-ittr/+esm";
+import * as idb from "https://cdn.jsdelivr.net/npm/idb@8.0.3/+esm";
+
 import { openDb } from "../tools/schema/db/indexeddb/to-db.js";
 
 class Db extends Item {
@@ -37,8 +37,9 @@ class Table extends Item { // store
         this._batchRunning = true;
         const store = await this.store(true);
         for (const job of this._batchQueue) {
-            try { job.resolve(job.fn(store)); }
-            catch (e) { job.reject(e); }
+            job.fn(store).then(job.resolve, job.reject)
+//            try { job.resolve(job.fn(store)); }
+//            catch (e) { job.reject(e); }
         }
         this._batchQueue = [];
         this._batchRunning = false;
@@ -59,11 +60,17 @@ class Table extends Item { // store
 
     async adder(values) {
         const store = await this.store(true);
-        const key = (!store.autoIncrement && !store.keyPath)
-            ? crypto.randomUUID()
-            : undefined;
-        const result = await store.add(values, key);
-        return { key: result };
+        const { keyPath, autoIncrement } = store;
+        if (!autoIncrement) {
+            if (keyPath) {
+                values[keyPath] ??= crypto.randomUUID();
+            } else {
+                const key = crypto.randomUUID();
+                await store.add(values, key);
+                return { key };
+            }
+        }
+        return { key: await store.add(values) };
     }
 
     #fields = null;
@@ -149,7 +156,9 @@ class Row extends Item {
     getTypedKey() {
         if ('typedKey' in this) return this.typedKey;
         const isAutoincrement = Object.values(this.schema?.properties ?? {}).find(field => field['x-autoincrement'] === true);
-        this.typedKey = isAutoincrement ? Number(this.key) : this.key;
+        const n = Number(this.key);
+        this.typedKey = isAutoincrement && !isNaN(n) ? n : this.key;
+        // this.typedKey = isAutoincrement ? Number(this.key) : this.key; // better force number?
         return this.typedKey;
     }
     ChildClass = AsyncChild;

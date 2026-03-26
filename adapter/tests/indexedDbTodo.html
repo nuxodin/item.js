@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>Todo</title>
+<script type=module async src="https://cdn.jsdelivr.net/gh/u2ui/u2@main/u2/auto.js"></script>
+<link rel=stylesheet href="https://cdn.jsdelivr.net/gh/u2ui/u2@main/css/classless/simple.css">
+<style>
+li { display: flex; align-items: center; gap: .5rem }
+li label { flex: 1; cursor: pointer }
+li[data-done] label { text-decoration: line-through; opacity: .5 }
+</style>
+
+<body>
+
+<h1>Todos</h1>
+<div id=app></div>
+
+<script type=module>
+import { effect } from '../../item.js';
+import { iDB } from '../indexedDb.js';
+import { render, html } from 'https://esm.sh/uhtml@4';
+
+const db = iDB.item('todos-demo2');
+db.setSchema({
+    properties: {
+        todo: {
+            additionalProperties: {
+                properties: {
+                    id:    { 'x-index': 'primary' },
+                    title: { type: 'string' },
+                    done:  { type: 'boolean' },
+                }
+            }
+        }
+    }
+});
+db.open();
+
+const todos = db.item('todo').proxy;
+
+effect(() => {
+    let doneCount = 0;
+    let total = 0;
+    render(app, html`
+        <form onsubmit="${(e)=>{ const id = crypto.randomUUID(); todos[id]({id, title: e.target.elements.title.value}); return false; }}">
+            <label>
+                <input name=title placeholder="New todo…" required>
+            </label>
+            <button>Add</button>
+        </form>
+        <ul>
+            ${[...todos].map(t => {
+                total++;
+                t.done() && doneCount++;
+                return html`
+                    <li>
+                        <label>
+                            <input type=checkbox .checked="${!!t.done()}" onchange="${e => t.done(e.target.checked)}">
+                            ${t.title()}
+                        </label>
+                        <button onclick="${() => delete todos[t]}">✕</button>
+            `;
+            })}
+        </ul>
+        <p><small>${doneCount}/${total} done</small></p>
+    `);
+});
+
+</script>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>item.js - Reactive Particle System Demo</title>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/",
+            "item.js": "../../item.js",
+            "item.js/": "../../"
+        }
+    }
+    </script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            overflow: hidden;
+            background: #000;
+            font-family: 'Segoe UI', monospace;
+        }
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        #stats {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: #00ff88;
+            font-size: 14px;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px 20px;
+            border-radius: 8px;
+            border: 1px solid #00ff88;
+            pointer-events: none;
+            z-index: 100;
+            min-width: 200px;
+        }
+        #stats .label {
+            color: #888;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        #stats .value {
+            color: #fff;
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+        #stats .warning {
+            color: #ff6600;
+        }
+        #stats .critical {
+            color: #ff0044;
+        }
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px 20px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            font-size: 12px;
+        }
+        #controls p {
+            margin: 5px 0;
+        }
+        #birth-flash {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at var(--x, 50%) var(--y, 50%), rgba(0, 255, 100, 0.3) 0%, transparent 50%);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.1s;
+            z-index: 50;
+        }
+        .itemjs-badge {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            color: #ff00ff;
+            font-size: 16px;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 2px solid #ff00ff;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    <div id="birth-flash"></div>
+    <div id="stats">
+        <div class="label">FPS</div>
+        <div class="value" id="fps">60</div>
+        <div class="label">REACTIVE ITEMS (Particles)</div>
+        <div class="value" id="particle-count">0</div>
+        <div class="label">EFFECT RE-RENDERS / SEC</div>
+        <div class="value" id="effect-calls">0</div>
+        <div class="label">BIRTHS / SEC</div>
+        <div class="value" id="birth-rate">0</div>
+        <div class="label">AVG FRAMETIME</div>
+        <div class="value" id="frametime">16ms</div>
+    </div>
+    <div id="features" style="position: fixed; top: 20px; right: 20px; color: #00ccff; font-size: 12px; background: rgba(0, 0, 0, 0.8); padding: 15px 20px; border-radius: 8px; border: 1px solid #00ccff; pointer-events: none; z-index: 100; max-width: 280px;">
+        <h3 style="color: #fff; margin-bottom: 10px; font-size: 14px;">item.js Features Demo</h3>
+        <li style="margin: 5px 0; list-style: none;">→ Each particle = reactive Item</li>
+        <li style="margin: 5px 0; list-style: none;">→ effect() auto-renders on change</li>
+        <li style="margin: 5px 0; list-style: none;">→ Event bubbling (changeIn)</li>
+        <li style="margin: 5px 0; list-style: none;">→ Autovivification of properties</li>
+        <li style="margin: 5px 0; list-style: none;">→ Signal-based reactivity</li>
+        <li style="margin: 5px 0; list-style: none;">→ Async iterator on collection</li>
+    </div>
+    <div id="controls">
+        <p><strong>MOUSE</strong> - Particles attract (updates .x/.y items)</p>
+        <p><strong>CLICK</strong> - Force reproduction burst</p>
+        <p><strong>SPACE</strong> - Pause/Resume effects</p>
+        <p><strong>R</strong> - Reset system</p>
+    </div>
+
+    <div class="itemjs-badge">Powered by item.js</div>
+
+    <script type="module" src="particles.js"></script>
+</body>
+</html>

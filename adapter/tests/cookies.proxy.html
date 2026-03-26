@@ -16,7 +16,6 @@ import { render, html } from "https://esm.sh/uhtml@4";
 
 
 const cooks = cookie.proxy;
-for await (let cook of cooks) {}
 
 effect(() => {
     render(table, html`

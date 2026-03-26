@@ -1,5 +1,3 @@
-// @ts-check
-
 /*
 // Usage:
 const datapoint = new AsyncDataPoint({
@@ -17,27 +15,15 @@ datapoint.debounceMs = 5; // debounce period for setter in ms, default 5
 datapoint.setLocal({title: 'foo', completed: true}); // set value without saving it to the master (the value comes from the master through an other channel / trusted source)
 */
 
-/**
- * @typedef {Promise<any> & { state: 'pending'|'fulfilled'|'rejected', value: any, controller: AbortController, reason?: any }} TransparentPromise
- */
-
 export class AsyncDataPoint {
 
-    /** @type {(signal?: AbortSignal) => Promise<any>|undefined} */
     createGetter;
-    /** @type {(value: any, signal?: AbortSignal) => Promise<any>|undefined} */
     createSetter;
-    /** @type {any|null} */
     #expectedValue = null; // value while saving
-    /** @type {TransparentPromise|null} */
     #setter = null; // current setter promise
-    /** @type {TransparentPromise|null} */
     #getter = null; // current/cached getter promise
-    /** @type {number|undefined} */
     #cacheGetterTimeout = undefined;
-    /** @type {function|null} */
     onpending = null;
-    /** @type {function|null} */
     onchange = null;
     
     constructor({get, set, ...options}) {
@@ -55,9 +41,6 @@ export class AsyncDataPoint {
         this.createSetter = set;
     }
 
-    /**
-     * @returns {TransparentPromise}
-     */
     #createGetter() {
         const {getRetry, getRetryDelay} = this.options;
         const controller = new AbortController();
@@ -71,10 +54,6 @@ export class AsyncDataPoint {
         return promise;
     }
 
-    /**
-     * @param {any} value 
-     * @returns {TransparentPromise}
-     */
     #createSetter(value) {
         const {setRetry, setRetryDelay, debounceMs} = this.options;        
         const promise = abortablePromise((resolve, reject) => {
@@ -89,9 +68,6 @@ export class AsyncDataPoint {
         return promise;
     }
 
-    /**
-     * @param {TransparentPromise} promise
-     */
     #cacheGetter(promise){
         // trigger onchange if the value changes
         // note: triggers also if the getter is no more cached as we dont know if the value has changed
@@ -102,7 +78,7 @@ export class AsyncDataPoint {
         promise.then(
             value => {
                 if (this.#getter !== promise) return;
-                if (oldValue !== value) { // isEqual?
+                if (!isEqual(oldValue, value)) {
                     try {
                         this.onchange?.({value, oldValue});
                     } catch (err) {
@@ -126,22 +102,12 @@ export class AsyncDataPoint {
         }, duration);
     }
 
-    /**
-     * @param {any} value
-     */
     setLocal(value) { this.#cacheGetter(transparentPromiseResolve(value)); }
-    /**
-     * @param {Promise<any>} promise
-     */
     setFromPromise(promise) { this.#cacheGetter(makePromiseTransparent(promise)); }
     get isPending() { return this.#getter?.state === 'pending' || this.#setter?.state === 'pending'; }
     get lastError() { return this.#getter?.reason ?? this.#setter?.reason ?? undefined; }
-
     get recentValue() { return this.#getter?.value; }
 
-    /**
-     * @returns {TransparentPromise|Promise<any>}
-     */
     get() {
         if (this.#setter?.state === 'pending') {
             if (this.options.optimistic) {
@@ -154,10 +120,6 @@ export class AsyncDataPoint {
         return this.#getter;
     }
 
-    /**
-     * @param {any} value
-     * @returns {TransparentPromise|undefined} - promise if setter is called
-     */
     set(value) {
         // Already setting this value
         if (this.#setter?.state === 'pending' && isEqual(this.#expectedValue, value)) return this.#setter;
@@ -194,8 +156,6 @@ export class AsyncDataPoint {
 
     dispose() {
         clearTimeout(this.#cacheGetterTimeout);
-        // this.#setter?.catch(() => {});
-        // this.#getter?.catch(() => {});
         this.#setter?.controller.abort();
         this.#getter?.controller?.abort();
         this.#setter = null;
@@ -312,11 +272,11 @@ async function retryAsync(fn, retries = 2, baseDelay = 1000) {
  */
 function isEqual(a, b) {
     if (a === b) return true;
-    if (typeof a !== 'object' || typeof b !== 'object') return false;
-    if (a == null || b == null) return false;
-    try {
-        return JSON.stringify(a) === JSON.stringify(b);
-    } catch {
-        return false; // Bei Circular References -> ungleich behandeln
-    }
+    if (a == null || b == null || typeof a !== 'object' || typeof b !== 'object') return false;
+    if (a.constructor !== b.constructor) return false;
+
+    const keysA = Object.keys(a), keysB = Object.keys(b);
+    if (keysA.length !== keysB.length) return false;
+
+    return keysA.every(k => Object.hasOwn(b, k) && isEqual(a[k], b[k]));
 }

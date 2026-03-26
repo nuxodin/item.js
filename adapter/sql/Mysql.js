@@ -15,7 +15,7 @@ class MysqlDb extends Db {
     }
     async query(sql, params){
         try {
-            return await this.connection.query(sql, params);
+            return await this.connection.query(sql, params); // todo: reconnect if lost
         } catch(e) {
             console.error(sql);
             throw e;

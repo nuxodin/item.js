@@ -44,25 +44,14 @@ export class ItemEvent {
     toJSON() {
         return {
             path: this.target.path,
-            //currentPath: this.currentTarget.path,
-            //oldValue: this.oldValue,
-            value: this.value,
             add: this.add?.key,
             remove: this.remove?.key,
             pending: this.pending,
-            error: this.error,
+            error: this.error?.message,
             options: this.options,
+            value: this.value,
         }
     }
-
-    get detail() {
-        console.warn('event.detail.x is deprecated, use event.x directly');
-        return new Proxy(this, {
-            get:    (target, key) => target[key],
-            set:    (target, key, val) => (target[key] = val, true),
-            has:    (target, key) => key in target,
-        });
-    }    
 }
 
 

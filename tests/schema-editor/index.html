@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Item.js Playground</title>
+
+    <!--script type=module async src="https://cdn.jsdelivr.net/gh/u2ui/u2@main/u2/auto.js"></script>
+    <link rel=stylesheet href="https://cdn.jsdelivr.net/gh/u2ui/u2@main/css/classless/simple.css"-->
+    <script type=module src="http://localhost/u2/u2/auto.js"></script>
+
+
+    <style>
+    html { --width: 70rem; font-size:13px; }
+    </style>
+
+<body>
+
+<u2-splitpanel style="height:100vh">
+    <u2-tree id="schemaTree" style="flex-basis:50%"></u2-tree>
+    <u2-code id="schema" style="flex-basis:50%" editable trim></u2-code>
+</u2-splitpanel>
+
+<script type=module>
+import { item } from '../../item.js';
+
+const schema = item();
+const schemaTree = document.getElementById('schemaTree');
+const schemaCode = document.getElementById('schema');
+
+customElements.whenDefined('u2-code').then(async () => {
+    schemaTree.bindItem(schema, { render:(tree, item)=>{
+        setTimeout(() => {
+            if (!item.isObject) tree.innerHTML = `<div style="flex-grow:1">${item.key}</div><div>${item}</div>`;
+            else tree.ariaExpanded = true;
+        }, 100);
+    }});
+    //schemaCode.value = JSON.stringify(schema.value, null, 2);
+});
+
+schemaCode.addEventListener('input', e => {
+    schema.set(looseParse(e.target.value));
+});
+
+schema.addEventListener('changeIn', e => {
+    //schemaCode.value = JSON.stringify(schema.value, null, 2);
+});
+
+function looseParse(str) {
+  try { return JSON.parse(str) } catch {}
+  return Function('"use strict"; return (' + str + ')')()
+}
+
+</script>
+

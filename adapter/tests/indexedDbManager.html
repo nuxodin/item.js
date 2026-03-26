@@ -10,7 +10,7 @@
     <style>
         html {
             font-size: 12px;
-            --width: 100rem
+            --width: 120rem;
         }
     </style>
 
@@ -22,15 +22,16 @@ import { effect, item } from '../../item.js';
 import { iDB } from "../indexedDb.js";
 import * as view from "../../tools/view/uhtml.js";
 import { render, html } from "https://esm.sh/uhtml@4";
-
+import { toInput } from "../../tools/schema/dom/toInput.js";
+import { transform } from "../../tools/schema/utils.js";
 
 const schema = {
     properties: {
         group: {
             additionalProperties: {
                 properties: {
-                    id: { 'x-index': 'primary', 'x-autoincrement': true },
-                    name: {},
+                    id: { 'x-index': 'primary', 'x-autoincrement': true, title: 'ID' },
+                    name: { 'x-index': true, type: 'string', title: 'Name' },
                 }
             },
             'x-display': 'name',
@@ -38,11 +39,11 @@ const schema = {
         post: {
             additionalProperties: {
                 properties: {
-                    id: { 'x-index': 'primary', 'x-autoincrement': true },
-                    title: { type: 'string' },
-                    content: { type: 'string' },
-                    user_id: { 'x-index': true, 'x-dataref': '../../../user/$' },
-                    group_id: { 'x-index': true, 'x-dataref': '../../../group/$' },
+                    id: { 'x-index': 'primary', 'x-autoincrement': true, title: 'ID' },
+                    title: { type: 'string', title: 'Title', 'x-transform': { case: 'upper' } },
+                    content: { type: 'string', title: 'Content', 'x-multiline': true, 'x-transform': { trim: false } },
+                    user_id: { 'x-index': true, 'x-dataref': '../../../user/$', title: 'User' },
+                    group_id: { 'x-index': true, 'x-dataref': '../../../group/$', title: 'Group' },
                 }
             },
             'x-display': 'title',
@@ -50,72 +51,75 @@ const schema = {
         user_group: {
             additionalProperties: {
                 properties: {
-                    user_id: { 'x-index': 'primary', 'x-dataref': '../../../user/$' },
-                    group_id: { 'x-index': 'primary', 'x-dataref': '../../../group/$' },
-                    relation: {},
+                    user_id: { 'x-index': 'primary', 'x-dataref': '../../../user/$', title: 'User' },
+                    group_id: { 'x-index': 'primary', 'x-dataref': '../../../group/$', title: 'Group' },
+                    relation: { type: 'string', title: 'Relation' },
                 }
             }
         },
         user: {
             additionalProperties: {
                 properties: {
-                    id: { 'x-index': 'primary', 'x-autoincrement': true },
-                    firstname: {},
-                    lastname: {},
-                    email: { 'x-index': 'unique' },
-                    age: { type: 'integer', title: 'Alter' },
+                    id: { 'x-index': 'primary', 'x-autoincrement': true, title: 'ID' },
+                    firstname: { type: 'string', title: 'Vorname' },
+                    lastname: { type: 'string', title: 'Nachname' },
+                    email: { 'x-index': 'unique', title: 'E-Mail' },
+                    age: { type: 'number', title: 'Alter' },
                 }
             },
+            title: 'Benutzer',
             'x-display': 'email',
         },
+
     }
 };
 
 
-
-
-let db = iDB.item('db3');
+let db = iDB.item('db4');
 db.setSchema(schema);
 db.open();
+db.addEventListener('setIn', transform);
 
 await db.read();
 
-import {jsonItem} from "../storage.js";
+import { jsonItem } from "../storage.js";
 
 const ui = (await jsonItem('dbAdminUi')).proxy;
 
 effect(() => {
 
     const store = db.item(ui.store());
-    store.read(); // its a promise and every time is internal "for await (const cursor ..." is called, it will trigger the effect
+    store.read();
 
-    const fields = [...store.fields().values()];
+    const fields = store.schema?.additionalProperties?.properties ?? {};
+    const cols = Object.entries(fields).filter(([,s]) => {return s.title}).map(([n,s]) => n);
 
     render(appEl, html`
         Select Store:
         <select onchange="${(e) => { ui.store(e.target.value) }}" style="width:auto">
-            ${[...db].map(item => html`<option .selected="${item.key === ui.store()}"> ${item.key}` )}
+            ${[...db].map(item => html`<option value="${item.key}" .selected="${item.key === ui.store()}"> ${item.schema?.title ?? item.key}`)}
         </select>
 
         <hr>
 
-        <b>${store.key}</b>
-        <button onclick="addUserDialog.showModal()">Add</button>
+        <h3>
+            ${store.schema?.title ?? store.key}
+            <button onclick="addUserDialog.showModal()">+</button>
+        </h3>
+        
         <dialog id=addUserDialog>
             <form onsubmit="${(e) => {
-                e.preventDefault();
-                store.add(Object.fromEntries(new FormData(e.target).entries()));
-            }}">
+                    e.preventDefault();
+                    store.add(Object.fromEntries(new FormData(e.target).entries()));
+                }}">
                 <table style="width:auto">
-                    ${fields.map(field => html`<tr><td> ${field.name} <td> <input name="${field.name}">`)}
+                    ${cols.map(name => html`<tr><td> ${name} <td>${toInput(fields[name], {name})}`)}
                 </table>
                 <button>add</button>
             </form>
         </dialog>                
 
-        <hr>
-
-        ${view.table(store, { editable: true })}
+        ${view.table(store, { editable: true, cols })}
     `);
 });
 

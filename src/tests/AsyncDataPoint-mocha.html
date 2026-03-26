@@ -806,6 +806,121 @@
             });
        
         });
+
+
+describe('AsyncDataPoint: isEqual / deep equality', () => {
+    it('set() no-ops when deep-equal object is already cached', async () => {
+        let setCalls = 0;
+        const dp = new AsyncDataPoint({
+            get: async () => ({ a: 1, b: { c: 2 } }),
+            set: async () => { setCalls++; },
+            ttl: 100
+        });
+
+        await dp.get();
+        const result = dp.set({ a: 1, b: { c: 2 } });
+
+        expect(result).to.equal(undefined);
+        await delay(20);
+        expect(setCalls).to.equal(0);
+
+        dp.dispose();
+    });
+
+    it('set() triggers when nested value differs', async () => {
+        let setCalls = 0;
+        const dp = new AsyncDataPoint({
+            get: async () => ({ a: 1, b: { c: 2 } }),
+            set: async () => { setCalls++; },
+            ttl: 100, debounceMs: 0
+        });
+
+        await dp.get();
+        await dp.set({ a: 1, b: { c: 99 } });
+
+        expect(setCalls).to.equal(1);
+
+        dp.dispose();
+    });
+
+    it('set() triggers when key is added', async () => {
+        let setCalls = 0;
+        const dp = new AsyncDataPoint({
+            get: async () => ({ a: 1 }),
+            set: async () => { setCalls++; },
+            ttl: 100, debounceMs: 0
+        });
+
+        await dp.get();
+        await dp.set({ a: 1, b: 2 });
+
+        expect(setCalls).to.equal(1);
+
+        dp.dispose();
+    });
+
+    it('reuses pending setter for deep-equal value', async () => {
+        const gate = deferred();
+        let setCalls = 0;
+
+        const dp = new AsyncDataPoint({
+            get: async () => 'unused',
+            set: async (value, signal) => {
+                setCalls++;
+                await gate.promise;
+                return value;
+            },
+            debounceMs: 0
+        });
+
+        const p1 = dp.set({ x: 1 });
+        await delay(2);
+        const p2 = dp.set({ x: 1 }); // deep-equal → reuse
+
+        expect(p2).to.equal(p1);
+        expect(setCalls).to.equal(1);
+
+        gate.resolve();
+        await p1;
+
+        dp.dispose();
+    });
+
+    it('ok? onchange suppressed for deep-equal setLocal', async () => {
+        const events = [];
+        const dp = new AsyncDataPoint({
+            get: async () => 'unused',
+            set: async () => {},
+        });
+
+        dp.onchange = e => events.push(e);
+        dp.setLocal({ a: 1 });
+        await delay(0);
+        dp.setLocal({ a: 1 }); // deep-equal → kein Event
+        await delay(0);
+
+        expect(events.length).to.equal(1);
+
+        dp.dispose();
+    });
+
+    it('[] and {} are not equal', async () => {
+        let setCalls = 0;
+        const dp = new AsyncDataPoint({
+            get: async () => [],
+            set: async () => { setCalls++; },
+            ttl: 100, debounceMs: 0
+        });
+
+        await dp.get();
+        await dp.set({});
+
+        expect(setCalls).to.equal(1);
+
+        dp.dispose();
+    });
+});
+
     </script>
 
     <script class="mocha-exec" type="module">

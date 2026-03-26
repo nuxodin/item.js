@@ -1,28 +1,10 @@
 // tools/views/uhtml.js
 import { html } from "https://esm.sh/uhtml@4";
-import { resolveDataRef } from '../schema/schema.experiments.js';
+import { resolveDataRef } from '../schema/utils.js';
+import { resolveType, toInput } from '../schema/dom/toInput.js';
 
 const props     = (item) => Object.entries(item.schema?.properties ?? {});
 const isPrimary = (s) => s['x-index'] === 'primary';
-const rowProps  = (store) => props({ schema: store.schema?.additionalProperties });
-
-export function field(item, editable = true) {
-    const s = item.schema ?? {};
-
-    if (!editable || s.readOnly || isPrimary(s)) {
-        if (s['x-dataref']) return refDisplay(item);
-        return html`<span>${item.get()}</span>`;
-    }
-
-    const set = (e) => item.set(e.target.value);
-    if (s['x-dataref']) return refSelect(item);
-    if (s.enum) return html`<select onchange="${set}">${s.enum.map(v => html`<option .selected="${v === item.get()}">${v}`)}</select>`;
-    if (s.type === 'object' || s.type === 'array') return html`<textarea
-                                                       onchange="${(e) => item.set(JSON.parse(e.target.value))}"
-                                                       .value="${JSON.stringify(item.get())}"></textarea>`;
-    const type = { email:'email', date:'date', 'date-time':'datetime-local', uri:'url' }[s.format] ?? 'text';
-    return html`<input type="${type}" .value="${String(item.get() ?? '')}" onchange="${set}">`;
-}
 
 export function detail(item, { editable = false } = {}) {
     item.read();
@@ -34,19 +16,18 @@ export function detail(item, { editable = false } = {}) {
     </dl>`;
 }
 
-export function table(store, { editable = false } = {}) {
+export function table(store, { editable = false, cols } = {}) {
     store.read();
-    const cols = rowProps(store);
     return html`<table>
         <thead><tr>
-            ${cols.map(([name, s]) => html`<th>${s.title ?? name}`)}
+            ${cols.map(name => html`<th>${store.schema?.additionalProperties?.properties?.[name]?.title ?? name}`)}  
             ${editable ? html`<th><button onclick="${() => store.add({})}">+</button>` : ''}
         </tr></thead>
         <tbody>
             ${[...store].map(row => {
                 row.read();
                 return html`<tr>
-                    ${cols.map(([name]) => html`<td>${field(row.item(name), editable)}`)}
+                    ${cols.map(name => html`<td>${field(row.item(name), editable)}`)}
                     ${editable ? html`<td width=2><button u1-confirm onclick="${() => row.remove()}">✖</button>` : ''}
                 </tr>`;
             })}
@@ -54,24 +35,104 @@ export function table(store, { editable = false } = {}) {
     </table>`;
 }
 
-function refSelect(item) {
-    const refItem = resolveDataRef(item);
-    const parent = refItem.parent;
-    parent.read();
-    const display = parent.schema?.['x-display'] ?? 'name';
-    const value = item.get();
-    return html`<select onchange="${(e) => item.set(e.target.value)}">
-        ${[...parent.items()].map(child => {
-            child.read();
-            return html`<option .selected="${child.key === value}" value="${child.key}">
-                ${String(child.has(display) ?? child.key)}`;
-        })}
-    </select>`;
+
+export function field(item, editable = true) {
+    const s = item.schema ?? {};
+    if (!editable || s.readOnly || isPrimary(s)) {
+        if (s['x-dataref']) return refDisplay(item);
+        const span = document.createElement('span');
+        span.textContent = item.get();
+        item.addEventListener('change', () => span.textContent = item.get());
+        return span;
+    }
+    if (s['x-dataref']) return refSelect(item); // todo: setAttribute state vereinheitlichen
+
+    const input = toInput(s, { value: item.get() });
+    
+    item.addEventListener('change', () => input.value = String(item));
+
+    input.onchange = () => {
+        const value = input.type === 'checkbox' ? input.checked : input.value;
+        input.setAttribute('state', 'saving');
+         
+        item.set(value).then(x=>{
+            input.setAttribute('state', 'saved');
+        }, err => {
+            console.error(err);
+            input.setAttribute('state', 'error');
+        })
+    }
+    return input;
 }
 
-function refDisplay(item) {
-    const refItem = resolveDataRef(item);
-    refItem.read();
-    const display = refItem.parent.schema?.['x-display'] ?? 'name';
-    return html`<span>${String(refItem.has(display) ?? refItem.key)}</span>`;
+function refSelect(item) {
+    const {parent} = resolveDataRef(item);
+    const display = parent.schema?.['x-display'] ?? 'name';
+    const select = document.createElement('select');
+    const nullOpt = new Option('—', '');
+    const update = () => {
+        select.innerHTML = '';
+        select.append(nullOpt);
+        for (const child of parent) {
+            const opt = new Option(String(child.has(display) ?? child.key), child.key);
+            child.read().then(() => {
+                opt.innerText = String(child.has(display) ?? child.key);
+            });
+            select.append(opt);
+        }
+        select.value = item.get();
+    };
+    //effect(update)
+    parent.read().then(update);
+    select.onchange = (e) => item.set(e.target.value);
+    item.addEventListener('change', () => select.value = String(item));
+    return select;
 }
+
+
+
+function refDisplay(item) {
+    const {parent, refItem} = resolveDataRef(item);
+    const span = document.createElement('span');
+    parent.read().then(()=>{
+        const refItem = parent.has(item.get());
+        if (refItem) {
+            refItem.read().then(() => {
+                const display = parent.schema?.['x-display'] ?? 'name';
+                if (display && refItem.has(display)) {
+                    span.textContent = String(refItem.has(display));
+                }
+            });
+        }
+        else {
+            span.textContent = item.get();
+        }
+    });
+    span.textContent = item.get();
+    return span;
+}
+
+// function refDisplay(item) {
+//     const {parent, refItem} = resolveDataRef(item);
+//     if (refItem) {
+//         refItem.read();
+//         const display = parent.schema?.['x-display'] ?? 'name';
+//         if (display && refItem.has(display)) {
+//             return html`<span>${String(refItem.has(display))}</span>`;
+//         }
+//     }
+//     const span = document.createElement('span');
+//     span.textContent = item.get();
+//     const update = () => {
+//         if (refItem) {
+//             const display = parent.schema?.['x-display'] ?? 'name';
+//             if (display && refItem.has(display)) {
+//                 span.textContent = String(refItem.has(display));
+//             }
+//         }
+//     };
+//     refItem?.addEventListener('change', update);
+//     return span;
+
+//     return html`<span>${item.get()}</span>`;
+// }

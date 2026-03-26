@@ -165,11 +165,6 @@ export const Table = class extends Item {
         return { key: rowId };
     }
 
-
-
-    toString() { return this.key; }
-    valueOf() { return this.key; }
-
     // schema
     async setSchema(schema){
 

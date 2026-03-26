@@ -21,8 +21,12 @@ async function schemaVersion(schema, dbName = 'default') {
     const hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('')
     const key  = 'idb-schema-versions:' + dbName
     const map  = JSON.parse(localStorage.getItem(key) || '{}')
-    if (!map[hash]) {
-        map[hash] = Math.max(0, ...Object.values(map)) + 1
+    
+    const vActual = Math.max(0, ...Object.values(map));
+    const vStored = map?.[hash] ?? 0;
+
+    if (!vStored || vActual > vStored) {
+        map[hash] = vActual + 1
         localStorage.setItem(key, JSON.stringify(map))
     }
     return map[hash]
@@ -49,19 +53,6 @@ export async function openDb(name, schema, { patch = true, version = null, upgra
         req.onerror = (e) => reject(e.target.error);
     })
 }
-// export async function openDb(name, schema, { patch = true } = {}) {
-//     const version = await schemaVersion(schema, name)
-//     return new Promise((resolve, reject) => {
-//         const req = indexedDB.open(name, version)
-//         req.onupgradeneeded = (e) => {
-//             const db = e.target.result
-//             const tx = e.target.transaction
-//             schemaToDb(schema, db, tx, { patch })
-//         }
-//         req.onsuccess = (e) => resolve(e.target.result)
-//         req.onerror   = (e) => reject(e.target.error)
-//     })
-// }
 
 // tx = upgrade transaction from onupgradeneeded (e.target.transaction)
 export function schemaToDb(schema, db, tx, { patch = false } = {}) {
@@ -69,12 +60,13 @@ export function schemaToDb(schema, db, tx, { patch = false } = {}) {
 
     for (const table of tables) {
         const fields  = Object.entries(schema.properties[table]?.additionalProperties?.properties ?? {})
-        const primary = fields.find(([, f]) => f['x-index'] === 'primary')
+        const primaries = fields.filter(([, f]) => f['x-index'] === 'primary')
+        const keyPath = primaries.length > 1 ? primaries.map(([n]) => n) : primaries[0]?.[0]
 
         if (!db.objectStoreNames.contains(table)) {
             const store = db.createObjectStore(table, {
-                keyPath:       primary?.[0] ?? 'id',
-                autoIncrement: !!primary?.[1]?.['x-autoincrement'],
+                keyPath:       keyPath,
+                autoIncrement: !!primaries[0]?.[1]?.['x-autoincrement'],
             })
             for (const [name, prop] of fields) {
                 if (prop['x-index'] === 'unique') store.createIndex(name, name, { unique: true })

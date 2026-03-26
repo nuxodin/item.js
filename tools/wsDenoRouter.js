@@ -57,9 +57,9 @@ export function createItemWsRouter(rootItem, basePath = '/ws') {
       // better subscription management: track which clients are subscribed to which items, and only send updates to those clients
       /*
       a.addEventListener('changeIn', (event) => {
-          if (detail.add) console.log(event.target, 'added property', event.detail.add); // child-item
-          if (detail.remove) console.log(event.target, 'removed property', event.detail.remove);
-          if (detail.value !== undefined) console.log(event.target, 'value changed from', event.detail.oldValue, 'to', event.detail.value );
+          if (event.add) console.log(event.target, 'added property', event.add); // child-item
+          if (event.remove) console.log(event.target, 'removed property', event.remove);
+          if (event.value !== undefined) console.log(event.target, 'value changed from', event.oldValue, 'to', event.value );
       });
       */
 
@@ -67,15 +67,11 @@ export function createItemWsRouter(rootItem, basePath = '/ws') {
       const subscribe = (item) => {
          const key = item.path.join('/');
          if (subscriptions.has(key)) return;
-         const listener = ({ target, detail }) => {
-
-            if (!detail?.options?.local) return;
-
-            // Simple payloads only — clients apply the exact change locally.
-            const payload = { type: 'update', path: target.path };
-            if (detail.add)             payload.add = detail.add.key;
-            else if (detail.remove)     payload.remove = detail.remove.key;
-            else if ('value' in detail) payload.value = detail.value;
+         const listener = (e) => {
+            if (!e.options?.local) return;
+            if (e.pending || e.error) return;
+            const payload = e.toJSON();
+            payload.type = 'update';
             send(payload);
          };
          item.addEventListener('changeIn', listener);

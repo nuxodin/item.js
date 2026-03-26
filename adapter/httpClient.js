@@ -1,16 +1,5 @@
-// @ts-check
-
-/**
- * HTTP Client for remote Item access
- * Creates remote Item instances that fetch data on demand via HTTP
- * Root is normal Item, children are AsyncItems that fetch their own data
- */
-
 import { Item } from '../item.js';
 
-/**
- * HTTP AsyncItem - fetches data from remote server on demand
- */
 class HttpAsyncItem extends Item {
 
    constructor(parent, key) {
@@ -25,7 +14,8 @@ class HttpAsyncItem extends Item {
       else return data;
    }
 
-   writer(value, options) { return httpFetch(this.baseUrl, 'PATCH', value, options?.signal); }
+   //writer(value, options) { return httpFetch(this.baseUrl, 'PATCH', value, options?.signal); }
+   writer(value, options) { return httpFetch(this.baseUrl, 'PUT', value, options?.signal); }
    remover() { return httpFetch(this.baseUrl, 'DELETE'); }
    adder(value) { return httpFetch(this.baseUrl, 'POST', value); }
 

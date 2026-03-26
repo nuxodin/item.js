@@ -1,25 +1,9 @@
-// @ts-check
-
-/** @import {Item} from "../item.js" */
 
 // signal / effect
-// toto: better cleaning. state object instead of properties on the function?
 const relatedEffects = new WeakMap();
 
-/** @type {EffectFn|null} */
 let activeEffect = null;
-/** @type {Set<EffectFn>|null} */
 let queue = null;
-
-
-/**
- * @typedef {Object} EffectProps
- * @property {Set<Item>} [deps] - Items, von denen dieser Effekt abhängt
- * @property {Set<EffectFn>} [nested] - Verschachtelte Effekte
- * @property {EffectFn} [parent] - Der übergeordnete Effekt
- * @property {boolean} [disposed] - Ob der Effekt gestoppt wurde
- * * @typedef {((args: {self: EffectFn}) => void) & EffectProps} EffectFn
- */
 
 /**
  * Execute the provided function and re-execute it when dependencies change.
@@ -35,11 +19,8 @@ export function effect(fn) { // async?
     }
     activeEffect = fn;
     cleanup(fn);
-    try {
-        fn({ self: fn });
-    } finally {
-        activeEffect = parent;
-    }
+    try { fn({ self: fn }); }
+    finally { activeEffect = parent; }
     return () => dispose(fn);
 }
 
@@ -73,14 +54,11 @@ export function track(signal) {
     (activeEffect.deps ??= new Set()).add(signal);
 }
 
-/**
- * Add an effect to the batch queue.
- * @param {EffectFn} effect - The effect to add.
- */
 function batch(effect) {
     if (queue) return queue.add(effect); // currently collecting
     queue = new Set([effect]);
-    queueMicrotask(() => {
+    const schedule = globalThis.requestAnimationFrame ?? queueMicrotask;
+    schedule(() => {
         for (const fn of queue) {
             if (fn.disposed) continue;
             if (queue.has(fn?.parent)) continue; // skip if parent already runs. needed as nested effects are disposed anyway
@@ -88,20 +66,14 @@ function batch(effect) {
             cleanup(fn);
 
             activeEffect = fn; // effect() called inside fn(callback) has to know his parent effect
-            try {
-                fn({ self: fn });
-            } catch (err) {
-                console.error(err);
-            }
+            try { fn({ self: fn }); }
+            catch (err) { console.error(err); }
         }
         activeEffect = null;
         queue = null; // restart collecting, todo? we could also keep collecting while running, but it can cause infinite loops if not careful
     });
 }
 
-/**
- * @param {EffectFn} effect
- */
 function cleanup(effect) {
     if (!effect.deps) return;
     for (const signal of effect.deps) {
@@ -110,9 +82,6 @@ function cleanup(effect) {
     effect.deps.clear();
 }
 
-/**
- * @param {EffectFn} effect
- */
 function dispose(effect) {
     if (effect.disposed) return;
     effect.disposed = true;

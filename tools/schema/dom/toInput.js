@@ -1,5 +1,5 @@
 
-export function toInput(schema = {}, { value, required, disabled } = {}) {
+export function toInput(schema = {}, { value, required, disabled, name } = {}) {
     const el = schema.enum ? toSelect(schema) : toNativeInput(schema)
 
     // placeholder from examples or description
@@ -10,8 +10,13 @@ export function toInput(schema = {}, { value, required, disabled } = {}) {
     if (disabled)             el.disabled  = true
     if (schema.readOnly)      el.readOnly  = true
     if (schema.title)         el.title     = schema.title
+    if (name)                 el.name      = name
 
-    // value (after all attrs are set)
+    if (value != null && typeof value === 'object') {
+        console.warn('toInput: value is object', schema, value);
+        value = '-';
+    }
+
     setValue(el, value ?? schema.default)
 
     return el
@@ -58,7 +63,7 @@ function toSelect(schema) {
     const el       = document.createElement('select')
     const nullable = Array.isArray(schema.type)
         ? schema.type.includes('null')
-        : schema.type === 'null' || schema.nullable
+        : schema.type === 'null'
 
     if (nullable) {
         const opt = document.createElement('option')
@@ -75,7 +80,7 @@ function toSelect(schema) {
     return el
 }
 
-function resolveType(schema) {
+export function resolveType(schema) {
     const { type, format, contentEncoding, writeOnly, maxLength, minLength } = schema
     if (writeOnly)                    return 'password'
     if (schema.const != null)         return 'text'
@@ -90,12 +95,24 @@ function resolveType(schema) {
     if (type === 'number')            return 'number'
     if (type === 'boolean')           return 'checkbox'
     // unbounded strings → textarea
-    if (type === 'string' && maxLength == null && minLength == null) return 'textarea'
-    return 'text'
+    //if (type === 'string' && maxLength??0 == null && minLength == null) return 'textarea'
+    if (schema['x-multiline'] != null) return schema['x-multiline'] ? 'textarea' : 'text';
+    if (type === 'string' && (maxLength??0) > 100) return 'textarea';
+    return 'text';
 }
 
 function setValue(el, value) {
-    if (value == null) return
-    if (el.type === 'checkbox') el.checked = !!value
-    else el.value = value
+    if (el.type === 'checkbox') {
+        if (value == null) {
+            el.indeterminate = true;
+        } else {
+            el.checked = !!value;
+        }
+    } else {
+        if (value == null) {
+            el.value = '';
+        } else {
+            el.value = String(value);
+        }
+    }
 }
