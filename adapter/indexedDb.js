@@ -37,9 +37,7 @@ class Table extends Item { // store
         this._batchRunning = true;
         const store = await this.store(true);
         for (const job of this._batchQueue) {
-            job.fn(store).then(job.resolve, job.reject)
-//            try { job.resolve(job.fn(store)); }
-//            catch (e) { job.reject(e); }
+            job.fn(store).then(job.resolve).catch(job.reject);
         }
         this._batchQueue = [];
         this._batchRunning = false;

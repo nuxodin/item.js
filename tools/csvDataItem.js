@@ -24,7 +24,7 @@ export async function csvDataItem(csvItem, options = {}) {
     const parseCsv = (csv) => {
         if (!csv || !csv.trim()) return [];
         
-        const lines = csv.trim().split('\n');
+        const lines = csv.trim().split(/\r?\n/);
         if (lines.length === 0) return [];
         
         // Parse a single line respecting quotes

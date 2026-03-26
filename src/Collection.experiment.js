@@ -12,18 +12,23 @@ export class Collection extends Emitter {
         this.#source = source;
         this.#filter = filter;
         for (const item of source.items()) this.#evaluate(item);
-        this.#onChange = ({remove, target}) => {
-            if (remove) {
-                if (this.#items.has(remove.key)) {
-                    this.#items.delete(remove.key);
-                    this.dispatchEvent(new ItemEvent('change', { remove }));
+        this.#onChange = ({ target, add, remove }) => {
+            if (target === this.#source) {
+                if (remove) {
+                    if (this.#items.has(remove.key)) {
+                        this.#items.delete(remove.key);
+                        this.dispatchEvent(new ItemEvent('change', { remove }));
+                    }
+                    return;
                 }
-                return;
+                if (add) {
+                    this.#evaluate(add);
+                    return;
+                }
             }
-            const child = target.path[this.#source.path.length]
-                ? this.#source.item(target.path[this.#source.path.length])
-                : target;
-            this.#evaluate(child);
+            const key = target.path[this.#source.path.length];
+            const direct = key ? this.#source.has(key) : target;
+            if (direct) this.#evaluate(direct);
         };
         source.addEventListener('changeIn', this.#onChange);
         // source.addEventListener('destroy', () => this.destroy()); todo?
