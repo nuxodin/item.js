@@ -52,7 +52,9 @@ const httpFetch = async (url, method = 'GET', data, signal) => {
    });
    if (!res.ok) throw new Error(`HTTP ${res.status}`);
    const text = await res.text();
-   return text ? JSON.parse(text) : undefined;
+   if (!text) return undefined;
+   try { return JSON.parse(text); }
+   catch { throw new Error(`Invalid JSON from ${url}`); }
 };
 
 /** @param {object} query */

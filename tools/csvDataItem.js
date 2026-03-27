@@ -45,18 +45,18 @@ export async function csvDataItem(csvItem, options = {}) {
                         inQuotes = !inQuotes;
                     }
                 } else if (char === delimiter && !inQuotes) {
-                    result.push(current.trim());
+                    result.push(current);
                     current = '';
                 } else {
                     current += char;
                 }
             }
-            result.push(current.trim());
+            result.push(current);
             return result;
         };
         
         // Get headers
-        const csvHeaders = columns || parseLine(lines[0]);
+        const csvHeaders = columns || parseLine(lines[0]).map(h => h.trim());
         const dataStart = columns ? 0 : 1;
         
         // Parse data rows

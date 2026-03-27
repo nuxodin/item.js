@@ -137,10 +137,9 @@ const root = await createMqtt({url: 'mqtt://mqtt.org:1883'});
 root.item('house1').item('counters').item('electricity').value = 876;
 
 // localStorage
-import {getStore} from "../drivers/localStorage.js";
-const store = getStore('demo');
+import {local} from "../drivers/localStorage.js";
 
-store.item('someItem').value = 'Hello World';
+local.item('someItem').value = 'Hello World';
 
 // cookies
 import {cookies} from "../drivers/cookies.js";

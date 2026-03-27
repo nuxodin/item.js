@@ -1,10 +1,8 @@
 import { Item, item } from "../item.js";
 import { AsyncChild } from "../tools/AsyncChild.js";
-
+import { openDb } from "../tools/schema/db/indexeddb/to-db.js";
 //import * as idb from "https://cdn.jsdelivr.net/npm/idb@7.1.1/with-async-ittr/+esm";
 import * as idb from "https://cdn.jsdelivr.net/npm/idb@8.0.3/+esm";
-
-import { openDb } from "../tools/schema/db/indexeddb/to-db.js";
 
 class Db extends Item {
     open({ version = null, patch = true, upgrade = null } = {}) {
@@ -167,8 +165,3 @@ root = item();
 root.ChildClass = Db;
 
 export const iDB = root;
-
-export function IDB() {
-    console.warn("IDB() is deprecated, use idb instead");
-    return root;
-}

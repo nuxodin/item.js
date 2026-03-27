@@ -8,13 +8,16 @@ export class Db extends Item {
     async row(sql){
         for (const row of await this.query(sql)) return row;
     }
+
     async one(sql){
         const row = await this.row(sql);
         return Object.values(row)[0];
     }
+
     quote(value){
-        return "'"+(value+'').replace(/'/g, "\'")+"'";
+        return "'" + (value + '').replace(/'/g, "''") + "'";
     }
+
     quoteId(name){
         return `"${String(name).replace(/"/g, '""')}"`;
     }
@@ -23,29 +26,6 @@ export class Db extends Item {
         const tables = await this.query("SHOW TABLES");
         for (const table of tables) this.item(Object.values(table)[0]);
     }
-
-
-    // schema
-    /*
-    async setSchema(schema){
-        this.schema = schema;
-        for (const [name, schema] of Object.entries(this.schema.properties)) {
-            await this.item(name).setSchema(schema);
-        }
-    }
-    async getSchema(){
-        if (this.schema) return this.schema;
-        this.schema = {
-            type: 'object',
-            properties: {}
-        };
-        const tables = await this.tables();
-        for (const table of tables) {
-            const schema = await table.getSchema();
-            this.schema.properties[table.key] = schema;
-        }
-    }
-    */
 
     static isPrimitive() { return false; }
     static ChildClass = Table;

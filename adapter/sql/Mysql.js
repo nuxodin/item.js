@@ -15,19 +15,21 @@ class MysqlDb extends Db {
     }
     async query(sql, params){
         try {
-            return await this.connection.query(sql, params); // todo: reconnect if lost
+            return await this.connection.query(sql, params); // toto: reconnect if lost
         } catch(e) {
             console.error(sql);
             throw e;
         }
     }
-    quote(value){ return "'"+(value+'').replace(/'/g, "''")+"'"; }
-    quoteId(name){ return `\`${String(name).replace(/`/g, '``')}\``; }
-    async remove(){
+    // quote(value){ return "'"+(value+'').replace(/'/g, "''")+"'"; }
+    // quoteId(name){ return `\`${String(name).replace(/`/g, '``')}\``; }
+    quote(value)   { return "'" + (value+'').replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'"; }
+    quoteId(name)  { return '`' + String(name).replace(/`/g, '``') + '`'; }
+
+    async remover(){
         await this.connect();
         await this.connection.execute("DROP DATABASE "+this.quoteId(this.key));
         await this.close();
-        super.remove();
     }
 }
 

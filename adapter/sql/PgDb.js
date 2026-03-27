@@ -14,13 +14,7 @@ export class PgDb extends Db {
             return this.client.queryObject(sql, params);
         } catch(e) {
             console.log(sql, e) //throw e;
-            return false;
+            throw e;
         }
-    }
-    quote(value){
-        return "'"+(value+'').replace(/'/g, "\'")+"'";
-    }
-    quoteId(name){
-        return `"${String(name).replace(/"/g, '""')}"`;
     }
 }
