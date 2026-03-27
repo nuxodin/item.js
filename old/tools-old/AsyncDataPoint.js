@@ -206,7 +206,7 @@ function abortablePromise(fn, ms=1) { // delayed and therfore abortable within m
     const controller = new AbortController();
     const promise = new Promise((resolve, reject) => {
         setTimeout(() => {
-            if (controller.signal.aborted) return reject(new Error('aborted'));
+            if (controller.signal.aborted) return reject(new DOMException('aborted', 'AbortError'));
             fn(resolve, reject);
         }, ms);
     });

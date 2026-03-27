@@ -20,8 +20,8 @@ i = item()
 i = item(42)
 i = item({ a: 1, b: { b1: 2 } })
 
-// ! Primitive values live directly on the item.
-// ! Objects turn the item into a container of child items.
+// !!! Primitive values live directly on the item.
+// !!! Objects turn the item into a container of child items.
 
 i.value
 i.value = 99
@@ -39,9 +39,10 @@ i.patch({ b: 3 })    // → { a: 1, b: 3 } 'a' kept (deep)
 i = item(NaN); i.value = NaN  // no change event
 i = item(0);   i.value = -0   // change fires
 
-i.item('key')     // get/create child Item, fires change on parent
+i.item('key')     // get/create child Item, fires change on parent !!! Autovivification
 i.has('key');     // subitem / undefined
 i.has('key')?.remove();
+subsub = i.has('sub', 'subsub') // undefined if any key missing
 i.keys            // string[], registers effect dep
 i.items()         // Item[]
 b = i.sub('a', 'b')   // i.item('a').item('b'), accepts array/spread/mixed
@@ -91,9 +92,6 @@ p[$item]                 // underlying Item
 for (const c of p) { }   // child proxies
 for await (const c of p) { } // calls reader
 JSON.stringify(p())      // ✓
-JSON.stringify(p)        // ✗ logs warning
-await p()                // ✓
-await p                  // ✗ logs warning
 
 // __proto__, constructor, prototype → safe, stored as normal data keys
 ```
@@ -107,7 +105,7 @@ i.addEventListener('change', e => e)
 // { oldValue, value } | { add } | { remove } | { pending } | { error }
 // add, remove are items, pending bool, error error-object 
 // only track value changes? use if ('value' in event)
-// bubbles:
+// !!! bubbles:
 root.addEventListener('changeIn', e => e.target.path) // also setIn, getIn
 ```
 
@@ -158,3 +156,27 @@ class MyItem extends Item {
 
 - **[Tools](./tools/README.md)** — HTTP Router, WebSocket, Change Tracking, JSON Sync, Schema Tools
 - **[Adapters](./adapter/README.md)** — Filesystem (Deno), Cookies, Storage (localStorage/sessionStorage), HTTP Client, WebSocket Client
+
+
+## Common Pitfalls
+
+### Don't read object values directly
+```js
+const i = item({ a: 2 })
+i.value.a         // ✗ — plain JS, not reactive
+i.item('a').value // ✓ — reactive Item
+```
+
+### item() creates structure immediately (autovivification)
+```js
+i.item('a').item('x') // ✓ correct — but: 'a' becomes an object Item instantly,
+                       //   even if you just wanted to check
+i.has('a')?.item('x') // ✓ safe — only if 'a' already exists
+```
+
+### has() returns the Item, not a Boolean
+```js
+if (i.has('sub')) { }          // ✓ works (Item is truthy)
+i.has('sub') === true          // ✗ always false
+i.has('sub')?.value            // ✓ idiomatic
+```

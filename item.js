@@ -53,21 +53,24 @@ export class Item extends Emitter {
     set(value, options) {
         if (this.#isSetting) throw new Error("circular set");
         this.#isSetting = true;
-        const event = dispatch(this, "set", {oldValue: this.#value, value, options});
-        let ioPromise = undefined;
-        if (!event.defaultPrevented) {
-            value = event.value;
+        try {
+            const event = dispatch(this, "set", {oldValue: this.#value, value, options});
+            let ioPromise = undefined;
+            if (!event.defaultPrevented) {
+                value = event.value;
 
-            this.$set(value, { ...options, local: options?.local || !!this.writer }); // children "local only" if i have a writer
+                this.$set(value, { ...options, local: options?.local || !!this.writer }); // children "local only" if i have a writer
 
-            if (this.writer && !options?.local) {
-                const realValue = this.get({ silent: true });
-                ioPromise = this.io.set(realValue);
+                if (this.writer && !options?.local) {
+                    const realValue = this.get({ silent: true });
+                    ioPromise = this.io.set(realValue);
+                }
+
             }
-
+            return ioPromise;
+        } finally {
+            this.#isSetting = false;
         }
-        this.#isSetting = false;
-        return ioPromise; // what about nested items? await also?
     }
 
     patch(value) { return this.set(value, { patch: true }); }
