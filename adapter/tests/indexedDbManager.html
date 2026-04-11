@@ -32,9 +32,9 @@ const schema = {
                 properties: {
                     id: { 'x-index': 'primary', 'x-autoincrement': true, title: 'ID' },
                     name: { 'x-index': true, type: 'string', title: 'Name' },
-                }
+                },
+                'x-display': 'name',
             },
-            'x-display': 'name',
         },
         post: {
             additionalProperties: {
@@ -44,9 +44,9 @@ const schema = {
                     content: { type: 'string', title: 'Content', 'x-multiline': true, 'x-transform': { trim: false } },
                     user_id: { 'x-index': true, 'x-dataref': '../../../user/$', title: 'User' },
                     group_id: { 'x-index': true, 'x-dataref': '../../../group/$', title: 'Group' },
-                }
+                },
+                'x-display': 'title',
             },
-            'x-display': 'title',
         },
         user_group: {
             additionalProperties: {
@@ -65,10 +65,10 @@ const schema = {
                     lastname: { type: 'string', title: 'Nachname' },
                     email: { 'x-index': 'unique', title: 'E-Mail' },
                     age: { type: 'number', title: 'Alter' },
-                }
+                },
+                'x-display': 'email',
             },
             title: 'Benutzer',
-            'x-display': 'email',
         },
 
     }

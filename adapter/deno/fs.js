@@ -1,5 +1,5 @@
 import { Item } from '../../item.js';
-import { ensureDir } from "https://deno.land/std@0.182.0/fs/mod.ts";
+import { ensureDir, ensureFile } from "https://deno.land/std@0.182.0/fs/mod.ts";
 import * as p from "https://deno.land/std/path/mod.ts";
 
 export function fs(rootPath, options) {
@@ -81,9 +81,9 @@ class FsItem extends Item {
         }
     }
     async writer(value) {
-        if (typeof value === 'string') { // if string its a file
-            await ensureDir(this.parent.fsPath);
-            return Deno.writeTextFile(this.fsPath, value);
+        if (typeof value === 'string') {
+            await ensureDir(p.dirname(this.fsPath));
+            return Deno.writeTextFile(this.fsPath, String(value));
         }
         const promises = [];
         for (const key in value) {
@@ -106,7 +106,8 @@ class FsItem extends Item {
 
 
 export async function jsonFile(path) {
-    const {jsonDataItem} = await import('../tools/jsonDataItem.js');
-    const fileItem = fn(path, {watch: true})
+    const {jsonDataItem} = await import('../../tools/jsonDataItem.js');
+    await ensureFile(path);      
+    const fileItem = fs(path, {watch: true})
     return await jsonDataItem(fileItem);
 }

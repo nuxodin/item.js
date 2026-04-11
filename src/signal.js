@@ -59,9 +59,11 @@ function batch(effect) {
     queue = new Set([effect]);
     const schedule = globalThis.requestAnimationFrame ?? queueMicrotask;
     schedule(() => {
-        for (const fn of queue) {
+        const effects = queue;
+        queue = null;
+        for (const fn of effects) {
             if (fn.disposed) continue;
-            if (queue.has(fn?.parent)) continue; // skip if parent already runs. needed as nested effects are disposed anyway
+            if (effects.has(fn?.parent)) continue; // skip if parent already runs. needed as nested effects are disposed anyway
             
             cleanup(fn);
 
@@ -70,7 +72,7 @@ function batch(effect) {
             catch (err) { console.error(err); }
         }
         activeEffect = null;
-        queue = null; // restart collecting, todo? we could also keep collecting while running, but it can cause infinite loops if not careful
+//        queue = null; // restart collecting, todo? we could also keep collecting while running, but it can cause infinite loops if not careful
     });
 }
 

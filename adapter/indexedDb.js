@@ -143,7 +143,7 @@ class Row extends Item {
     }
     writer(value) {
         const key = this.getTypedKey();
-        return this.parent._batch((store) => store.put(value), key);
+        return this.parent._batch((store) => store.keyPath ? store.put(value) : store.put(value, key));
     }
     remover() {
         const key = this.getTypedKey();

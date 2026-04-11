@@ -89,7 +89,7 @@ button {
 .btn-del { padding: 2px 8px; font-size: 11px; color: #A32D2D; border-color: #F7C1C1; }
 .btn-del:hover { background: #FCEBEB; }
 
-input[type=search], select.toolbar-sel {
+input[type=search] {
     padding: 4px 8px;
     border: 0.5px solid var(--color-border-secondary, #ccc);
     border-radius: 6px; font-size: 12px;
@@ -115,6 +115,12 @@ td :is(input, select, textarea) {
     padding: .2rem .4rem; font-size: 13px;
     background: transparent; color: var(--color-text-primary);
 
+    &[type=checkbox] {
+        min-width: unset;
+        display:block;
+        margin:auto;
+    }
+
     &:hover { border-color: var(--color-border-secondary, #ccc); }
     &:focus {
         outline: none; border-color: #185FA5;
@@ -130,34 +136,28 @@ textarea {
     transition:height .2s;
     height:1.8em;
 }
-td input[type=checkbox] { min-width: unset; }
 
 :where(input, textarea, select) {
     &[state="saving"] {
         cursor: wait;
         animation: pulse-blue 1s infinite alternate;
     }
-
     &[state="saved"] {
         animation: flash-green 0.8s ease-out forwards;
     }
-
     &[state="error"] {
-        box-shadow: 0 0 5px 2px rgba(231, 76, 60, 0.6); /* Rot bei Fehler */
+        box-shadow: 0 0 5px 2px var(--red);
     }
 }
-    /* Animationen */
-    @keyframes pulse-blue {
-        from { box-shadow: 0 0 2px 1px rgba(52, 152, 219, 0.3); }
-        to { box-shadow: 0 0 8px 2px rgba(52, 152, 219, 0.6); }
-    }
-
-    @keyframes flash-green {
-        0% { box-shadow: 0 0 0 0px rgba(46, 204, 113, 0); }
-        30% { box-shadow: 0 0 10px 2px rgba(46, 204, 113, 0.7); }
-        100% { box-shadow: 0 0 0 0px rgba(46, 204, 113, 0); }
-    }
-
+@keyframes pulse-blue {
+    from { box-shadow: 0 0 2px 1px rgba(52, 152, 219, 0.3); }
+    to { box-shadow: 0 0 8px 2px rgba(52, 152, 219, 0.6); }
+}
+@keyframes flash-green {
+    0% { box-shadow: 0 0 0 0px rgba(46, 204, 113, 0); }
+    30% { box-shadow: 0 0 .5em .1em var(--green) }
+    100% { box-shadow: 0 0 0 0px rgba(46, 204, 113, 0); }
+}
 
 /* Dialog */
 dialog {
@@ -167,19 +167,6 @@ dialog {
     min-width: 20rem;
 }
 dialog::backdrop { background: rgba(0,0,0,.35); }
-.dlg-head { padding: 14px 18px; font-weight: 500; font-size: 14px; border-bottom: 0.5px solid var(--color-border-tertiary); }
-.dlg-body { padding: 16px 18px; }
-.dlg-foot { padding: 10px 18px; border-top: 0.5px solid var(--color-border-tertiary); display: flex; justify-content: flex-end; gap: 8px; }
-.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.field { display: flex; flex-direction: column; gap: 3px; }
-.field.full { grid-column: 1/-1; }
-.field label { font-size: 11px; color: var(--color-text-secondary, #777); }
-.field input, .field select {
-    padding: 5px 8px;
-    border: 0.5px solid var(--color-border-secondary, #ccc);
-    border-radius: 6px; font-size: 12.5px;
-    background: var(--color-background-primary); color: var(--color-text-primary);
-}
 
 .empty { padding: 40px 20px; text-align: center; color: var(--color-text-tertiary, #aaa); font-size: 13px; }
 .count { font-weight: 400; color: var(--color-text-tertiary); margin-left: 6px; }
@@ -251,10 +238,10 @@ dialog::backdrop { background: rgba(0,0,0,.35); }
 
 import { effect, item } from '../../../item.js';
 import { iDB } from "../../indexedDb.js";
-import * as view from "../../../tools/view/uhtml.js";
-import { render, html } from "https://esm.sh/uhtml@4";
+import { field } from "../../../tools/view/dom.js";
 import { toInput } from "../../../tools/schema/dom/toInput.js";
 import { transform } from "../../../tools/schema/utils.js";
+import { render, html } from "https://esm.sh/uhtml@4";
 
 // ── DB ───────────────────────────────────────────────────────────────────────
 const db = iDB.item('buchhaltung_v3');
@@ -273,14 +260,13 @@ await db.read();
 
 // ── UI state ─────────────────────────────────────────────────────────────────
 const ui = item({ store: 'entry', search: '' });
-const uip = ui.proxy;
 
 // ── Navigation ───────────────────────────────────────────────────────────────
 document.querySelectorAll('nav a[data-store]').forEach(a => {
     a.addEventListener('click', e => {
         e.preventDefault();
-        uip.store(a.dataset.store);
-        uip.search('');
+        ui.item('store').set(a.dataset.store);
+        ui.item('search').set('');
     });
 });
 
@@ -302,17 +288,22 @@ function openAdd(store) {
     };
 
     render(dlg, html`
-        <div class="dlg-head">Neuer Eintrag — ${store.schema?.title ?? store.key}</div>
-        <form class="dlg-body" onsubmit="${onsubmit}">
-            <div class="field-grid">
-                ${fields.map(([name, s]) => html`
-                    <div class="${'field '+['description','notes','content'].includes(name) ? 'full' : ''}">
-                        <label>${s.title ?? name}</label>
-                        ${toInput(s, { name })}
-                    </div>
-                `)}
+        <h4>Neuer Eintrag — ${store.schema?.title ?? store.key}</h4>
+        <form onsubmit="${onsubmit}">
+            <div class="u2-table -Fields -NoSideGaps">
+                <div>
+                    ${fields.map(([name, s]) => html`
+                        <label>
+                            <span>
+                                ${s.title ?? name}
+                                ${s.description ? html`<u2-tooltip position="left">${s.description}</u2-tooltip>` : ''}
+                            </span>
+                            <span>${toInput(s, {name})}</span>
+                        </label>
+                    `)}
+                </div>
             </div>
-            <div class="dlg-foot">
+            <div class="u2-flex" style="justify-content:end; padding-top:2rem">
                 <button type="button" onclick="${() => dlg.close()}">Abbrechen</button>
                 <button type="submit" class="btn-primary">Speichern</button>
             </div>
@@ -326,14 +317,10 @@ const appEl    = document.getElementById('app');
 const titleEl  = document.getElementById('page-title');
 const actionsEl = document.getElementById('topbar-actions');
 
-db.addEventListener('changeIn', event => {
-    if (event.pending) return;
-    console.log('changeIn:', JSON.stringify(event));
-})
-
 effect(() => {
-    const storeKey = uip.store();
-    const search   = uip.search();
+    const storeKey = ui.item('store').get();
+    const search   = ui.item('search').get();
+    if (!storeKey) return;
 
     document.querySelectorAll('nav a[data-store]').forEach(a =>
         a.classList.toggle('active', a.dataset.store === storeKey)
@@ -354,7 +341,7 @@ effect(() => {
     });
 
     render(actionsEl, html`
-        <input type=search placeholder="Suchen…" .value="${search}" oninput="${e => uip.search(e.target.value)}" style="width:180px">
+        <input type=search placeholder="Suchen…" .value="${search}" oninput="${e => ui.item('search').set(e.target.value)}" style="width:180px">
         <button class="btn-primary" onclick="${() => openAdd(store)}">+ Hinzufügen</button>
     `);
 
@@ -374,15 +361,16 @@ effect(() => {
                             </tr></thead>
                         <tbody>
                             ${rows.map(row => {
-                                row.read();                                
+                                const display = row.schema?.['x-display'];
+                                row.read();
+                                row.keys; // track row structure → effect reruns when columns are added/removed
                                 return html`<tr>
                                     ${cols.map(col => {
                                         const cell = row.item(col);
-                                        //cell.read(); // cell needs no read, indexeddb fetches the hole row
-                                        const field = cachedFields.get(cell) ?? cachedFields.set(cell, view.field(cell, true)).get(cell);
-                                        return html`<td key="${col}">${field}</td>`;
+                                        const el = cachedFields.get(cell) ?? cachedFields.set(cell, field(cell, true)).get(cell);
+                                        return html`<td key="${col}">${el}</td>`;
                                     })}
-                                    <td><button class="btn-del" u2-confirm="delete?" onclick="${() => row.remove()}">✕</button></td>
+                                    <td><button class="btn-del" u2-confirm="${`delete ${row.item(display)}?`}" onclick="${() => row.remove()}">✕</button></td>
                                 </tr>`
                             })}
                         </tbody>
@@ -393,8 +381,7 @@ effect(() => {
         </div>
     `);
 });
-const cachedFields = new WeakMap();
-
+let cachedFields = new WeakMap();
 
 </script>
 

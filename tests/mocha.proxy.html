@@ -62,13 +62,13 @@ describe('proxy', () => {
             chai.expect(proxy.username[$item]).to.equal(raw.item('username'));
         });
 
-        it('every .propertyName is possible (strings)', () => {
+        it('every .propertyName exept "then" is possible (strings)', () => {
             const raw = item();
             const proxy = raw.proxy;
             chai.expect(proxy.toString[$item]).to.equal(raw.item('toString'));
-            chai.expect(proxy.then[$item]).to.equal(raw.item('then')); // works but, it will throw a warning
             chai.expect(proxy.toJSON[$item]).to.equal(raw.item('toJSON')); // works but, it will throw a warning
             chai.expect(proxy.valueOf[$item]).to.equal(raw.item('valueOf'));
+            chai.expect(proxy.then).to.be.a('function');
         });
 
     });
@@ -111,13 +111,14 @@ describe('proxy', () => {
             chai.expect(proxy()).to.equal(55);
         });
 
-        it('proxy() no args → targetItem.get() returns promise', async () => {
+        it('async proxy() no args → undefined / value', async () => {
             const raw = item();
             const proxy = raw.proxy;
             chai.expect(proxy()).to.equal(undefined);
             raw.promise = Promise.resolve(55);
-            chai.expect(proxy()).to.be.a('Promise');
-            chai.expect(await proxy()).to.equal(55);
+            chai.expect(proxy()).to.equal(undefined);
+            await new Promise(resolve => setTimeout(resolve, 50));
+            chai.expect(proxy()).to.equal(55);
         });
 
         it('proxy(42) sets value', () => {
@@ -139,6 +140,20 @@ describe('proxy', () => {
         });
 
     });
+
+    /* thenable */
+    describe('thenable', () => {
+        it('proxy.then()', async () => {
+            const raw = item(44);
+            const proxy = raw.proxy;
+            chai.expect(proxy.then).to.be.a('function');
+            chai.expect(await proxy).to.equal(44);
+            raw.promise = Promise.resolve(55);
+            chai.expect(proxy()).to.equal(44);
+            chai.expect(await proxy).to.equal(55);
+        });
+    });
+
 
 
     describe('has trap – "key" in proxy', () => {

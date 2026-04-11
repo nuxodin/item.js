@@ -17,7 +17,31 @@ export function getSchemaRoot(item) {
     return p
 }
 
-function resolveRef(ref, item) {
+
+export function resolveRef(ref, item, skipLevels = 0) {
+    const parts = ref.split('/').filter(p => p !== '');
+    let anchor = item;
+    if (parts[0] === '#') {
+        anchor = getSchemaRoot(item);
+        parts.shift();
+        skipLevels = 0;
+    }
+    let skip = skipLevels;
+    while (skip > 0) {
+        if (parts[0] === '..') { parts.shift(); skip--; }
+        else return undefined;
+    }
+    for (let i = 0; i < parts.length; i++) {
+        const part = parts[i];
+        if (part === '..') anchor = anchor?.parent;
+        else if (part === '.') {}
+        else return anchor?.has(parts.slice(i));
+        if (!anchor) return undefined;
+    }
+    return anchor;
+}
+
+function zzzzresolveRef(ref, item) {
     const parts = ref.split('/');
     let anchor = item;
     for (const part of parts) {
@@ -95,19 +119,6 @@ export function transform(event) {
             if (c === 'upper') event.value = event.value.toUpperCase();
         }
 
-
     }
 
-
 }
-
-// export function useDefault(item) {
-//     item.addEventListener('getIn', event => {
-//         if (!event.target.filled && 'default' in event.target.schema) {
-//             event.value = event.target.schema.default;
-//         }
-//     });
-// }
-
-
-
