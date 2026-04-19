@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>render tests</title>
+    <meta name="viewport" content="width=device-width" />
+    <link rel="stylesheet" href="https://unpkg.com/mocha@10.2.0/mocha.css" />
+</head>
+<body>
+    <div id="mocha"></div>
+
+    <script src="https://unpkg.com/chai@4.4.1/chai.js"></script>
+    <script src="https://unpkg.com/mocha@10.2.0/mocha.js"></script>
+
+    <script class="mocha-init">
+        mocha.setup('bdd')
+        mocha.checkLeaks()
+    </script>
+
+<script type=module>
+import { toInput as toInputDom, render as renderDom } from '../dom.js'
+import { toInput as toInputHtml, render as renderHtml } from '../html.js'
+import { inputNode } from '../../build/input.js'
+
+const { expect } = chai
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('build/input.js — inputNode()', () => {
+
+    describe('resolveType', () => {
+        it('string → input type=text', () => {
+            expect(inputNode({ type: 'string' }).attrs.type).to.equal('text')
+        })
+        it('integer → input type=number, step=1', () => {
+            const n = inputNode({ type: 'integer' })
+            expect(n.attrs.type).to.equal('number')
+            expect(n.attrs.step).to.equal(1)
+        })
+        it('number → step=any', () => {
+            expect(inputNode({ type: 'number' }).attrs.step).to.equal('any')
+        })
+        it('boolean → checkbox', () => {
+            expect(inputNode({ type: 'boolean' }).attrs.type).to.equal('checkbox')
+        })
+        it('writeOnly → password', () => {
+            expect(inputNode({ type: 'string', writeOnly: true }).attrs.type).to.equal('password')
+        })
+        it('format: email', () => {
+            expect(inputNode({ type: 'string', format: 'email' }).attrs.type).to.equal('email')
+        })
+        it('format: date-time → datetime-local', () => {
+            expect(inputNode({ format: 'date-time' }).attrs.type).to.equal('datetime-local')
+        })
+        it('contentEncoding base64 → file', () => {
+            expect(inputNode({ contentEncoding: 'base64' }).attrs.type).to.equal('file')
+        })
+        it('maxLength>100 → textarea', () => {
+            expect(inputNode({ type: 'string', maxLength: 500 }).tag).to.equal('textarea')
+        })
+        it('x-multiline: true wins over short maxLength', () => {
+            expect(inputNode({ type: 'string', 'x-multiline': true, maxLength: 5 }).tag).to.equal('textarea')
+        })
+        it('x-multiline: false wins over long maxLength', () => {
+            expect(inputNode({ type: 'string', 'x-multiline': false, maxLength: 500 }).tag).to.equal('input')
+        })
+    })
+
+    describe('integer range', () => {
+        it('minimum/maximum', () => {
+            const n = inputNode({ type: 'integer', minimum: 1, maximum: 10 })
+            expect(n.attrs.min).to.equal(1)
+            expect(n.attrs.max).to.equal(10)
+        })
+        it('exclusiveMinimum for integer adds 1', () => {
+            const n = inputNode({ type: 'integer', exclusiveMinimum: 0 })
+            expect(n.attrs.min).to.equal(1)
+        })
+        it('exclusiveMaximum for integer subtracts 1', () => {
+            const n = inputNode({ type: 'integer', exclusiveMaximum: 10 })
+            expect(n.attrs.max).to.equal(9)
+        })
+        it('multipleOf sets step', () => {
+            expect(inputNode({ type: 'integer', multipleOf: 5 }).attrs.step).to.equal(5)
+        })
+    })
+
+    describe('text constraints', () => {
+        it('minLength / maxLength / pattern', () => {
+            const n = inputNode({ type: 'string', minLength: 2, maxLength: 20, pattern: '^[a-z]+$' })
+            expect(n.attrs.minlength).to.equal(2)
+            expect(n.attrs.maxlength).to.equal(20)
+            expect(n.attrs.pattern).to.equal('^[a-z]+$')
+        })
+    })
+
+    describe('enum → select', () => {
+        it('creates select with options', () => {
+            const n = inputNode({ enum: ['a', 'b'] })
+            expect(n.tag).to.equal('select')
+            expect(n.children.length).to.equal(2)
+            expect(n.children[0].attrs.value).to.equal('a')
+        })
+        it('nullable prepends empty option', () => {
+            const n = inputNode({ type: ['string', 'null'], enum: [null, 'a'] })
+            expect(n.children[0].attrs.value).to.equal('')
+        })
+        it('selected on matching value', () => {
+            const n = inputNode({ enum: ['a', 'b'] }, { value: 'b' })
+            expect(n.children[1].attrs.selected).to.equal(true)
+        })
+    })
+
+    describe('opts', () => {
+        it('required', () => {
+            expect(inputNode({ type: 'string' }, { required: true }).attrs.required).to.equal(true)
+        })
+        it('disabled', () => {
+            expect(inputNode({ type: 'string' }, { disabled: true }).attrs.disabled).to.equal(true)
+        })
+        it('name', () => {
+            expect(inputNode({ type: 'string' }, { name: 'x' }).attrs.name).to.equal('x')
+        })
+        it('value sets input.value', () => {
+            expect(inputNode({ type: 'string' }, { value: 'hi' }).attrs.value).to.equal('hi')
+        })
+        it('value null → no value attr', () => {
+            const n = inputNode({ type: 'string' }, { value: null })
+            expect(n.attrs.value).to.equal(undefined)
+        })
+        it('falls back to schema.default when value missing', () => {
+            expect(inputNode({ type: 'string', default: 'd' }).attrs.value).to.equal('d')
+        })
+        it('examples[0] → placeholder', () => {
+            expect(inputNode({ type: 'string', examples: ['ex'] }).attrs.placeholder).to.equal('ex')
+        })
+        it('description → placeholder (fallback)', () => {
+            expect(inputNode({ type: 'string', description: 'desc' }).attrs.placeholder).to.equal('desc')
+        })
+    })
+
+    describe('checkbox values', () => {
+        it('true → checked', () => {
+            expect(inputNode({ type: 'boolean' }, { value: true }).attrs.checked).to.equal(true)
+        })
+        it('null → indeterminate', () => {
+            expect(inputNode({ type: 'boolean' }, { value: null }).attrs.indeterminate).to.equal(true)
+        })
+        it('false → neither checked nor indeterminate', () => {
+            const a = inputNode({ type: 'boolean' }, { value: false }).attrs
+            expect(a.checked).to.equal(undefined)
+            expect(a.indeterminate).to.equal(undefined)
+        })
+    })
+
+    describe('textarea value', () => {
+        it('value becomes child text', () => {
+            const n = inputNode({ type: 'string', maxLength: 500 }, { value: 'hello' })
+            expect(n.children).to.deep.equal(['hello'])
+        })
+    })
+
+    describe('const', () => {
+        it('adds readonly', () => {
+            expect(inputNode({ const: 'x' }).attrs.readonly).to.equal(true)
+        })
+    })
+
+    describe('x-html', () => {
+        it('overrides tag', () => {
+            const n = inputNode({ type: 'string', 'x-html': { tag: 'my-input' } })
+            expect(n.tag).to.equal('my-input')
+        })
+        it('overrides native type', () => {
+            const n = inputNode({ type: 'string', 'x-html': { type: 'my-type' } })
+            expect(n.attrs.type).to.equal('my-type')
+        })
+        it('merges arbitrary attributes', () => {
+            const n = inputNode({ type: 'string', 'x-html': { style: 'color:red', class: 'foo' } })
+            expect(n.attrs.style).to.equal('color:red')
+            expect(n.attrs.class).to.equal('foo')
+        })
+        it('wins over native attrs', () => {
+            const n = inputNode({ type: 'integer', minimum: 1, 'x-html': { min: 99 } })
+            expect(n.attrs.min).to.equal(99)
+        })
+        it('can remove a native attr via null', () => {
+            const n = inputNode({ type: 'string', 'x-html': { type: null } })
+            expect(n.attrs.type).to.equal(null)
+        })
+        it('x-html itself is not emitted as attribute', () => {
+            const n = inputNode({ type: 'string', 'x-html': { class: 'foo' } })
+            expect(n.attrs['x-html']).to.equal(undefined)
+        })
+        it('works with enum/select', () => {
+            const n = inputNode({ enum: ['a', 'b'], 'x-html': { tag: 'my-select', class: 'c' } })
+            expect(n.tag).to.equal('my-select')
+            expect(n.attrs.class).to.equal('c')
+        })
+    })
+})
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('render/dom.js', () => {
+
+    it('returns an HTMLElement', () => {
+        const el = toInputDom({ type: 'string' })
+        expect(el).to.be.instanceof(HTMLElement)
+        expect(el.tagName).to.equal('INPUT')
+    })
+
+    it('sets attributes', () => {
+        const el = toInputDom({ type: 'string' }, { value: 'x', required: true, name: 'n' })
+        expect(el.getAttribute('value')).to.equal('x')
+        expect(el.hasAttribute('required')).to.equal(true)
+        expect(el.getAttribute('name')).to.equal('n')
+    })
+
+    it('boolean true → attribute without value', () => {
+        const el = renderDom({ tag: 'input', attrs: { type: 'checkbox', checked: true } })
+        expect(el.getAttribute('checked')).to.equal('')
+    })
+
+    it('false / null attrs are skipped', () => {
+        const el = renderDom({ tag: 'input', attrs: { type: 'text', disabled: false, foo: null } })
+        expect(el.hasAttribute('disabled')).to.equal(false)
+        expect(el.hasAttribute('foo')).to.equal(false)
+    })
+
+    it('indeterminate becomes a property, not an attribute', () => {
+        const el = toInputDom({ type: 'boolean' }, { value: null })
+        expect(el.indeterminate).to.equal(true)
+        expect(el.hasAttribute('indeterminate')).to.equal(false)
+    })
+
+    it('renders children recursively', () => {
+        const el = renderDom({
+            tag: 'div', attrs: {},
+            children: [{ tag: 'span', attrs: {}, children: ['hi'] }],
+        })
+        expect(el.outerHTML).to.equal('<div><span>hi</span></div>')
+    })
+
+    it('renders text nodes', () => {
+        const el = renderDom({ tag: 'p', attrs: {}, children: ['hello'] })
+        expect(el.textContent).to.equal('hello')
+    })
+
+    it('textarea value shows up as textContent', () => {
+        const el = toInputDom({ type: 'string', maxLength: 500 }, { value: 'x' })
+        expect(el.tagName).to.equal('TEXTAREA')
+        expect(el.textContent).to.equal('x')
+    })
+
+    it('select with enum + value marks option selected', () => {
+        const el = toInputDom({ enum: ['a', 'b'] }, { value: 'b' })
+        expect(el.tagName).to.equal('SELECT')
+        expect(el.value).to.equal('b')
+    })
+
+    it('x-html swaps the tag (custom element)', () => {
+        const el = toInputDom({ type: 'string', 'x-html': { tag: 'my-input' } })
+        expect(el.tagName.toLowerCase()).to.equal('my-input')
+    })
+
+    it('x-html merges style / class', () => {
+        const el = toInputDom({ type: 'string', 'x-html': { style: 'color:red', class: 'c' } })
+        expect(el.getAttribute('style')).to.equal('color:red')
+        expect(el.getAttribute('class')).to.equal('c')
+    })
+})
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+describe('render/html.js', () => {
+
+    it('returns a string', () => {
+        expect(toInputHtml({ type: 'string' })).to.be.a('string')
+    })
+
+    it('renders a minimal input', () => {
+        expect(toInputHtml({ type: 'string' })).to.equal('<input type="text">')
+    })
+
+    it('renders void tags without closing tag', () => {
+        expect(renderHtml({ tag: 'br', attrs: {} })).to.equal('<br>')
+        expect(renderHtml({ tag: 'img', attrs: { src: 'a.png' } })).to.equal('<img src="a.png">')
+    })
+
+    it('renders non-void tags with closing tag even when empty', () => {
+        expect(renderHtml({ tag: 'div', attrs: {}, children: [] })).to.equal('<div></div>')
+    })
+
+    it('boolean true → bare attribute name', () => {
+        const s = renderHtml({ tag: 'input', attrs: { type: 'checkbox', checked: true } })
+        expect(s).to.equal('<input type="checkbox" checked>')
+    })
+
+    it('skips false / null attrs', () => {
+        const s = renderHtml({ tag: 'input', attrs: { type: 'text', disabled: false, foo: null } })
+        expect(s).to.equal('<input type="text">')
+    })
+
+    it('indeterminate → data-indeterminate', () => {
+        const s = toInputHtml({ type: 'boolean' }, { value: null })
+        expect(s).to.contain('data-indeterminate="true"')
+        expect(s).to.not.contain(' indeterminate')
+    })
+
+    it('escapes attribute values (&, ", < — not > per HTML5)', () => {
+        const s = toInputHtml({ type: 'string', examples: ['a "b" & <c>'] })
+        expect(s).to.contain('placeholder="a &quot;b&quot; &amp; &lt;c>"')
+    })
+
+    it('escapes text nodes', () => {
+        const s = renderHtml({ tag: 'div', attrs: {}, children: ['<x>&'] })
+        expect(s).to.equal('<div>&lt;x&gt;&amp;</div>')
+    })
+
+    it('renders children recursively', () => {
+        const s = renderHtml({
+            tag: 'ul', attrs: {},
+            children: [
+                { tag: 'li', attrs: {}, children: ['a'] },
+                { tag: 'li', attrs: {}, children: ['b'] },
+            ],
+        })
+        expect(s).to.equal('<ul><li>a</li><li>b</li></ul>')
+    })
+
+    it('select with enum renders options', () => {
+        const s = toInputHtml({ enum: ['a', 'b'] }, { value: 'b' })
+        expect(s).to.contain('<option value="a">a</option>')
+        expect(s).to.contain('<option value="b" selected>b</option>')
+    })
+
+    it('x-html swaps tag and merges attrs', () => {
+        const s = toInputHtml({ type: 'string', 'x-html': { tag: 'my-input', class: 'c' } })
+        expect(s).to.contain('<my-input')
+        expect(s).to.contain('class="c"')
+        expect(s).to.contain('</my-input>')
+    })
+})
+</script>
+
+<script class="mocha-exec" type=module>
+    mocha.run()
+</script>
+</body>
+</html>

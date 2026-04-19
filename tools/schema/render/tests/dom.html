@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>render/dom.js — demo</title>
+    <style>
+        body { font-family: system-ui; max-width: 780px; margin: 1rem auto; padding: 0 1rem }
+        section { border-top: 1px solid #ccc; padding: .5rem 0 }
+        .row { display: grid; grid-template-columns: 14rem 1fr; gap: .5rem; align-items: center; margin: .25rem 0 }
+        .row > code { font-size: .8em; color: #555 }
+        pre { background: #f4f4f4; padding: .4rem; font-size: .8em; overflow: auto }
+
+        /* validity feedback */
+        input, select, textarea        { outline: 2px solid transparent; outline-offset: 2px }
+        input:valid, select:valid, textarea:valid     { outline-color: #4caf50 }
+        input:invalid, select:invalid, textarea:invalid { outline-color: #e53935 }
+        input:disabled, select:disabled, textarea:disabled { outline-color: #999; opacity: .6 }
+        input:read-only:not([type=checkbox]):not([type=radio]) { background: #f4f4f4 }
+    </style>
+</head>
+<body>
+
+<h1>render/dom.js</h1>
+<p><code>toInput(schema, opts)</code> builds a native <code>HTMLElement</code> from a JSON schema.
+<code>render(virtualNode)</code> can also be used directly.</p>
+<p><small>Green outline = <code>:valid</code>, red outline = <code>:invalid</code>.
+Try typing into the fields to see constraints trigger.</small></p>
+
+
+<section>
+    <h2>toInput() — schema types</h2>
+    <div id="types"></div>
+</section>
+
+<section>
+    <h2>toInput() — opts</h2>
+    <div id="opts"></div>
+</section>
+
+<section>
+    <h2>toInput() — enum → &lt;select&gt;</h2>
+    <div id="enums"></div>
+</section>
+
+<section>
+    <h2>x-html — schema-driven attrs / tag override</h2>
+    <div id="xhtml"></div>
+</section>
+
+<section>
+    <h2>render() — direct virtual node</h2>
+    <div id="direct"></div>
+    <pre id="directSrc"></pre>
+</section>
+
+
+<script type="module">
+import { toInput, render } from '../dom.js'
+
+const typesBox  = document.getElementById('types')
+const optsBox   = document.getElementById('opts')
+const enumsBox  = document.getElementById('enums')
+const xhtmlBox  = document.getElementById('xhtml')
+const directBox = document.getElementById('direct')
+
+// --- toInput: various schema types --------------------------------------------
+const typeCases = [
+    { label: 'string (default)',          schema: { type: 'string' } },
+    { label: 'integer + min/max/step',    schema: { type: 'integer', minimum: 0, maximum: 10, multipleOf: 2 } },
+    { label: 'number + exclusiveMin',     schema: { type: 'number', exclusiveMinimum: 0 } },
+    { label: 'boolean → checkbox',        schema: { type: 'boolean' } },
+    { label: 'format: email',             schema: { type: 'string', format: 'email' } },
+    { label: 'format: date',              schema: { type: 'string', format: 'date' } },
+    { label: 'format: color',             schema: { type: 'string', format: 'color' } },
+    { label: 'writeOnly → password',      schema: { type: 'string', writeOnly: true, minLength: 6 } },
+    { label: 'const → readonly',          schema: { type: 'string', const: 'fixed' } },
+    { label: 'readOnly (schema)',         schema: { type: 'string', readOnly: true, default: 'fixed' } },
+    { label: 'maxLength > 100 → textarea',schema: { type: 'string', maxLength: 500 } },
+    { label: 'pattern (3 uppercase)',     schema: { type: 'string', pattern: '^[A-Z]{3}$' } },
+    { label: 'examples → placeholder',    schema: { type: 'string', examples: ['e.g. Hans'] } },
+    { label: 'base64 → file',             schema: { type: 'string', contentEncoding: 'base64', contentMediaType: 'image/*' } },
+    { label: 'required + minLength 3',    schema: { type: 'string', minLength: 3 }, opts: { required: true } },
+]
+for (const { label, schema, opts } of typeCases) {
+    typesBox.append(row(label, toInput(schema, opts), JSON.stringify({ schema, ...(opts ? { opts } : {}) })))
+}
+
+// --- toInput: opts ------------------------------------------------------------
+const optsCases = [
+    { label: 'value',              args: [{ type: 'string' }, { value: 'Hello' }] },
+    { label: 'name',               args: [{ type: 'string' }, { name: 'firstname' }] },
+    { label: 'required (empty)',   args: [{ type: 'string' }, { required: true }] },
+    { label: 'required + value',   args: [{ type: 'string' }, { required: true, value: 'ok' }] },
+    { label: 'disabled',           args: [{ type: 'string' }, { disabled: true }] },
+    { label: 'bool value=true',    args: [{ type: 'boolean' }, { value: true }] },
+    { label: 'bool value=null → indeterminate', args: [{ type: 'boolean' }, { value: null }] },
+]
+for (const { label, args } of optsCases) {
+    optsBox.append(row(label, toInput(...args), `toInput(${args.map(a => JSON.stringify(a)).join(', ')})`))
+}
+
+// --- toInput: enum ------------------------------------------------------------
+enumsBox.append(row('enum of strings',
+    toInput({ enum: ['red', 'green', 'blue'] }, { value: 'green' }),
+    `{ enum: ['red','green','blue'] }`))
+enumsBox.append(row('enum nullable',
+    toInput({ type: ['string', 'null'], enum: [null, 'a', 'b'] }),
+    `{ type:['string','null'], enum:[null,'a','b'] }`))
+enumsBox.append(row('enum required',
+    toInput({ enum: ['a', 'b'] }, { required: true }),
+    `{ enum:['a','b'] }, { required:true }`))
+
+// --- x-html -------------------------------------------------------------------
+const xhtmlCases = [
+    { label: 'style + class',
+      schema: { type: 'string', 'x-html': { style: 'color:red; font-weight:bold', class: 'my-class' } } },
+    { label: 'override tag (custom element)',
+      schema: { type: 'string', 'x-html': { tag: 'my-input' } } },
+    { label: 'override input type',
+      schema: { type: 'string', 'x-html': { type: 'search' } } },
+    { label: 'x-html wins: max=3 overrides maximum=10 (try the spinner)',
+      schema: { type: 'integer', minimum: 0, maximum: 10, 'x-html': { max: 3 } },
+      opts:   { value: 5 } },
+    { label: 'data-* attribute',
+      schema: { type: 'string', 'x-html': { 'data-role': 'foo' } } },
+]
+for (const { label, schema, opts } of xhtmlCases) {
+    xhtmlBox.append(row(label, toInput(schema, opts), JSON.stringify({ schema, ...(opts ? { opts } : {}) })))
+}
+
+// --- render: direct -----------------------------------------------------------
+const vnode = {
+    tag: 'fieldset',
+    attrs: {},
+    children: [
+        { tag: 'legend', attrs: {}, children: ['Virtual Node'] },
+        { tag: 'label', attrs: {}, children: [
+            'Name: ',
+            { tag: 'input', attrs: { type: 'text', value: 'Anna', required: true } },
+        ]},
+        ' ',
+        { tag: 'button', attrs: { type: 'button' }, children: ['Click'] },
+    ],
+}
+directBox.append(render(vnode))
+document.getElementById('directSrc').textContent = JSON.stringify(vnode, null, 2)
+
+// --- helpers ------------------------------------------------------------------
+function row(label, el, code) {
+    const d = document.createElement('div')
+    d.className = 'row'
+    const l = document.createElement('div'); l.textContent = label
+    const c = document.createElement('code'); c.textContent = code
+    d.append(l, el, document.createElement('div'), c)
+    return d
+}
+</script>
+</body>
+</html>

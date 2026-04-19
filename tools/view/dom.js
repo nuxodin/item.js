@@ -1,5 +1,5 @@
 import { resolveRef } from '../schema/utils.js';
-import { toInput } from '../schema/dom/toInput.js';
+import { toInput } from '../schema/render/dom.js';
 
 const isPrimary = (s) => s['x-index'] === 'primary';
 

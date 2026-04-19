@@ -44,7 +44,7 @@ const proxyHandler = {
         const targetItem = target.item;
         if (args.length === 0) {
             return targetItem.get();
-            return targetItem.read().then(() => targetItem.get());
+            // return targetItem.read().then(() => targetItem.get());
             // return targetItem.get();
             // return new Promise((resolve, reject) => {
             //     //if (targetItem.filled) return resolve(targetItem.get());

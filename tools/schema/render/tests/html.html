@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>render/html.js — demo</title>
+    <style>
+        body { font-family: system-ui; max-width: 900px; margin: 1rem auto; padding: 0 1rem }
+        section { border-top: 1px solid #ccc; padding: .5rem 0 }
+        .row { display: grid; grid-template-columns: 16rem 1fr 1fr; gap: .5rem; margin: .35rem 0; align-items: center }
+        .row > code      { font-size: .75em; color: #555; white-space: pre-wrap; word-break: break-all }
+        .row > .out      { font-family: monospace; font-size: .85em; background: #f4f4f4; padding: .3rem .5rem; white-space: pre-wrap; word-break: break-all }
+        .row > .rendered { font-size: .9em }
+        h2 { margin-bottom: .25rem }
+        p.hint { color: #666; font-size: .9em; margin-top: 0 }
+        thead th { text-align: left; font-weight: normal; color: #888; font-size: .8em }
+
+        /* validity feedback on rendered (live) elements */
+        .rendered input, .rendered select, .rendered textarea          { outline: 2px solid transparent; outline-offset: 2px }
+        .rendered input:valid, .rendered select:valid, .rendered textarea:valid     { outline-color: #4caf50 }
+        .rendered input:invalid, .rendered select:invalid, .rendered textarea:invalid { outline-color: #e53935 }
+        .rendered input:disabled, .rendered select:disabled, .rendered textarea:disabled { outline-color: #999; opacity: .6 }
+    </style>
+</head>
+<body>
+
+<h1>render/html.js</h1>
+<p>Same API as <code>render/dom.js</code>, but produces an <strong>HTML string</strong>
+(for SSR, templating, tests). The right column below shows the same string inserted
+into the live DOM via <code>innerHTML</code>, so you can see the <code>:valid</code> /
+<code>:invalid</code> state.</p>
+
+
+<section>
+    <h2>toInput() — schema → HTML string</h2>
+    <div id="types"></div>
+</section>
+
+<section>
+    <h2>Escaping</h2>
+    <p class="hint">Values from the schema are escaped in both attribute and text positions.</p>
+    <div id="escape"></div>
+</section>
+
+<section>
+    <h2>Void tags</h2>
+    <p class="hint">Tags listed in <code>VOID_TAGS</code> are serialized without a closing tag.</p>
+    <div id="void"></div>
+</section>
+
+<section>
+    <h2>indeterminate → data-indeterminate</h2>
+    <p class="hint">HTML has no <code>indeterminate</code> attribute, so it maps to <code>data-indeterminate</code>.</p>
+    <div id="indet"></div>
+</section>
+
+
+<script type="module">
+import { toInput, render } from '../html.js'
+
+const typesBox  = document.getElementById('types')
+const escapeBox = document.getElementById('escape')
+const voidBox   = document.getElementById('void')
+const indetBox  = document.getElementById('indet')
+
+// --- toInput ------------------------------------------------------------------
+const cases = [
+    { label: 'string + value',          args: [{ type: 'string' }, { value: 'Hello' }] },
+    { label: 'integer + min/max',       args: [{ type: 'integer', minimum: 1, maximum: 9 }] },
+    { label: 'enum → select',           args: [{ enum: ['a', 'b', 'c'] }, { value: 'b' }] },
+    { label: 'textarea (maxLength)',    args: [{ type: 'string', maxLength: 500 }, { value: 'line' }] },
+    { label: 'writeOnly → password',    args: [{ type: 'string', writeOnly: true, minLength: 6 }] },
+    { label: 'format: date + required', args: [{ type: 'string', format: 'date' }, { required: true, name: 'dob' }] },
+    { label: 'boolean value=true',      args: [{ type: 'boolean' }, { value: true }] },
+    { label: 'pattern + required',      args: [{ type: 'string', pattern: '^[A-Z]{3}$' }, { required: true }] },
+    { label: 'x-html: style + class',   args: [{ type: 'string', 'x-html': { style: 'color:red', class: 'my-class' } }] },
+    { label: 'x-html: tag override',    args: [{ type: 'string', 'x-html': { tag: 'my-input' } }] },
+]
+for (const { label, args } of cases) {
+    typesBox.append(row(label, toInput(...args), `toInput(${args.map(a => JSON.stringify(a)).join(', ')})`))
+}
+
+// --- escaping -----------------------------------------------------------------
+escapeBox.append(row('placeholder with " < &',
+    toInput({ type: 'string', examples: ['a "b" & <c>'] }),
+    `examples: ['a "b" & <c>']`))
+
+escapeBox.append(row('text node with <script>',
+    render({ tag: 'div', attrs: {}, children: ['<script>alert(1)</s' + 'cript>'] }),
+    `children: ['<script>...']`))
+
+// --- void tags ----------------------------------------------------------------
+voidBox.append(row('<br>',    render({ tag: 'br',  attrs: {} }), `{tag:'br'}`))
+voidBox.append(row('<img>',   render({ tag: 'img', attrs: { src: '/x.png', alt: 'x' } }), `{tag:'img', attrs:{src,alt}}`))
+voidBox.append(row('<input>', render({ tag: 'input', attrs: { type: 'text' } }), `{tag:'input'}`))
+voidBox.append(row('<div>  (not void)', render({ tag: 'div', attrs: {}, children: [] }), `{tag:'div', children:[]}`))
+
+// --- indeterminate ------------------------------------------------------------
+indetBox.append(row('value: null',  toInput({ type: 'boolean' }, { value: null }),  `{value:null}`))
+indetBox.append(row('value: true',  toInput({ type: 'boolean' }, { value: true }),  `{value:true}`))
+indetBox.append(row('value: false', toInput({ type: 'boolean' }, { value: false }), `{value:false}`))
+
+// --- header row ---------------------------------------------------------------
+for (const box of [typesBox, escapeBox, voidBox, indetBox]) {
+    const head = document.createElement('div')
+    head.className = 'row'
+    head.innerHTML = '<small>label</small><small>string output</small><small>live (:valid / :invalid)</small><small></small>'
+    box.prepend(head)
+}
+
+// --- helpers ------------------------------------------------------------------
+function row(label, htmlStr, code) {
+    const d = document.createElement('div')
+    d.className = 'row'
+    const l   = document.createElement('div'); l.textContent = label
+    const out = document.createElement('div'); out.className = 'out'; out.textContent = htmlStr
+    const live = document.createElement('div'); live.className = 'rendered'; live.innerHTML = htmlStr
+    const c   = document.createElement('code'); c.textContent = code
+    d.append(l, out, live, c)
+    return d
+}
+</script>
+</body>
+</html>
