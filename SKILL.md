@@ -77,12 +77,13 @@ p = i.proxy
 
 p()              // i.get(), or i.promise if pending
 p(42)            // i.set(42), returns true or Promise
+p(1, 2)          // throws
 'p:' + p         // 'p:42' / null 'p:null'
 `p:${p}`         // 'p:42' / null 'p:'
 ++p;             // 43
-p(1, 2)          // throws
 p.xyz            // child proxy (auto-created)
 p.xyz = v
+p.then           // Proxys are thenable, "then" is the only reserved property
 delete p.xyz     // i.item('xyz').delete()
 'xyz' in p
 Object.keys(p)
@@ -91,9 +92,8 @@ Object.assign(p, src)    // sets each key on underlying items
 p[$item]                 // underlying Item
 for (const c of p) { }   // child proxies
 for await (const c of p) { } // calls reader
+await p;                 // calls reader() and awaits the promise
 JSON.stringify(p())      // ✓
-
-// __proto__, constructor, prototype → safe, stored as normal data keys
 ```
 
 ## Events
@@ -131,7 +131,7 @@ i.addEventListener('set', () => i.value = x)  // throws 'circular set'
 i.reader = () => fetch('/api/value').then(r => r.json());
 i.writer = v => fetch('/api/value', {method:'PUT', body: JSON.stringify(v)});
 
-await i.read();   // like get, but triggers reader for the item (not recursive)
+await i.read();   // triggers reader for the item (not recursive)
 // primitive → sets value
 // object → creates child items (keys only, values unfilled)
 i.set(99);        // set locally + call writer;

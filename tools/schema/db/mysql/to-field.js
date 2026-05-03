@@ -1,58 +1,63 @@
 // mysql/to-field.js — JSON Schema property → MySQL column definition
 
-const B = 4  // bytes per char, worst-case utf8mb4
+const B = 4; // bytes per char, worst-case utf8mb4
 
-export function toFieldDef(name, prop) {
-    let type, unsigned = false
+const formats = { date: "DATE", time: "TIME", "date-time": "DATETIME" };
 
-    if (prop.type === 'boolean') {
-        type = 'TINYINT(1)'
+export function quoteId(name) {
+  return `\`${String(name).replace(/`/g, "``")}\``;
+}
 
-    } else if (prop.type === 'integer') {
-        const min = prop.minimum ?? -Infinity
-        const max = prop.maximum ?? Infinity
-        if (min >= 0) {
-            unsigned = true
-            if      (max <= 255)        type = 'TINYINT'
-            else if (max <= 65535)      type = 'SMALLINT'
-            else if (max <= 16777215)   type = 'MEDIUMINT'
-            else if (max <= 4294967295) type = 'INT'
-            else                        type = 'BIGINT'
-        } else {
-            if      (min >= -128        && max <= 127)        type = 'TINYINT'
-            else if (min >= -32768      && max <= 32767)      type = 'SMALLINT'
-            else if (min >= -8388608    && max <= 8388607)    type = 'MEDIUMINT'
-            else if (min >= -2147483648 && max <= 2147483647) type = 'INT'
-            else                                              type = 'BIGINT'
-        }
+export function toFieldDef(name, prop, { required = false } = {}) {
+  let type, unsigned = false;
+  const types      = Array.isArray(prop.type) ? prop.type : [prop.type];
+  const schemaType = types.find(t => t !== "null");
+  const nullable = !required || types.includes("null");
 
-    } else if (prop.type === 'number') {
-        type = prop.multipleOf ? `DECIMAL` : 'DOUBLE'
+  if (schemaType === "boolean") type = "TINYINT(1)";
+  else if (schemaType === "integer") ({ type, unsigned } = integerType(prop));
+  else if (schemaType === "number") type = prop.multipleOf ? "DECIMAL" : "DOUBLE";
+  else if (schemaType === "object" || schemaType === "array") type = "JSON";
+  else type = stringType(prop);
 
-    } else if (prop.type === 'object' || prop.type === 'array') {
-        type = 'JSON'
+  let sql = `${quoteId(name)} ${type}`;
+  if (unsigned) sql += " UNSIGNED";
+  sql += !nullable || prop["x-autoincrement"] ? " NOT NULL" : " NULL";
+  if (prop.default != null) {
+    sql += ` DEFAULT '${String(prop.default).replace(/'/g, "''")}'`;
+  }
+  if (prop["x-autoincrement"]) sql += " AUTO_INCREMENT";
+  if (prop["$comment"]) {
+    sql += ` COMMENT '${prop["$comment"].replace(/'/g, "''")}'`;
+  }
 
-    } else { // string
-        if      (prop.format === 'date')      type = 'DATE'
-        else if (prop.format === 'time')      type = 'TIME'
-        else if (prop.format === 'date-time') type = 'DATETIME'
-        else if (prop.contentEncoding === 'base64') {
-            const len = prop.maxLength
-            type = len ? `VARBINARY(${len})` : 'BLOB'
-        } else {
-            const maxBytes = (prop.maxLength ?? Infinity) * B
-            if      (maxBytes <= 255)      type = `VARCHAR(${(prop.maxLength ?? 63) * B})`
-            else if (maxBytes <= 65535)    type = 'TEXT'
-            else if (maxBytes <= 16777215) type = 'MEDIUMTEXT'
-            else                           type = 'LONGTEXT'
-        }
-    }
+  return sql;
+}
 
-    let sql = `\`${name}\` ${type}`
-    if (unsigned)                  sql += ' UNSIGNED'
-    if (prop['x-autoincrement'])   sql += ' AUTO_INCREMENT'
-    if (prop.default != null)      sql += ` DEFAULT '${String(prop.default).replace(/'/g, "''")}'`
-    if (prop['$comment'])          sql += ` COMMENT '${prop['$comment'].replace(/'/g, "''")}'`
+function integerType(prop) {
+  if (prop.minimum == null && prop.maximum == null) return { type: "INT", unsigned: !!prop["x-autoincrement"] };
+  const min = prop.minimum ?? -Infinity, max = prop.maximum ?? Infinity;
+  const unsigned = min >= 0;
+  if (unsigned) {
+    if (max <= 255) return { type: "TINYINT", unsigned };
+    if (max <= 65535) return { type: "SMALLINT", unsigned };
+    if (max <= 16777215) return { type: "MEDIUMINT", unsigned };
+    if (max <= 4294967295) return { type: "INT", unsigned };
+    return { type: "BIGINT", unsigned };
+  }
+  if (min >= -128 && max <= 127) return { type: "TINYINT", unsigned };
+  if (min >= -32768 && max <= 32767) return { type: "SMALLINT", unsigned };
+  if (min >= -8388608 && max <= 8388607) return { type: "MEDIUMINT", unsigned };
+  if (min >= -2147483648 && max <= 2147483647) return { type: "INT", unsigned };
+  return { type: "BIGINT", unsigned };
+}
 
-    return sql
+function stringType(prop) {
+  if (prop.format in formats) return formats[prop.format];
+  if (prop.contentEncoding === "base64") return prop.maxLength ? `VARBINARY(${prop.maxLength})` : "BLOB";
+  const maxLength = prop.maxLength ?? Math.floor(65535 / B), maxBytes = maxLength * B;
+  if (maxLength <= 255) return `VARCHAR(${maxLength})`;
+  if (maxBytes <= 65535) return "TEXT";
+  if (maxBytes <= 16777215) return "MEDIUMTEXT";
+  return "LONGTEXT";
 }

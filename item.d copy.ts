@@ -1,8 +1,6 @@
 import { Emitter } from "./src/Emitter.js";
 import { AsyncDataPoint } from "./src/AsyncDataPoint.js";
 
-export const $item: unique symbol;
-
 export class Item extends Emitter {
     constructor(parent?: Item, key?: string);
 
@@ -51,7 +49,7 @@ export class Item extends Emitter {
     readonly schema: Record<string, any> | null;
 
     // Misc
-    readonly proxy: ItemProxy;
+    readonly proxy: any;
     toJSON(): any;
     toString(): string;
     [Symbol.toPrimitive](hint: "string" | "number" | "default"): any;
@@ -65,23 +63,6 @@ export class Item extends Emitter {
     static ChildClass: typeof Item | false | undefined;
     static isPrimitive(value: any): boolean;
     static equals(a: any, b: any): boolean;
-}
-
-export type ItemValue = unknown;
-
-export type ItemProxy = ItemProxyMethods & {
-    [key: string]: ItemProxy;
-};
-
-export interface ItemProxyMethods {
-    readonly [$item]: Item;
-    (): ItemValue;
-    (value: ItemValue): Promise<any> | true;
-    then<TResult1 = ItemValue, TResult2 = never>(
-        onfulfilled?: ((value: ItemValue) => TResult1 | PromiseLike<TResult1>) | null,
-        onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
-    ): PromiseLike<TResult1 | TResult2>;
-    [Symbol.iterator](): Iterator<ItemProxy>;
 }
 
 export function item(...args: any[]): Item;

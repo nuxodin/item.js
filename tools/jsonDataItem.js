@@ -6,8 +6,14 @@ export async function jsonDataItem(jsonItem) {
     const syncToJson = () => jsonItem.set(JSON.stringify(root.value, null, 2));
     await jsonItem.read();
     syncFromJson(jsonItem.get());
-    root.addEventListener('changeIn', debounce(syncToJson, 1));
+    root.addEventListener('changeIn', debounce(syncToJson, 25));
     jsonItem.addEventListener('change', () => syncFromJson(jsonItem.value));
+    return root;
+}
+
+export function bildJsonItem(raw, save) {
+    const root = item(JSON.parse(raw || "{}"));
+    root.addEventListener("changeIn", debounce(() => save(JSON.stringify(root.get())), 25));
     return root;
 }
 

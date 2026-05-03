@@ -8,7 +8,7 @@ const dialect = {
     fromField: (row) => ({
         name:       row.Field,
         prop:       schemaFromField(row),
-        isRequired: row.Null === 'NO' && row.Extra !== 'auto_increment',
+        isRequired: row.Null === 'NO',
     }),
 }
 

@@ -17,20 +17,17 @@ const proxyHandler = {
             return targetItem[property];
         }
 
-
         if (property === 'then') {
-            // console.log('beta: proxy item as thenable');
             return (resolve, reject) => {
                 targetItem.read()
                     .then(() => resolve(targetItem.get())) 
                     .catch(reject);
             };
         }
-    
+
         const childItem = targetItem.item(property);
 
-//        if (property === 'then') console.error('item.js: Proxy is not a Promise. Use `await proxy.item()` instead of `await proxy`');
-        if (property === 'toJSON') console.error('item.js: toJSON accessed on proxy. Use `JSON.stringify(proxy())` instead of `JSON.stringify(proxy)`');
+        if (property === 'toJSON') console.error('item.js: toJSON accessed on proxy. Use `JSON.stringify(proxy())` instead of `JSON.stringify(proxy)`', Error().stack);
 
         return toProxy(childItem);
     },
@@ -42,16 +39,7 @@ const proxyHandler = {
 
     apply: function (target, thisArg, args) {
         const targetItem = target.item;
-        if (args.length === 0) {
-            return targetItem.get();
-            // return targetItem.read().then(() => targetItem.get());
-            // return targetItem.get();
-            // return new Promise((resolve, reject) => {
-            //     //if (targetItem.filled) return resolve(targetItem.get());
-            //     targetItem.read().then(() => resolve(targetItem.get())).catch(reject);
-            // });
-            // if (!targetItem.filled) targetItem.read();
-        }
+        if (args.length === 0) return targetItem.get();
         if (args.length === 1) return targetItem.set(args[0]) ?? true;
         throw new Error('apply called with too many arguments');
     },
