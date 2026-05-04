@@ -1,9 +1,9 @@
 import { Emitter } from "./src/Emitter.js";
-import { AsyncDataPoint } from "./src/AsyncDataPoint.js";
+import type { AsyncDataPoint } from "./src/AsyncDataPoint.js";
 
 export const $item: unique symbol;
 
-export class Item extends Emitter {
+export class Item<TRoot extends Item<any> = Item<any>> extends Emitter {
     constructor(parent?: Item, key?: string);
 
     readonly key: string | null;
@@ -40,7 +40,7 @@ export class Item extends Emitter {
     
     readonly keys: string[] | readonly never[];
     readonly path: string[] | readonly never[];
-    readonly root: Item;
+    readonly root: TRoot;
     items(): Item[];
 
     // Data Sync
