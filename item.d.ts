@@ -7,7 +7,7 @@ export class Item<TRoot extends Item<any> = Item<any>> extends Emitter {
     constructor(parent?: Item, key?: string);
 
     readonly key: string | null;
-    readonly parent: Item | null;
+    readonly parent: TRoot | null;
     readonly filled: boolean;
     readonly isObject: boolean | null;
     value: any;
@@ -15,13 +15,13 @@ export class Item<TRoot extends Item<any> = Item<any>> extends Emitter {
     // Async Status & IO
     readonly io: AsyncDataPoint;
     readonly pending: boolean;
-    readonly error: any | undefined;
+    readonly error: Error | undefined;
     promise: Promise<any>;
 
     // Hooks (Callbacks)
     reader?: (query?: any, options?: any) => Promise<any>;
     writer?: (value: any, options?: any) => Promise<any>;
-    adder?: (value: any) => Promise<{key: string} | any>;
+    adder?: (value: any) => Promise<{key: string}>;
     remover?: (options?: any) => Promise<any>;
 
     // Core Methods
@@ -31,7 +31,7 @@ export class Item<TRoot extends Item<any> = Item<any>> extends Emitter {
     clear(): void;
     
     // Traversal & Structure
-    item(key: any): Item;
+    item(key: any): TRoot;
     sub(...keys: (string | string[])[]): Item;
     add(value: any): Promise<Item>;
     generateKey(): string;
@@ -63,8 +63,8 @@ export class Item<TRoot extends Item<any> = Item<any>> extends Emitter {
     // Static & Customization
     ChildClass: typeof Item | false | undefined;
     static ChildClass: typeof Item | false | undefined;
-    static isPrimitive(value: any): boolean;
-    static equals(a: any, b: any): boolean;
+    static isPrimitive(value: unknown): boolean;
+    static equals(a: unknown, b: unknown): boolean;
 }
 
 export type ItemValue = unknown;
