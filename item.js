@@ -1,3 +1,4 @@
+// @ts-self-types="./item.d.ts"
 import { toProxy, $item } from "./src/proxy.js";
 import { asyncIteratorFromEventTarget, Emitter, ItemEvent, } from "./src/Emitter.js";
 import { AsyncDataPoint } from "./src/AsyncDataPoint.js";
