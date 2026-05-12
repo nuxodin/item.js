@@ -67,6 +67,7 @@ export class Item<TRoot extends Item<any> = Item<any>> extends Emitter {
     static equals(a: unknown, b: unknown): boolean;
 }
 
+/*
 export type ItemValue = unknown;
 
 export type ItemProxy = ItemProxyMethods & {
@@ -83,6 +84,26 @@ export interface ItemProxyMethods {
     ): PromiseLike<TResult1 | TResult2>;
     [Symbol.iterator](): Iterator<ItemProxy>;
 }
+*/
+
+export type ItemValue = unknown;
+
+export type ItemProxy<T = ItemValue, TRaw extends Item = Item> = ItemProxyMethods<T, TRaw> & ItemProxyChildren;
+
+export interface ItemProxyChildren { [key: string]: ItemProxy<unknown, Item>; }
+
+export interface ItemProxyMethods<T = ItemValue,TRaw extends Item = Item> {
+    readonly [$item]: TRaw;
+    <TValue = T>(): TValue;
+    (value: unknown): Promise<any> | true;
+    then<TResult1 = T, TResult2 = never>(
+        onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null,
+        onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
+    ): PromiseLike<TResult1 | TResult2>;
+    [Symbol.iterator](): Iterator<ItemProxy>;
+    [Symbol.asyncIterator](): AsyncIterator<Item>;
+}
+/* */
 
 export function item(...args: any[]): Item;
 
