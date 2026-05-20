@@ -16,6 +16,14 @@ function stripMeta(v, keepKeys = false) {
     return v
 }
 
+function indexOptions(table, name, prop) {
+    if (prop['x-index'] === 'unique') return { unique: true }
+    if (prop['x-index'] === true) return { unique: false }
+    if (prop['x-index'] === 'fulltext')
+        console.warn(`Skip fulltext index ${table}.${name}: IndexedDB has no native fulltext index`)
+    return null
+}
+
 async function schemaVersion(schema, dbName = 'default') {
     const buf  = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(JSON.stringify(stripMeta(schema))))
     const hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('')
@@ -69,14 +77,14 @@ export function schemaToDb(schema, db, tx, { patch = false } = {}) {
                 autoIncrement: !!primaries[0]?.[1]?.['x-autoincrement'],
             })
             for (const [name, prop] of fields) {
-                if (prop['x-index'] === 'unique') store.createIndex(name, name, { unique: true })
-                else if (prop['x-index'] === true) store.createIndex(name, name, { unique: false })
+                const opts = indexOptions(table, name, prop)
+                if (opts) store.createIndex(name, name, opts)
             }
         } else {
             const store = tx.objectStore(table)
             for (const [name, prop] of fields) {
-                if (!store.indexNames.contains(name) && prop['x-index'])
-                    store.createIndex(name, name, { unique: prop['x-index'] === 'unique' })
+                const opts = indexOptions(table, name, prop)
+                if (opts && !store.indexNames.contains(name)) store.createIndex(name, name, opts)
             }
             if (!patch) {
                 for (const name of Array.from(store.indexNames))

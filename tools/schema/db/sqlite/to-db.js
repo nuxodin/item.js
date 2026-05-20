@@ -8,6 +8,53 @@ function tableFields(tableSchema) {
     return Object.entries(tableSchema.additionalProperties?.properties ?? {})
 }
 
+const quoteId = (name) => `\`${String(name).replaceAll('`', '``')}\``
+const indexName = (table, name) => `idx_${table}_${name}`
+
+function indexKind(table, name, prop) {
+    if (prop['x-index'] === 'unique') return 'UNIQUE INDEX'
+    if (prop['x-index'] === true) return 'INDEX'
+    if (prop['x-index'] === 'fulltext')
+        console.warn(`Skip FULLTEXT INDEX ${table}.${name}: SQLite fulltext requires a virtual FTS table`)
+    return null
+}
+
+function createIndex(table, name, kind) {
+    return `CREATE ${kind} ${quoteId(indexName(table, name))} ON ${quoteId(table)} (${quoteId(name)});`
+}
+
+async function currentIndexes(query, table) {
+    const indexes = []
+    for (const row of await query(`PRAGMA index_list(${quoteId(table)})`)) {
+        if (row.origin && row.origin !== 'c') continue
+        const cols = await query(`PRAGMA index_info(${quoteId(row.name)})`)
+        if (cols.length === 1) indexes.push({ name: row.name, column: cols[0].name, unique: !!row.unique })
+    }
+    return indexes
+}
+
+function indexStatements(table, fields, primaries, current = [], { patch = false } = {}) {
+    const stmts = [], wanted = new Set()
+    for (const [name, prop] of fields) {
+        if (primaries.includes(name)) continue
+        const kind = indexKind(table, name, prop)
+        if (!kind) continue
+        const idx = indexName(table, name), unique = kind === 'UNIQUE INDEX'
+        const curr = current.find(i => i.name === idx) ?? current.find(i => i.column === name && i.unique === unique)
+        wanted.add(idx)
+        if (curr && curr.column === name && curr.unique === unique) continue
+        if (curr?.name === idx) stmts.push(`DROP INDEX ${quoteId(curr.name)};`)
+        stmts.push(createIndex(table, name, kind))
+    }
+    if (!patch) {
+        for (const curr of current) {
+            if (curr.name.startsWith(`idx_${table}_`) && !wanted.has(curr.name))
+                stmts.push(`DROP INDEX ${quoteId(curr.name)};`)
+        }
+    }
+    return stmts
+}
+
 export async function schemaToDb(schema, query, { force = false, patch = false } = {}) {
     const current = await schemaFromDb(query)
     const diffs   = schemaDiff(schema, current)
@@ -32,6 +79,7 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
             const cols = fields.map(([n, f]) => '  ' + toFieldDef(n, f)).join(',\n')
             const pk   = primaries.length ? `,\n  PRIMARY KEY (${primaries.map(n => `\`${n}\``).join(', ')})` : ''
             stmts.push(`CREATE TABLE \`${table}\` (\n${cols}${pk}\n);`)
+            stmts.push(...indexStatements(table, fields, primaries))
         } else {
             const currFields = Object.keys(current.properties[table]?.additionalProperties?.properties ?? {})
             const hasChanges = diffs.some(d => d.path[0] === table)
@@ -48,11 +96,13 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
                 stmts.push(`INSERT INTO \`${tmp}\` (${colsList}) SELECT ${colsList} FROM \`${table}\`;`)
                 stmts.push(`DROP TABLE \`${table}\`;`)
                 stmts.push(`ALTER TABLE \`${tmp}\` RENAME TO \`${table}\`;`)
+                stmts.push(...indexStatements(table, fields, primaries))
             } else {
                 for (const [name, prop] of fields) {
                     if (!currFields.includes(name))
                         stmts.push(`ALTER TABLE \`${table}\` ADD COLUMN ${toFieldDef(name, prop)};`)
                 }
+                stmts.push(...indexStatements(table, fields, primaries, await currentIndexes(query, table), { patch }))
             }
         }
     }

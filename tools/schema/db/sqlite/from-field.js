@@ -43,6 +43,7 @@ export function schemaFromField(col) {
 
     if (col.dflt_value != null) prop.default    = col.dflt_value
     if (col.pk)                 prop['x-index'] = 'primary'
+    else if (col.index)         prop['x-index'] = col.index
 
     return prop
 }

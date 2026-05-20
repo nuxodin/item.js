@@ -53,26 +53,29 @@ function secondaryIndexKind(prop) {
   return null;
 }
 
-function indexColumn(name, prop, kind) {
-  const prefix = indexPrefix(prop, kind);
-  return quoteId(name) + (prefix ? `(${prefix})` : "");
-}
-
-function indexPrefix(prop, kind) {
-  const schemaType = Array.isArray(prop.type) ? prop.type.find(t => t !== "null") : prop.type;
-  if (schemaType !== "string" || prop.format) return null;
-  const maxBytes   = schemaType === "string" ? (prop.maxLength ?? Infinity) * 4 : 0;
-  const needsPrefix = kind !== "FULLTEXT KEY" && (
-    prop.contentEncoding === "base64" && maxBytes > 3072 ||
-    schemaType === "string" && maxBytes > 3072
-  );
-  return needsPrefix ? 191 : null;
-}
-
-function secondaryIndexDef(name, prop) {
+function usableIndexKind(table, name, prop) {
   const kind = secondaryIndexKind(prop);
-  if (!kind) return null;
-  return `${kind} ${quoteId(name)} (${indexColumn(name, prop, kind)})`;
+  const issue = kind && indexIssue(table, name, prop, kind);
+  if (!issue) return kind;
+  console.warn(issue);
+  return null;
+}
+
+function indexIssue(table, name, prop, kind) {
+  const schemaType = Array.isArray(prop.type) ? prop.type.find(t => t !== "null") : prop.type;
+  if (kind === "FULLTEXT KEY") return schemaType === "string" && !prop.format && !prop.contentEncoding ? "" : `Skip ${kind} ${table}.${name}: fulltext indexes require plain string fields`;
+  if (schemaType !== "string" || prop.format || (prop.maxLength ?? Infinity) <= 191) return "";
+  const max = prop.maxLength ?? "unknown";
+  return `Skip ${kind} ${table}.${name}: string maxLength ${max} is too long for a normal index; use maxLength <= 191, x-index:"fulltext", or remove x-index`;
+}
+
+function secondaryIndexDef(table, name, prop) {
+  const kind = usableIndexKind(table, name, prop);
+  return kind && secondaryIndexSql(name, kind);
+}
+
+function secondaryIndexSql(name, kind) {
+  return `${kind} ${quoteId(name)} (${quoteId(name)})`;
 }
 
 async function tableIndexes(query, table) {
@@ -138,7 +141,7 @@ export async function schemaToDb(
         : "";
       const keys = fields
         .filter(([n]) => !primaries.includes(n))
-        .map(([n, f]) => secondaryIndexDef(n, f))
+        .map(([n, f]) => secondaryIndexDef(table, n, f))
         .filter(Boolean)
         .map((def) => ",\n  " + def)
         .join("");
@@ -171,9 +174,10 @@ export async function schemaToDb(
         } else {
           const hasAuto = !!curr?.[1]["x-autoincrement"];
           const wantsAuto = !!prop["x-autoincrement"];
-          const changed = fieldChanged(diffs, table, name, prop) ||
+          const wantsChange = fieldChanged(diffs, table, name, prop) ||
             isRequired !== currRequired.has(name) ||
             hasAuto && !wantsAuto;
+          const changed = wantsChange && fieldDef !== toFieldDef(name, curr[1], { required: currRequired.has(name) });
           if (changed) {
             stmts.push(`ALTER TABLE ${tableId} MODIFY COLUMN ${fieldDef};`);
           }
@@ -236,7 +240,7 @@ async function indexStatements(query, table, nextFields, currFields, { patch = f
 
   for (const [name, prop] of nextFields) {
     if (nextPrimary.has(name)) continue;
-    const nextKind = secondaryIndexKind(prop);
+    const nextKind = usableIndexKind(table, name, prop);
     const current = currentSecondary.find(i => i.column === name);
     const currentKind = current
       ? current.indexType === "FULLTEXT"
@@ -245,23 +249,20 @@ async function indexStatements(query, table, nextFields, currFields, { patch = f
         ? "KEY"
         : "UNIQUE KEY"
       : null;
-    const currentPrefix = current?.subPart == null ? null : Number(current.subPart);
-    const nextPrefix    = nextKind ? indexPrefix(prop, nextKind) : null;
-    const changed       = current && (currentKind !== nextKind || currentPrefix !== nextPrefix);
+    const changed       = current && (currentKind !== nextKind || current.subPart != null);
     if (patch && !nextKind) continue;
     if (changed) {
       const indexId = quoteId(current.key);
       before.push(`ALTER TABLE ${tableId} DROP INDEX ${indexId};`);
     }
     if (nextKind && (!current || changed)) {
-      const indexDef = secondaryIndexDef(name, prop);
-      after.push(`ALTER TABLE ${tableId} ADD ${indexDef};`);
+      after.push(`ALTER TABLE ${tableId} ADD ${secondaryIndexSql(name, nextKind)};`);
     }
   }
 
   if (!patch) {
     for (const current of currentSecondary) {
-      const stillWanted = nextFields.find(([name, prop]) => name === current.column && secondaryIndexKind(prop));
+      const stillWanted = nextFields.find(([name, prop]) => name === current.column && usableIndexKind(table, name, prop));
       if (!stillWanted) {
         const indexId = quoteId(current.key);
         before.push(`ALTER TABLE ${tableId} DROP INDEX ${indexId};`);
