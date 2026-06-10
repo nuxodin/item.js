@@ -2,14 +2,30 @@
 // Note: SQLite cannot modify or drop columns — changes require table recreation
 import { schemaFromDb } from './from-db.js'
 import { toFieldDef }   from './to-field.js'
+import { quoteId, schemaType } from '../shared/sql.js'
 import { schemaDiff }   from '../../diff.js'
 
 function tableFields(tableSchema) {
     return Object.entries(tableSchema.additionalProperties?.properties ?? {})
 }
 
-const quoteId = (name) => `\`${String(name).replaceAll('`', '``')}\``
 const indexName = (table, name) => `idx_${table}_${name}`
+
+// SQLite: a single integer primary key must be declared inline as
+// `INTEGER PRIMARY KEY [AUTOINCREMENT]`; AUTOINCREMENT is invalid elsewhere.
+// Composite or non-integer keys use a table-level PRIMARY KEY constraint.
+function createBody(fields, primaries) {
+    const pkProp = fields.find(([n]) => n === primaries[0])?.[1]
+    const soloInt = primaries.length === 1 && pkProp &&
+        ['integer', 'boolean'].includes(schemaType(pkProp))
+    const cols = fields.map(([n, f]) => {
+        let def = toFieldDef(n, f)
+        if (soloInt && n === primaries[0]) def += f['x-autoincrement'] ? ' PRIMARY KEY AUTOINCREMENT' : ' PRIMARY KEY'
+        return '  ' + def
+    }).join(',\n')
+    const pk = (!soloInt && primaries.length) ? `,\n  PRIMARY KEY (${primaries.map(quoteId).join(', ')})` : ''
+    return `${cols}${pk}`
+}
 
 function indexKind(table, name, prop) {
     if (prop['x-index'] === 'unique') return 'UNIQUE INDEX'
@@ -76,31 +92,27 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
         const primaries = fields.filter(([, f]) => f['x-index'] === 'primary').map(([n]) => n)
 
         if (!currTables.includes(table)) {
-            const cols = fields.map(([n, f]) => '  ' + toFieldDef(n, f)).join(',\n')
-            const pk   = primaries.length ? `,\n  PRIMARY KEY (${primaries.map(n => `\`${n}\``).join(', ')})` : ''
-            stmts.push(`CREATE TABLE \`${table}\` (\n${cols}${pk}\n);`)
+            stmts.push(`CREATE TABLE ${quoteId(table)} (\n${createBody(fields, primaries)}\n);`)
             stmts.push(...indexStatements(table, fields, primaries))
         } else {
             const currFields = Object.keys(current.properties[table]?.additionalProperties?.properties ?? {})
-            const hasChanges = diffs.some(d => d.path[0] === table)
+            const hasChanges = diffs.some(d => d.path[0] === 'properties' && d.path[1] === table)
             const hasDrops   = !patch && currFields.some(n => !fields.find(([fn]) => fn === n))
 
             if (hasChanges && (hasDrops || !patch)) {
                 const tmp      = `${table}_migration_tmp`
-                const cols     = fields.map(([n, f]) => '  ' + toFieldDef(n, f)).join(',\n')
-                const pk       = primaries.length ? `,\n  PRIMARY KEY (${primaries.map(n => `\`${n}\``).join(', ')})` : ''
                 const keep     = fields.map(([n]) => n).filter(n => currFields.includes(n))
-                const colsList = keep.map(n => `\`${n}\``).join(', ')
+                const colsList = keep.map(quoteId).join(', ')
 
-                stmts.push(`CREATE TABLE \`${tmp}\` (\n${cols}${pk}\n);`)
-                stmts.push(`INSERT INTO \`${tmp}\` (${colsList}) SELECT ${colsList} FROM \`${table}\`;`)
-                stmts.push(`DROP TABLE \`${table}\`;`)
-                stmts.push(`ALTER TABLE \`${tmp}\` RENAME TO \`${table}\`;`)
+                stmts.push(`CREATE TABLE ${quoteId(tmp)} (\n${createBody(fields, primaries)}\n);`)
+                stmts.push(`INSERT INTO ${quoteId(tmp)} (${colsList}) SELECT ${colsList} FROM ${quoteId(table)};`)
+                stmts.push(`DROP TABLE ${quoteId(table)};`)
+                stmts.push(`ALTER TABLE ${quoteId(tmp)} RENAME TO ${quoteId(table)};`)
                 stmts.push(...indexStatements(table, fields, primaries))
             } else {
                 for (const [name, prop] of fields) {
                     if (!currFields.includes(name))
-                        stmts.push(`ALTER TABLE \`${table}\` ADD COLUMN ${toFieldDef(name, prop)};`)
+                        stmts.push(`ALTER TABLE ${quoteId(table)} ADD COLUMN ${toFieldDef(name, prop)};`)
                 }
                 stmts.push(...indexStatements(table, fields, primaries, await currentIndexes(query, table), { patch }))
             }
@@ -110,10 +122,13 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
     if (!patch) {
         for (const table of currTables) {
             if (!nextTables.includes(table))
-                stmts.push(`DROP TABLE \`${table}\`;`)
+                stmts.push(`DROP TABLE ${quoteId(table)};`)
         }
     }
 
-    for (const stmt of stmts) await query(stmt)
+    for (const stmt of stmts) {
+        console.log(stmt)
+        await query(stmt)
+    }
     return { diffs, executed: stmts }
 }

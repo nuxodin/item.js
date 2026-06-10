@@ -1,6 +1,6 @@
 {
   "name": "@nuxodin/item",
-  "version": "0.5.8",
+  "version": "0.5.9",
   "license": "MIT",
   "exports": {
     "./item.js": "./item.js",
@@ -26,6 +26,7 @@
     "./tools/schema/db/mysql/to-db.js": "./tools/schema/db/mysql/to-db.js",
     "./tools/schema/db/mysql/to-field.js": "./tools/schema/db/mysql/to-field.js",
     "./tools/schema/db/shared/from-db.js": "./tools/schema/db/shared/from-db.js",
+    "./tools/schema/db/shared/sql.js": "./tools/schema/db/shared/sql.js",
     "./tools/schema/db/sqlite/from-db.js": "./tools/schema/db/sqlite/from-db.js",
     "./tools/schema/db/sqlite/from-field.js": "./tools/schema/db/sqlite/from-field.js",
     "./tools/schema/db/sqlite/to-db.js": "./tools/schema/db/sqlite/to-db.js",

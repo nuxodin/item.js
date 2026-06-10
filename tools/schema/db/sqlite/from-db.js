@@ -1,8 +1,7 @@
 // sqlite/schema-from-db.js
 import { schemaFromDb as _schemaFromDb } from '../shared/from-db.js'
+import { quoteId } from '../shared/sql.js'
 import { schemaFromField } from './from-field.js'
-
-const quoteId = (name) => `\`${String(name).replaceAll('`', '``')}\``
 
 async function indexes(query, table) {
     const map = new Map()

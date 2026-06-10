@@ -1,12 +1,10 @@
 // mysql/to-field.js — JSON Schema property → MySQL column definition
+import { quoteId, defaultLiteral } from "../shared/sql.js";
+export { quoteId };
 
 const B = 4; // bytes per char, worst-case utf8mb4
 
 const formats = { date: "DATE", time: "TIME", "date-time": "DATETIME" };
-
-export function quoteId(name) {
-  return `\`${String(name).replace(/`/g, "``")}\``;
-}
 
 export function toFieldDef(name, prop, { required = false } = {}) {
   let type, unsigned = false;
@@ -23,9 +21,7 @@ export function toFieldDef(name, prop, { required = false } = {}) {
   let sql = `${quoteId(name)} ${type}`;
   if (unsigned) sql += " UNSIGNED";
   sql += !nullable || prop["x-autoincrement"] ? " NOT NULL" : " NULL";
-  if (prop.default != null) {
-    sql += ` DEFAULT '${String(prop.default).replace(/'/g, "''")}'`;
-  }
+  if (prop.default != null) sql += ` DEFAULT ${defaultLiteral(prop)}`;
   if (prop["x-autoincrement"]) sql += " AUTO_INCREMENT";
   if (prop["$comment"]) {
     sql += ` COMMENT '${prop["$comment"].replace(/'/g, "''")}'`;
