@@ -131,6 +131,7 @@ export async function schemaToDb(
     const tableId = quoteId(table);
     const { fields, required } = tableData(schema.properties[table]);
     const primaries = primaryFields(fields);
+    for (const p of primaries) required.add(p); // primary key columns are always NOT NULL
 
     if (!currTables.includes(table)) {
       const cols = fields.map(([n, f]) =>
