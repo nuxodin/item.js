@@ -11,9 +11,9 @@ export async function jsonDataItem(jsonItem) {
     return root;
 }
 
-export function bildJsonItem(raw, save) {
+export function bildJsonItem(raw, save, options = {}) {
     const root = item(JSON.parse(raw || "{}"));
-    root.addEventListener("changeIn", debounce(() => save(JSON.stringify(root.get())), 25));
+    root.addEventListener("changeIn", debounce(() => save(JSON.stringify(root.get())), options.debounce ?? 25));
     return root;
 }
 
