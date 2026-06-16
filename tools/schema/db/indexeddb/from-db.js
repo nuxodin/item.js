@@ -11,7 +11,7 @@ const dialect = {
         if (keyPath) fields.push({ name: keyPath, isPrimary: true, autoIncrement: store.autoIncrement })
         for (const name of store.indexNames) {
             const idx = store.index(name)
-            fields.push({ name, isUnique: idx.unique, isMultiEntry: idx.multiEntry })
+            fields.push({ name, isUnique: idx.unique })
         }
         return fields
     },
@@ -20,7 +20,6 @@ const dialect = {
         const prop = {}
         if (col.isPrimary)     prop['x-index']       = 'primary'
         if (col.isUnique)      prop['x-index']       = 'unique'
-        if (col.isMultiEntry)  prop['x-multientry']  = true
         if (col.autoIncrement) prop['x-autoincrement'] = true
         // no type info available — IndexedDB is schemaless
         return { name: col.name, prop, isRequired: !!col.isPrimary }

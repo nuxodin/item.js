@@ -14,7 +14,7 @@ async function indexes(query, table) {
 }
 
 const dialect = {
-    tables:    async (query) => (await query("SELECT name FROM sqlite_master WHERE type='table'")).map(r => r.name),
+    tables:    async (query) => (await query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")).map(r => r.name),
     fields:    async (query, table) => {
         const ix = await indexes(query, table)
         return (await query(`PRAGMA table_info(${quoteId(table)})`)).map(col =>

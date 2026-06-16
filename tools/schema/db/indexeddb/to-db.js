@@ -24,6 +24,14 @@ function indexOptions(table, name, prop) {
     return null
 }
 
+function sameKeyPath(a, b) {
+    return JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+}
+
+function sameIndex(index, opts) {
+    return index.unique === opts.unique
+}
+
 async function schemaVersion(schema, dbName = 'default') {
     const buf  = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(JSON.stringify(stripMeta(schema))))
     const hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('')
@@ -82,9 +90,16 @@ export function schemaToDb(schema, db, tx, { patch = false } = {}) {
             }
         } else {
             const store = tx.objectStore(table)
+            if (!sameKeyPath(store.keyPath, keyPath) || store.autoIncrement !== !!primaries[0]?.[1]?.['x-autoincrement'])
+                throw new Error(`IndexedDB objectStore ${table}: changing keyPath/autoIncrement requires a manual migration`)
             for (const [name, prop] of fields) {
                 const opts = indexOptions(table, name, prop)
-                if (opts && !store.indexNames.contains(name)) store.createIndex(name, name, opts)
+                if (!opts) continue
+                if (store.indexNames.contains(name)) {
+                    if (sameIndex(store.index(name), opts)) continue
+                    store.deleteIndex(name)
+                }
+                store.createIndex(name, name, opts)
             }
             if (!patch) {
                 for (const name of Array.from(store.indexNames))

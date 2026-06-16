@@ -71,3 +71,21 @@ Deno.test('sqlite schemaToDb: boolean default is stored as integer 0', async () 
     assertEquals(row.superuser, 0);
     assertEquals(row.ty, 'integer');
 });
+
+Deno.test('sqlite schemaToDb: ignores sqlite internal tables', async () => {
+    const { db, query } = fresh();
+    const schema = table({ id: { type: 'integer', 'x-index': 'primary', 'x-autoincrement': true } });
+    await schemaToDb(schema, query, { patch: true });
+    db.prepare('INSERT INTO `t` DEFAULT VALUES').run();
+
+    const res = await schemaToDb(schema, query, { force: true });
+    assertEquals(res.executed.some((s) => s.includes('sqlite_sequence')), false);
+});
+
+Deno.test('sqlite schemaToDb: recreate with no shared columns emits no empty insert', async () => {
+    const { query } = fresh();
+    await schemaToDb(table({ old: { type: 'string' } }), query, { patch: true });
+
+    const res = await schemaToDb(table({ next: { type: 'string' } }), query, { force: true });
+    assertEquals(res.executed.some((s) => s.includes('() SELECT')), false);
+});

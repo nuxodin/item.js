@@ -105,7 +105,7 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
                 const colsList = keep.map(quoteId).join(', ')
 
                 stmts.push(`CREATE TABLE ${quoteId(tmp)} (\n${createBody(fields, primaries)}\n);`)
-                stmts.push(`INSERT INTO ${quoteId(tmp)} (${colsList}) SELECT ${colsList} FROM ${quoteId(table)};`)
+                if (keep.length) stmts.push(`INSERT INTO ${quoteId(tmp)} (${colsList}) SELECT ${colsList} FROM ${quoteId(table)};`)
                 stmts.push(`DROP TABLE ${quoteId(table)};`)
                 stmts.push(`ALTER TABLE ${quoteId(tmp)} RENAME TO ${quoteId(table)};`)
                 stmts.push(...indexStatements(table, fields, primaries))
