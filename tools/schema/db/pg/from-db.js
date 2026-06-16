@@ -8,7 +8,7 @@ const dialect = {
     tables: async (query) => (await queryRows(query, `
         SELECT table_name
         FROM information_schema.tables
-        WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+        WHERE table_schema = current_schema() AND table_type = 'BASE TABLE'
         ORDER BY table_name
     `)).map(r => r.table_name),
 
@@ -22,7 +22,7 @@ const dialect = {
             JOIN pg_namespace n ON n.oid = t.relnamespace
             JOIN pg_index i ON i.indrelid = t.oid
             JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = ANY(i.indkey)
-            WHERE n.nspname = 'public' AND t.relname = ${quoteLit(table)}
+            WHERE n.nspname = current_schema() AND t.relname = ${quoteLit(table)}
             GROUP BY a.attname
         )
         SELECT c.column_name, c.data_type, c.udt_name, c.character_maximum_length,
@@ -34,7 +34,7 @@ const dialect = {
         LEFT JOIN pg_attribute a ON a.attrelid = t.oid AND a.attname = c.column_name
         LEFT JOIN pg_description d ON d.objoid = t.oid AND d.objsubid = a.attnum
         LEFT JOIN ix ON ix.column_name = c.column_name
-        WHERE c.table_schema = 'public' AND c.table_name = ${quoteLit(table)}
+        WHERE c.table_schema = current_schema() AND c.table_name = ${quoteLit(table)}
         ORDER BY c.ordinal_position
     `),
 

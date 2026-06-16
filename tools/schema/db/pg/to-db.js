@@ -68,7 +68,7 @@ async function tableIndexes(query, table) {
         JOIN pg_namespace n ON n.oid = t.relnamespace
         JOIN unnest(con.conkey) WITH ORDINALITY AS u(attnum, ord) ON true
         JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = u.attnum
-        WHERE con.contype = 'p' AND n.nspname = 'public' AND t.relname = ${quoteLit(table)}
+        WHERE con.contype = 'p' AND n.nspname = current_schema() AND t.relname = ${quoteLit(table)}
         GROUP BY con.conname
     `)
     const secondary = await queryRows(query, `
@@ -81,7 +81,7 @@ async function tableIndexes(query, table) {
         JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum
         WHERE NOT i.indisprimary
           AND array_length(i.indkey, 1) = 1
-          AND n.nspname = 'public'
+          AND n.nspname = current_schema()
           AND t.relname = ${quoteLit(table)}
     `)
     const primary = primaryRows[0]
