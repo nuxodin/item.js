@@ -1,6 +1,6 @@
 {
   "name": "@nuxodin/item",
-  "version": "0.5.11",
+  "version": "0.5.12",
   "license": "MIT",
   "exports": {
     "./item.js": "./item.js",

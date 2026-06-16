@@ -11,9 +11,9 @@ const intRanges = {
     bigint:    { signed: [-9007199254740991, 9007199254740991] }, // JS safe
 }
 
-export function schemaFromField(col) {
+export function schemaFromField(row) {
     const prop = {}
-    const raw  = (col.type ?? '').trim()
+    const raw  = (row.type ?? '').trim()
     const m    = raw.match(/^(\w+)\s*(?:\(([^)]+)\))?/)
     const type = m?.[1]?.toLowerCase() ?? 'text'
     const len  = m?.[2] ? parseInt(m[2]) : null
@@ -41,9 +41,9 @@ export function schemaFromField(col) {
         prop.type = 'string'
     }
 
-    if (col.dflt_value != null) prop.default    = col.dflt_value
-    if (col.pk)                 prop['x-index'] = 'primary'
-    else if (col.index)         prop['x-index'] = col.index
+    if (row.dflt_value != null) prop.default    = row.dflt_value
+    if (row.pk)                 prop['x-index'] = 'primary'
+    else if (row.index)         prop['x-index'] = row.index
 
     return prop
 }

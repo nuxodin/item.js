@@ -17,14 +17,14 @@ const dialect = {
     tables:    async (query) => (await query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")).map(r => r.name),
     fields:    async (query, table) => {
         const ix = await indexes(query, table)
-        return (await query(`PRAGMA table_info(${quoteId(table)})`)).map(col =>
-            col.pk || !ix.has(col.name) ? col : { ...col, index: ix.get(col.name) }
+        return (await query(`PRAGMA table_info(${quoteId(table)})`)).map(row =>
+            row.pk || !ix.has(row.name) ? row : { ...row, index: ix.get(row.name) }
         )
     },
-    fromField: (col) => ({
-        name:       col.name,
-        prop:       schemaFromField(col),
-        isRequired: col.notnull === 1 && !col.pk,
+    fromField: (row) => ({
+        name:       row.name,
+        prop:       schemaFromField(row),
+        isRequired: row.notnull === 1 && !row.pk,
     }),
 }
 

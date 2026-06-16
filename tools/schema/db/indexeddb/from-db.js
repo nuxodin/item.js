@@ -16,13 +16,13 @@ const dialect = {
         return fields
     },
 
-    fromField: (col) => {
+    fromField: (row) => {
         const prop = {}
-        if (col.isPrimary)     prop['x-index']       = 'primary'
-        if (col.isUnique)      prop['x-index']       = 'unique'
-        if (col.autoIncrement) prop['x-autoincrement'] = true
+        if (row.isPrimary)     prop['x-index']       = 'primary'
+        if (row.isUnique)      prop['x-index']       = 'unique'
+        if (row.autoIncrement) prop['x-autoincrement'] = true
         // no type info available — IndexedDB is schemaless
-        return { name: col.name, prop, isRequired: !!col.isPrimary }
+        return { name: row.name, prop, isRequired: !!row.isPrimary }
     },
 }
 
