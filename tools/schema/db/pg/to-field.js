@@ -2,6 +2,7 @@
 import { schemaType } from '../shared/sql.js'
 
 const formats = { date: 'DATE', time: 'TIME', 'date-time': 'TIMESTAMP' }
+const maxVarchar = 10485760
 
 export function quoteId(name) {
     return `"${String(name).replaceAll('"', '""')}"`
@@ -19,7 +20,7 @@ export function typeSql(prop) {
     if (t === 'object' || t === 'array') return 'JSONB'
     if (prop.format in formats) return formats[prop.format]
     if (prop.contentEncoding === 'base64') return 'BYTEA'
-    return prop.maxLength ? `VARCHAR(${prop.maxLength})` : 'TEXT'
+    return prop.maxLength && prop.maxLength <= maxVarchar ? `VARCHAR(${prop.maxLength})` : 'TEXT'
 }
 
 export function defaultLiteral(prop) {

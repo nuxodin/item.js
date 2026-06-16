@@ -197,7 +197,7 @@ async function indexStatements(query, table, nextFields, currFields, { patch = f
     const primaryChanged = !setEqual(currPrimary, nextPrimary) && (!patch || nextPrimary.size)
 
     if (primaryChanged) {
-        if (currPrimary.size) before.push(`ALTER TABLE ${tableId} DROP CONSTRAINT ${quoteId(indexes.primaryName ?? `${table}_pkey`)};`)
+        if (indexes.primaryName) before.push(`ALTER TABLE ${tableId} DROP CONSTRAINT ${quoteId(indexes.primaryName)};`)
         if (nextPrimary.size) after.push(`ALTER TABLE ${tableId} ADD PRIMARY KEY (${[...nextPrimary].map(quoteId).join(', ')});`)
     }
 

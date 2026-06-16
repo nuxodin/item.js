@@ -5,6 +5,7 @@ Deno.test('pg toFieldDef: type mapping', () => {
     assertEquals(toFieldDef('f', { type: 'boolean' }), '"f" BOOLEAN NULL');
     assertEquals(toFieldDef('f', { type: 'number' }),  '"f" DOUBLE PRECISION NULL');
     assertEquals(toFieldDef('f', { type: 'string', maxLength: 10 }), '"f" VARCHAR(10) NULL');
+    assertEquals(toFieldDef('f', { type: 'string', maxLength: 1073741823 }), '"f" TEXT NULL');
 });
 
 Deno.test('pg toFieldDef: required -> NOT NULL', () => {

@@ -1,4 +1,4 @@
-import { assertStringIncludes } from 'https://deno.land/std@0.177.0/testing/asserts.ts';
+import { assertFalse, assertStringIncludes } from 'https://deno.land/std@0.177.0/testing/asserts.ts';
 import { schemaToDb } from '../to-db.js';
 
 async function ddl(props, required = []) {
@@ -59,4 +59,31 @@ Deno.test('pg schemaToDb: recreates changed secondary index', async () => {
     const sql = seen.join('\n');
     assertStringIncludes(sql, 'DROP INDEX "idx_t_name";');
     assertStringIncludes(sql, 'CREATE UNIQUE INDEX "idx_t_name" ON "t" ("name");');
+});
+
+Deno.test('pg schemaToDb: does not drop guessed primary constraint name', async () => {
+    const seen = [];
+    const schema = {
+        properties: {
+            t: {
+                additionalProperties: {
+                    properties: {
+                        id: { type: 'integer', 'x-index': 'primary' },
+                    },
+                },
+            },
+        },
+    };
+    await schemaToDb(schema, (sql) => {
+        seen.push(sql);
+        if (sql.includes('information_schema.tables')) return { rows: [{ table_name: 't' }] };
+        if (sql.includes('information_schema.columns')) return { rows: [
+            { column_name: 'id', udt_name: 'int4', is_nullable: 'NO' },
+        ] };
+        return { rows: [] };
+    }, { patch: true });
+
+    const sql = seen.join('\n');
+    assertFalse(sql.includes('DROP CONSTRAINT "t_pkey"'));
+    assertStringIncludes(sql, 'ADD PRIMARY KEY ("id");');
 });
