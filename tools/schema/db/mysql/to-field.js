@@ -21,7 +21,8 @@ export function toFieldDef(name, prop, { required = false } = {}) {
   let sql = `${quoteId(name)} ${type}`;
   if (unsigned) sql += " UNSIGNED";
   sql += !nullable || prop["x-autoincrement"] ? " NOT NULL" : " NULL";
-  if (prop.default != null) sql += ` DEFAULT ${defaultLiteral(prop)}`;
+  // TEXT/BLOB/JSON can't carry a literal default in MySQL; emitting one never round-trips → endless ALTERs.
+  if (prop.default != null && !/TEXT|BLOB|JSON/.test(type)) sql += ` DEFAULT ${defaultLiteral(prop)}`;
   if (prop["x-autoincrement"]) sql += " AUTO_INCREMENT";
   if (prop["$comment"]) {
     sql += ` COMMENT '${prop["$comment"].replace(/'/g, "''")}'`;
