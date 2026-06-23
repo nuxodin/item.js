@@ -27,7 +27,8 @@ const proxyHandler = {
 
         const childItem = targetItem.item(property);
 
-        if (property === 'toJSON') console.error('item.js: toJSON accessed on proxy. Use `JSON.stringify(proxy())` instead of `JSON.stringify(proxy)`', Error().stack);
+        // toJSON is allowed
+        if (property === 'toJSON') console.warn('item.js: toJSON accessed on proxy. Use `JSON.stringify(proxy())` instead of `JSON.stringify(proxy)`', Error().stack);
 
         return toProxy(childItem);
     },
