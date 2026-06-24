@@ -18,3 +18,5 @@ export function render(
     frag: Sql,
     dialect: { quoteId(name: string): string; placeholder(n: number): string },
 ): { text: string; params: unknown[] };
+
+export function isTemplate(a: unknown): a is TemplateStringsArray;

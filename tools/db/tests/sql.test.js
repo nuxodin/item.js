@@ -1,5 +1,5 @@
 import { assertEquals } from 'https://deno.land/std@0.177.0/testing/asserts.ts';
-import { Sql, sql, render } from '../sql.js';
+import { Sql, sql, render, isTemplate } from '../sql.js';
 
 const sqlite = { quoteId: (n) => `"${n.replaceAll('"', '""')}"`, placeholder: () => '?' };
 const pg = { quoteId: (n) => `"${n}"`, placeholder: (i) => '$' + i };
@@ -64,4 +64,13 @@ Deno.test('render: same AST, dialect-divergent placeholders (pg "$n")', () => {
 
 Deno.test('render: identifier quoting escapes', () => {
     assertEquals(render(sql.id('a"b'), sqlite).text, '"a""b"');
+});
+
+Deno.test('isTemplate: tagged template yes, Sql fragment and plain values no', () => {
+    const tag = (strings) => isTemplate(strings);
+    assertEquals(tag`a${1}b`, true);
+    assertEquals(isTemplate(sql`x`), false);
+    assertEquals(isTemplate(['a', 'b']), false); // array without .raw
+    assertEquals(isTemplate('plain'), false);
+    assertEquals(isTemplate(undefined), false);
 });

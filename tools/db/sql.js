@@ -51,3 +51,10 @@ export function render(frag, dialect) {
     }
     return { text, params };
 }
+
+// Companion to the sql`` tag: lets a query API accept either a tagged template
+// or a pre-built Sql fragment, and dispatch on which it got.
+/** True for a tagged-template call (first arg is the template strings array). */
+export function isTemplate(a) {
+    return Array.isArray(a?.raw);
+}
