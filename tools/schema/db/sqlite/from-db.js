@@ -1,15 +1,23 @@
-// sqlite/schema-from-db.js
+// sqlite/from-db.js
 import { schemaFromDb as _schemaFromDb } from '../shared/from-db.js'
 import { quoteId } from '../shared/sql.js'
 import { schemaFromField } from './from-field.js'
 
-async function indexes(query, table) {
-    const map = new Map()
+/** Single-column, non-constraint indexes: [{ name, column, unique }]. */
+export async function singleColumnIndexes(query, table) {
+    const out = []
     for (const row of await query(`PRAGMA index_list(${quoteId(table)})`)) {
         if (row.origin && row.origin !== 'c') continue
         const cols = await query(`PRAGMA index_info(${quoteId(row.name)})`)
-        if (cols.length === 1) map.set(cols[0].name, row.unique ? 'unique' : true)
+        if (cols.length === 1) out.push({ name: row.name, column: cols[0].name, unique: !!row.unique })
     }
+    return out
+}
+
+async function indexes(query, table) {
+    const map = new Map()
+    for (const { column, unique } of await singleColumnIndexes(query, table))
+        map.set(column, unique ? 'unique' : true)
     return map
 }
 

@@ -1,6 +1,6 @@
 // sqlite/to-db.js
 // Note: SQLite cannot modify or drop columns — changes require table recreation
-import { schemaFromDb } from './from-db.js'
+import { schemaFromDb, singleColumnIndexes } from './from-db.js'
 import { toFieldDef }   from './to-field.js'
 import { quoteId, schemaType } from '../shared/sql.js'
 import { schemaDiff }   from '../../diff.js'
@@ -37,16 +37,6 @@ function indexKind(table, name, prop) {
 
 function createIndex(table, name, kind) {
     return `CREATE ${kind} ${quoteId(indexName(table, name))} ON ${quoteId(table)} (${quoteId(name)});`
-}
-
-async function currentIndexes(query, table) {
-    const indexes = []
-    for (const row of await query(`PRAGMA index_list(${quoteId(table)})`)) {
-        if (row.origin && row.origin !== 'c') continue
-        const cols = await query(`PRAGMA index_info(${quoteId(row.name)})`)
-        if (cols.length === 1) indexes.push({ name: row.name, column: cols[0].name, unique: !!row.unique })
-    }
-    return indexes
 }
 
 function indexStatements(table, fields, primaries, current = [], { patch = false } = {}) {
@@ -114,7 +104,7 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
                     if (!currFields.includes(name))
                         stmts.push(`ALTER TABLE ${quoteId(table)} ADD COLUMN ${toFieldDef(name, prop)};`)
                 }
-                stmts.push(...indexStatements(table, fields, primaries, await currentIndexes(query, table), { patch }))
+                stmts.push(...indexStatements(table, fields, primaries, await singleColumnIndexes(query, table), { patch }))
             }
         }
     }
