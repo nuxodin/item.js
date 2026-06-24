@@ -1,3 +1,4 @@
+// @ts-self-types="./sql.d.ts"
 // Dialect-neutral SQL fragments. Build with the sql`` tag — interpolated values
 // become bound params, nested fragments/ids compose. A driver renders the AST to
 // its dialect (placeholder + identifier quoting) at execution time. Pure data, no dialect.

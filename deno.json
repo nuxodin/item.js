@@ -1,6 +1,6 @@
 {
   "name": "@nuxodin/item",
-  "version": "0.5.17",
+  "version": "0.5.18",
   "license": "MIT",
   "exports": {
     "./item.js": "./item.js",
@@ -20,6 +20,7 @@
     "./tools/db/dialect/mysql.js": "./tools/db/dialect/mysql.js",
     "./tools/db/dialect/sqlite.js": "./tools/db/dialect/sqlite.js",
     "./tools/db/shared.js": "./tools/db/shared.js",
+    "./tools/db/sql.d.ts": "./tools/db/sql.d.ts",
     "./tools/db/sql.js": "./tools/db/sql.js",
     "./tools/httpRouter.js": "./tools/httpRouter.js",
     "./tools/jsonDataItem.js": "./tools/jsonDataItem.js",

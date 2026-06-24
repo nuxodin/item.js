@@ -1,39 +1,12 @@
 import { assertEquals, assertRejects } from 'https://deno.land/std@0.177.0/testing/asserts.ts';
-import { DatabaseSync } from 'node:sqlite';
-import { connect } from '../connect.js';
-import { sqlite } from '../dialect/sqlite.js';
 import { sql } from '../sql.js';
-import { schemaToDb } from '../../schema/db/sqlite/to-db.js';
+import { mailCon } from './helpers.js';
 
-// A host-provided runner — connection-aware, dialect-dumb. tools/db ships none.
-function sqliteRunner(db) {
-    return {
-        query: (text, params = []) => Promise.resolve(db.prepare(text).all(...params)),
-        exec: (text, params = []) => {
-            const r = db.prepare(text).run(...params);
-            return Promise.resolve({ insertId: Number(r.lastInsertRowid), affectedRows: Number(r.changes) });
-        },
-        transaction: async (fn) => {
-            db.exec('BEGIN');
-            try { const v = await fn(); db.exec('COMMIT'); return v; }
-            catch (e) { db.exec('ROLLBACK'); throw e; }
-        },
-    };
-}
-
-const mailSchema = {
-    properties: { mail: { additionalProperties: { properties: {
-        id:      { type: 'integer', 'x-index': 'primary', 'x-autoincrement': true },
-        subject: { type: 'string', maxLength: 200 },
-    } } } },
+const cols = {
+    id:      { type: 'integer', 'x-index': 'primary', 'x-autoincrement': true },
+    subject: { type: 'string', maxLength: 200 },
 };
-
-async function fresh() {
-    const db = new DatabaseSync(':memory:');
-    await schemaToDb(mailSchema, (s) => Promise.resolve(db.prepare(s).all()), { patch: true });
-    return connect(sqlite, sqliteRunner(db));
-}
-
+const fresh = () => mailCon(cols);
 const insert = (subject) => sql`INSERT INTO ${sql.id('mail')} (${sql.id('subject')}) VALUES (${subject})`;
 
 Deno.test('connect sqlite: insert returns insertId, select reads it back', async () => {
@@ -57,9 +30,9 @@ Deno.test('connect sqlite: update and delete report affectedRows', async () => {
 
 Deno.test('connect sqlite: columns delegates to schema introspection', async () => {
     const db = await fresh();
-    const cols = await db.columns('mail');
-    assertEquals(Object.keys(cols).sort(), ['id', 'subject']);
-    assertEquals(cols.subject.type, 'string');
+    const c = await db.columns('mail');
+    assertEquals(Object.keys(c).sort(), ['id', 'subject']);
+    assertEquals(c.subject.type, 'string');
 });
 
 Deno.test('connect sqlite: transaction rolls back on throw', async () => {
