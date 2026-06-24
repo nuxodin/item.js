@@ -1,5 +1,6 @@
 // SQLite dialect descriptor — pure SQL knowledge, no connection.
 import { schemaFromDb } from '../../schema/db/sqlite/from-db.js';
+import { makeColumns } from '../shared.js';
 
 export const sqlite = {
     name: 'sqlite',
@@ -7,10 +8,5 @@ export const sqlite = {
     placeholder: () => '?',
     emptyInsert: 'DEFAULT VALUES',
     insertId: 'lastId',
-
-    /** Column schemas for one table; introspection delegated to tools/schema. */
-    async columns(query, table) {
-        const schema = await schemaFromDb(query);
-        return schema.properties[table]?.additionalProperties?.properties ?? {};
-    },
+    columns: makeColumns(schemaFromDb),
 };
