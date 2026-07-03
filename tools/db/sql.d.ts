@@ -7,7 +7,7 @@ export class Sql {
 
 export interface SqlTag {
     (strings: TemplateStringsArray, ...values: unknown[]): Sql;
-    id(name: string): Sql;
+    id(name: string | { toString(): string }): Sql;
     raw(text: string): Sql;
     join(frags: Sql[], separator?: string): Sql;
 }

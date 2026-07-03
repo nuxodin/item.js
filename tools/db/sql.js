@@ -23,7 +23,7 @@ export function sql(strings, ...values) {
 }
 
 /** Quote a dynamic identifier (table/column) per dialect. */
-sql.id = (name) => new Sql([{ id: name }]);
+sql.id = (name) => new Sql([{ id: String(name) }]);
 
 /** Inject text verbatim — escape hatch, never pass user input. */
 sql.raw = (text) => new Sql([{ text }]);
