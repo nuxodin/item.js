@@ -23,7 +23,7 @@ export function sql(strings, ...values) {
 }
 
 /** Quote a dynamic identifier (table/column) per dialect. */
-sql.id = (name) => new Sql([{ id: String(name) }]);
+sql.id = (name) => new Sql([{ id: name }]);
 
 /** Inject text verbatim — escape hatch, never pass user input. */
 sql.raw = (text) => new Sql([{ text }]);
@@ -46,10 +46,23 @@ export function render(frag, dialect) {
     const params = [];
     for (const part of frag.parts) {
         if ('text' in part) text += part.text;
-        else if ('id' in part) text += dialect.quoteId(part.id);
+        else if ('id' in part) text += dialect.quoteId(String(part.id));
         else { params.push(part.param); text += dialect.placeholder(params.length); }
     }
     return { text, params };
+}
+
+/** Await promised params/ids in place, in parallel; a promise resolving to a
+ * Sql fragment composes. Run by the query layer before render. */
+export async function resolveSql(frag) {
+    if (!frag.parts.some(p => p.param instanceof Promise || p.id instanceof Promise)) return;
+    frag.parts = (await Promise.all(frag.parts.map(async p => {
+        if (p.id instanceof Promise) return [{ id: await p.id }];
+        if (!(p.param instanceof Promise)) return [p];
+        const v = await p.param;
+        if (v instanceof Sql) { await resolveSql(v); return v.parts; }
+        return [{ param: v }];
+    }))).flat();
 }
 
 // Companion to the sql`` tag: lets a query API accept either a tagged template

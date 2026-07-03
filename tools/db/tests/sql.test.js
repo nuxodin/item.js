@@ -1,5 +1,5 @@
 import { assertEquals } from 'https://deno.land/std@0.177.0/testing/asserts.ts';
-import { Sql, sql, render, isTemplate } from '../sql.js';
+import { Sql, sql, render, isTemplate, resolveSql } from '../sql.js';
 
 const sqlite = { quoteId: (n) => `"${n.replaceAll('"', '""')}"`, placeholder: () => '?' };
 const pg = { quoteId: (n) => `"${n}"`, placeholder: (i) => '$' + i };
@@ -64,6 +64,22 @@ Deno.test('render: same AST, dialect-divergent placeholders (pg "$n")', () => {
 
 Deno.test('render: identifier quoting escapes', () => {
     assertEquals(render(sql.id('a"b'), sqlite).text, '"a""b"');
+});
+
+Deno.test('resolveSql: awaits promised params and ids in place', async () => {
+    const f = sql`UPDATE t SET ${sql.id(Promise.resolve('col'))} = ${Promise.resolve('v')} WHERE id = ${1}`;
+    await resolveSql(f);
+    assertEquals(render(f, sqlite), { text: 'UPDATE t SET "col" = ? WHERE id = ?', params: ['v', 1] });
+});
+
+Deno.test('resolveSql: promise resolving to a Sql fragment composes', async () => {
+    const f = sql`SELECT * FROM mail WHERE ${Promise.resolve(sql`id = ${5}`)}`;
+    await resolveSql(f);
+    assertEquals(render(f, sqlite), { text: 'SELECT * FROM mail WHERE id = ?', params: [5] });
+});
+
+Deno.test('render: id coerced via toString', () => {
+    assertEquals(render(sql.id({ toString: () => 'tbl' }), sqlite).text, '"tbl"');
 });
 
 Deno.test('isTemplate: tagged template yes, Sql fragment and plain values no', () => {
