@@ -185,6 +185,105 @@ describe('items (array-like)', () => {
     });
 });
 
+describe('get event — listener can override value', () => {
+    it('get fires getIn event with composed value', () => {
+        const root = item({ a: 1 });
+        let eventValue;
+        root.addEventListener('getIn', e => {
+            if (e.target.key === 'a') eventValue = e.value;
+        });
+        const val = root.item('a').get();
+        expect(eventValue).to.equal(1);
+    });
+
+    it('listener can change e.value and it is returned', () => {
+        const root = item({ a: 1 });
+        root.addEventListener('getIn', e => {
+            if (e.value === 1) e.value = 99;
+        });
+        const val = root.item('a').get();
+        expect(val).to.equal(99);
+    });
+
+    it('silent option bypasses event', () => {
+        const root = item({ a: 1 });
+        let fired = false;
+        root.addEventListener('getIn', () => { fired = true; });
+        const val = root.item('a').get({ silent: true });
+        expect(val).to.equal(1);
+        expect(fired).to.equal(false);
+    });
+
+    it('preventDefault returns undefined', () => {
+        const root = item({ a: 1 });
+        root.addEventListener('getIn', e => e.preventDefault());
+        const val = root.item('a').get();
+        expect(val).to.equal(undefined);
+    });
+
+    it('circular get throws', () => {
+        const root = item({ a: 1 });
+        root.addEventListener('getIn', e => {
+            if (!e.target.circularGuardTested) {
+                e.target.circularGuardTested = true;
+                e.target.get(); // circular!
+            }
+        });
+        expect(() => root.item('a').get()).to.throw('circular get');
+    });
+});
+
+describe('applyDefault — opt-in schema default values', () => {
+    it('replaces null with schema.default on getIn', () => {
+        const root = item();
+        root.setSchema({
+            additionalProperties: { default: 42 }
+        });
+        root.addEventListener('getIn', e => {
+            if (e.value == null) {
+                const d = e.target.schema?.default;
+                if (d !== undefined) e.value = d;
+            }
+        });
+        root.item('x').set(null);
+        expect(root.item('x').get()).to.equal(42);
+    });
+
+    it('only applies default to null/undefined, not falsy values', () => {
+        const root = item();
+        root.setSchema({
+            additionalProperties: { default: 99 }
+        });
+        root.addEventListener('getIn', e => {
+            if (e.value == null) {
+                const d = e.target.schema?.default;
+                if (d !== undefined) e.value = d;
+            }
+        });
+        root.item('zero').set(0);
+        root.item('false').set(false);
+        root.item('empty').set('');
+        expect(root.item('zero').get()).to.equal(0);
+        expect(root.item('false').get()).to.equal(false);
+        expect(root.item('empty').get()).to.equal('');
+    });
+
+    it('does not apply default if value is set', () => {
+        const root = item();
+        root.setSchema({
+            additionalProperties: { default: 42 }
+        });
+        root.addEventListener('getIn', e => {
+            if (e.value == null) {
+                const d = e.target.schema?.default;
+                if (d !== undefined) e.value = d;
+            }
+        });
+        root.item('x').set(7);
+        expect(root.item('x').get()).to.equal(7);
+    });
+});
+
 
 </script>
 

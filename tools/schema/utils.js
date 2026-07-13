@@ -79,6 +79,13 @@ export function reportDeprecated(item) {
     });
 }
 
+export function applyDefault(e) {
+    if (e.value == null) {
+        const d = e.target.schema?.default;
+        if (d !== undefined) e.value = d;
+    }
+}
+
 export function validate(e, options = { log: true }) {
     const schema = e.target.schema;
     if (!schema) return;

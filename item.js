@@ -8,7 +8,7 @@ export { effect, $item };
 const EMPTY_ARRAY = Object.freeze([]);
 
 export class Item extends Emitter {
-    
+
     #value;
     #parent = null;
     #key = null;
@@ -16,6 +16,7 @@ export class Item extends Emitter {
     #root;
     #isObject = null; // null:not filled, true:object, false:primitive value
     #isSetting = false;
+    #isGetting = false;
     
     constructor(parent, key) {
         super();
@@ -31,11 +32,17 @@ export class Item extends Emitter {
     get value()      { return this.get(); }
 
     get(options) {
-        if (!options?.silent) {
-            dispatch(this, 'get', { value: this.#value });
+        const value = this.$get(options);
+        if (options?.silent) return value;
+        if (this.#isGetting) throw new Error("circular get");
+        this.#isGetting = true;
+        try {
+            const event = dispatch(this, 'get', { value, options });
             track(this);
+            return event.defaultPrevented ? undefined : event.value;
+        } finally {
+            this.#isGetting = false;
         }
-        return this.$get(options);
     }
 
     $get(options) {
