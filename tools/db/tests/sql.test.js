@@ -78,6 +78,24 @@ Deno.test('resolveSql: promise resolving to a Sql fragment composes', async () =
     assertEquals(render(f, sqlite), { text: 'SELECT * FROM mail WHERE id = ?', params: [5] });
 });
 
+Deno.test('render: object params with own toString bind as strings', () => {
+    const node = { toString: () => '42' };
+    assertEquals(render(sql`WHERE redirect = ${node}`, sqlite), {
+        text: 'WHERE redirect = ?',
+        params: ['42'],
+    });
+    const date = new Date(0), blob = new Uint8Array([1]);
+    assertEquals(render(sql`${date} ${blob} ${null}`, sqlite).params, [date, blob, null]);
+});
+
+Deno.test('render: plain objects and arrays throw', () => {
+    let err;
+    try { render(sql`${{ a: 1 }}`, sqlite); } catch (e) { err = e; }
+    assertEquals(err instanceof TypeError, true);
+    try { render(sql`${[1, 2]}`, sqlite); } catch (e) { err = e; }
+    assertEquals(err.message.includes('array'), true);
+});
+
 Deno.test('render: id coerced via toString', () => {
     assertEquals(render(sql.id({ toString: () => 'tbl' }), sqlite).text, '"tbl"');
 });

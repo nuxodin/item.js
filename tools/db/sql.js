@@ -38,6 +38,16 @@ sql.join = (frags, separator = ', ') => {
     return new Sql(parts);
 };
 
+// Objects with their own toString bind as strings; plain objects/arrays are
+// mistakes (drivers would mangle them, e.g. mysql2's `key`='value' expansion).
+function toParam(v) {
+    if (v === null || typeof v !== 'object' || v instanceof Date || v instanceof Uint8Array) return v;
+    if (Array.isArray(v) || v.toString === Object.prototype.toString) {
+        throw new TypeError('sql: cannot bind ' + (Array.isArray(v) ? 'an array' : 'a plain object') + ' as parameter');
+    }
+    return String(v);
+}
+
 // Lower an AST to { text, params } for a dialect. Stays dialect-agnostic: the
 // dialect (quoteId + placeholder) is passed in, never imported here.
 /** @param {Sql} frag  @param {{quoteId(name:string):string, placeholder(n:number):string}} dialect */
@@ -47,7 +57,7 @@ export function render(frag, dialect) {
     for (const part of frag.parts) {
         if ('text' in part) text += part.text;
         else if ('id' in part) text += dialect.quoteId(String(part.id));
-        else { params.push(part.param); text += dialect.placeholder(params.length); }
+        else { params.push(toParam(part.param)); text += dialect.placeholder(params.length); }
     }
     return { text, params };
 }
