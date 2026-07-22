@@ -69,12 +69,29 @@ async function runCoreBenchmark(count = 10000, depth = 500) {
     performance.measure('5. Mutation Flach (Proxy)', 'mutate-proxy-start', 'mutate-proxy-end');
 
     // --- TEST 6: MUTATION TIEF (Langer Event-Weg) ---
+    // Zugleich der Worst Case für die #ioOwner()-Ahnensuche: kein writer im ganzen Baum,
+    // also läuft jedes set() die vollen `depth` Ebenen hoch, ohne einen zu finden.
     performance.mark('mutate-deep-start');
     for (let i = 0; i < count; i++) {
-        deepLeaf.set(`Update_${i}`); 
+        deepLeaf.set(`Update_${i}`);
     }
     performance.mark('mutate-deep-end');
     performance.measure(`6. Mutation Tief (Raw, ${depth} Ebenen)`, 'mutate-deep-start', 'mutate-deep-end');
+
+    // --- TEST 7: MUTATION TIEF MIT WURZEL-WRITER (Blob-Modell) ---
+    // Kind-Schreibzugriff bei nur einem writer an der Wurzel. Mit ioOwnerLookup=false
+    // passiert hier gar nichts (alter Zustand), mit true schreibt die Wurzel den Teilbaum.
+    const blobRoot = item();
+    blobRoot.writer = () => Promise.resolve();
+    let blobLeaf = blobRoot;
+    for (let i = 0; i < depth; i++) blobLeaf = blobLeaf.item(`level_${i}`);
+    blobLeaf.set("init", { local: true });
+    performance.mark('mutate-blob-start');
+    for (let i = 0; i < count; i++) {
+        blobLeaf.set(`Update_${i}`);
+    }
+    performance.mark('mutate-blob-end');
+    performance.measure(`7. Mutation Tief mit Wurzel-Writer (${depth} Ebenen)`, 'mutate-blob-start', 'mutate-blob-end');
 
     // --- AUSWERTUNG ---
     const measures = performance.getEntriesByType('measure');
@@ -104,7 +121,7 @@ async function checkMemory() {
 window.runCoreBenchmark = runCoreBenchmark;
 
 
-setTimeout(() => {
+setTimeout(async () => {
     checkMemory();
     runCoreBenchmark();
     checkMemory();
