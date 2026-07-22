@@ -126,6 +126,16 @@ i.addEventListener('set', () => i.value = x)  // throws 'circular set'
 
 
 ## Async I/O (reader / writer / io)
+
+**The item tree is the cache — `io` is only transport.** *Which slice?* (depth, subtree, query)
+is answered by the tree; *running / done / failed?* by `io`. An AsyncDataPoint has one value,
+one getter, one setter — it cannot hold two slices of the same item.
+
+A `writer` owns its **whole subtree**, so children are set `{local:true}` and never write
+themselves. Writers are not inherited — setting a child without its own writer does no io and
+returns `undefined`. REST/fs give every node a writer (`static ChildClass = Self`); whole-blob
+sources (JSON column, cookie) use `AsyncChild`. See [doc/async.md](./doc/async.md).
+
 ```js
 // quick-and-dirty async data point
 i.reader = () => fetch('/api/value').then(r => r.json());

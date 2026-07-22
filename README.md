@@ -113,6 +113,13 @@ a.value = { a: "Hello", b: "World" };
 console.log(a.value); // {a: 'HELLO', b: 'WORLD'}
 ```
 
+## Async: the tree is the cache
+
+> **The item tree is the cache. `io` is only transport.**
+
+*Which slice?* (depth, subtree, query) is answered by the tree — *running? done? failed?* by
+`io`. Keep those apart and the async side stays simple. See [doc/async.md](./doc/async.md).
+
 ## See how easy it is to use "item.js" with different drivers
 
 ```js

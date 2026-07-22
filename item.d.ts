@@ -77,7 +77,7 @@ export type ItemProxy = ItemProxyMethods & {
 export interface ItemProxyMethods {
     readonly [$item]: Item;
     (): ItemValue;
-    (value: ItemValue): Promise<any> | true;
+    (value: ItemValue): Promise<any> | undefined;
     then<TResult1 = ItemValue, TResult2 = never>(
         onfulfilled?: ((value: ItemValue) => TResult1 | PromiseLike<TResult1>) | null,
         onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,
@@ -95,7 +95,7 @@ export interface ItemProxyChildren { [key: string]: ItemProxy<unknown, Item>; }
 export interface ItemProxyMethods<T = ItemValue,TRaw extends Item = Item> {
     readonly [$item]: TRaw;
     <TValue = T>(): TValue;
-    (value: unknown): Promise<any> | true;
+    (value: unknown): Promise<any> | undefined;
     then<TResult1 = T, TResult2 = never>(
         onfulfilled?: ((value: T) => TResult1 | PromiseLike<TResult1>) | null,
         onrejected?: ((reason: any) => TResult2 | PromiseLike<TResult2>) | null,

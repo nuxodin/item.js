@@ -1,5 +1,42 @@
 # item.js — Async API
 
+## Mental model
+
+> **The item tree is the cache. `io` is only transport.**
+
+Applies to async items — those with a `reader`/`writer`. Purely local items have no `io`.
+
+| Question | Answered by |
+|---|---|
+| *Which slice?* — depth, subtree, query | the **tree** |
+| *Running? done? failed?* | **`io`** |
+
+An `AsyncDataPoint` has exactly one value, one getter, one setter — it cannot hold two
+slices of the same item. Hence `read(query)` cannot go through `io.get()`.
+
+### Who writes what
+
+A `writer` owns its **whole subtree**: `set()` passes it `get({silent:true})`, so children
+are set `{local:true}` and never write themselves.
+
+Writers are **not inherited**. Setting a child that has no writer of its own does no io —
+the value stays local and `set()` returns `undefined`.
+
+Match that to the data source:
+
+| Source | Children write themselves | How |
+|---|---|---|
+| Per-node addressable (REST, fs) | yes | `static ChildClass = Self` |
+| Whole-blob only (JSON column, cookie) | no, only the root | `AsyncChild` |
+
+### How deep did the reader deliver
+
+`read()` applies `{depth: 1}` — first level only. A reader that delivered more returns
+`{value, depth}` (`depth: true` = whole tree). Same code fetches a folder listing or a
+whole JSON document; only the reader's return value differs.
+
+---
+
 ## reader / writer / adder / remover
 
 Hooks that connect an item to a data source. All optional, defined on the prototype or per instance.

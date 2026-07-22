@@ -147,6 +147,32 @@ describe('writer via set()', () => {
         await i.read();
         expect(() => i.set(1)).to.not.throw();
     });
+
+    // The return value answers exactly one question: is an io-write running, and when is it done?
+    // Never *what* it resolves to — that is whatever the writer happened to return.
+    it('set() returns the io-promise while a write runs', async () => {
+        const i = item();
+        i.writer = () => Promise.resolve();
+        const ret = i.set(99);
+        expect(ret).to.be.a('promise');
+        await ret;
+    });
+
+    it('set() returns undefined when the value is unchanged – nothing is written', async () => {
+        const i = item();
+        i.writer = () => Promise.resolve();
+        await i.set(99);
+        expect(i.set(99)).to.equal(undefined);
+    });
+
+    it('set() returns undefined when a listener prevents the write', () => {
+        const i = item();
+        let writerCalled = false;
+        i.writer = () => { writerCalled = true; return Promise.resolve(); };
+        i.addEventListener('set', (e) => e.preventDefault());
+        expect(i.set(99)).to.equal(undefined);
+        expect(writerCalled).to.equal(false);
+    });
 });
 
 describe('AsyncChild pattern', () => {

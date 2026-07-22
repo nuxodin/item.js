@@ -127,11 +127,39 @@ describe('proxy', () => {
             chai.expect(raw.value).to.equal(42);
         });
 
-        it('proxy(42) returns true', () => {
+        it('proxy(42) returns undefined – no writer, so there is no io-write to await', () => {
             const raw = item();
             const proxy = raw.proxy;
             const returnVal = proxy(42);
-            chai.expect(returnVal).to.equal(true);
+            chai.expect(returnVal).to.equal(undefined);
+        });
+
+        it('proxy(42) returns the io-promise when the item has a writer', async () => {
+            const raw = item();
+            const written = [];
+            raw.writer = (v) => { written.push(v); return Promise.resolve(); };
+            const returnVal = raw.proxy(42);
+            chai.expect(returnVal).to.be.a('promise');
+            await returnVal;
+            chai.expect(written).to.deep.equal([42]);
+        });
+
+        it('proxy(42) returns undefined when a listener prevents the write', () => {
+            const raw = item();
+            raw.addEventListener('set', (e) => e.preventDefault());
+            chai.expect(raw.proxy(42)).to.equal(undefined);
+            chai.expect(raw.value).to.equal(undefined); // nothing was written
+        });
+
+        // The child has no writer of its own (writer is not inherited), so no io-write happens –
+        // the value is only kept locally. Reporting success here would be a lie.
+        it('proxy.child(7) returns undefined even when the parent has a writer', () => {
+            const raw = item();
+            const written = [];
+            raw.writer = (v) => { written.push(v); return Promise.resolve(); };
+            chai.expect(raw.proxy.child(7)).to.equal(undefined);
+            chai.expect(raw.proxy.child()).to.equal(7);
+            chai.expect(written).to.deep.equal([]);
         });
 
         it('proxy(1,2) too many args', () => {

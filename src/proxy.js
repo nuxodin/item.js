@@ -41,7 +41,7 @@ const proxyHandler = {
     apply: function (target, thisArg, args) {
         const targetItem = target.item;
         if (args.length === 0) return targetItem.get();
-        if (args.length === 1) return targetItem.set(args[0]) ?? true;
+        if (args.length === 1) return targetItem.set(args[0]);
         throw new Error('apply called with too many arguments');
     },
 

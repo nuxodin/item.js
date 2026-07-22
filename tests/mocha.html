@@ -783,6 +783,11 @@ describe('set({local:true})', () => {
         await new Promise(r => setTimeout(r, 10)) // wait for debounce
         chai.expect(writerCalled).to.equal(true)
     })
+    it('set({local:true}) returns undefined – no io-write to await', () => {
+        const i = item()
+        i.writer = () => Promise.resolve()
+        chai.expect(i.set(42, { local: true })).to.equal(undefined)
+    })
 })
 
 describe('set({depth:N})', () => {

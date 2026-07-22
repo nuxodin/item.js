@@ -58,6 +58,8 @@ export class Item extends Emitter {
 
     peek() { return this.get({ silent: true }); }
 
+    /** Returns a promise while an io-write is running, else undefined (no writer, local, unchanged
+     *  or prevented). Await it to know *when* the write landed — not *what* it resolves to. */
     set(value, options) {
         if (this.#isSetting) throw new Error("circular set");
         this.#isSetting = true;
