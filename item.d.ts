@@ -16,11 +16,17 @@ export class Item<TRoot extends Item<any> = Item<any>> extends Emitter {
     readonly io: AsyncDataPoint;
     readonly pending: boolean;
     readonly error: Error | undefined;
+    /** Nearest self-or-ancestor with a reader/writer — the item that talks to the source for this one. */
+    readonly ioOwner: Item | null;
+    /** Did the region's full value ever arrive from its source? Resolves via ioOwner; expires with io ttl. */
+    readonly loaded: boolean;
     promise: Promise<any>;
 
     // Hooks (Callbacks)
     reader?: (query?: any, options?: any) => Promise<any>;
     writer?: (value: any, options?: any) => Promise<any>;
+    /** Declares: my reader delivers the whole region. Enables partial writes (child set/patch) once loaded. */
+    readsFull?: boolean;
     adder?: (value: any) => Promise<{key: string}>;
     remover?: (options?: any) => Promise<any>;
 

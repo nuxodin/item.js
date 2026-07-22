@@ -69,12 +69,14 @@ export class Item extends Emitter {
             if (!event.defaultPrevented) {
                 value = event.value;
 
-                this.$set(value, { ...options, local: options?.local || !!this.writer }); // children "local only" if i have a writer
+                const owner = options?.local ? null : this.ioOwner;
 
-                if (this.writer && !options?.local) {
-                    const realValue = this.get({ silent: true });
-                    ioPromise = this.io.set(realValue);
-                }
+                // `set` on the owner itself is a deliberate full replace — everything else is partial
+                if (owner !== this || options?.patch) this.#assertRegionLicence(owner);
+
+                this.$set(value, { ...options, local: options?.local || !!owner?.writer }); // children "local only" — the owner writes them
+
+                if (owner?.writer) ioPromise = owner.io.set(owner.peek());
 
             }
             return ioPromise;
@@ -160,9 +162,13 @@ export class Item extends Emitter {
 
     async remove(options) {
         if (!this.#parent) throw new Error("cannot remove root item");
+        // no own remover → the removal is a partial write of the surrounding region
+        const owner = options?.local || this.remover ? null : this.#parent.ioOwner;
+        this.#assertRegionLicence(owner);
         delete this.#parent.#value[this.#key];
         dispatch(this.#parent, "change", { remove: this, options });
         if (this.remover && !options?.local) await this.remover();
+        else if (owner?.writer) await owner.io.set(owner.peek());
         this.clear();
     }
 
@@ -209,7 +215,12 @@ export class Item extends Emitter {
     get io() {
         if (!this.#io) {
             this.#io = new AsyncDataPoint({
-                get: (signal) => this.reader(null, {signal}),
+                get: async (signal) => {
+                    const data = await this.reader(null, {signal});
+                    // declared full but delivered shallow → reject, so the region stays unloaded
+                    if (this.readsFull && data?.value !== undefined && ![true, Infinity].includes(data.depth)) throw new Error(`[item.js] "${this.path.join('.')}" declares readsFull but its reader delivered depth ${data.depth}`);
+                    return data;
+                },
                 set: (v, signal) => this.writer(v, {signal}),
             });
             if (this.#parent?.#io) this.#io.options = this.#parent.#io.options;
@@ -222,22 +233,36 @@ export class Item extends Emitter {
         return this.#io;
     }
 
-    async read(query) {
-        return (this.reader || this.#io?.isPending) ? await this.io.get() : false;
-        // querys cant be used with io, because io is always the whole data
-        // if (!query) return (this.reader || this.#io?.isPending) ? await this.io.get() : false;
-        // if (!this.reader) throw new Error('[item.js] read(query) requires a reader');
-        // const data = await this.reader(query);
-        // this.#onReceiveData(data);
+    /** Item talking to the source for this one — itself, else the nearest ancestor with a hook. */
+    get ioOwner() {
+        if (this.reader || this.writer) return this;
+        return this.#parent?.ioOwner ?? null;
     }
-    #onReceiveData(data) {
+
+    /** A partial write sends the owner's WHOLE region — only sound if that region is complete. */
+    #assertRegionLicence(owner) {
+        if (!owner?.writer || !owner.reader) return; // writer-only: the tree is the only truth
+        const why = !owner.readsFull ? 'does not declare readsFull' : !owner.loaded ? 'is not loaded, await read() first' : null;
+        if (why) throw new Error(`[item.js] cannot partially write "${this.path.join('.')}" — its io owner ${why}`);
+    }
+
+    async read(query) {
+        if (!query) return (this.reader || this.#io?.isPending) ? await this.io.get() : false;
+        // a query is a slice: bypasses io (io is always the whole value), patches, never marks loaded
+        if (!this.reader) throw new Error('[item.js] read(query) requires a reader');
+        const data = await this.reader(query);
+        this.#onReceiveData(data, { patch: true });
+        return data;
+    }
+    #onReceiveData(data, opts) {
         // if (query?.depth && query.depth !== data.depth) console.log("reader depth mismatch", query.depth, data.depth);
         if (data === undefined) return;
         if (data?.depth !== undefined && data?.value !== undefined) {
             const depth = data.depth === true ? Infinity : data.depth;
-            this.set(data.value, { local: true, depth });
+            this.set(data.value, { local: true, depth, ...opts });
         } else {
-            this.set(data, { local: true, depth: 1 });
+            // A readsFull owner promises its reader delivers the whole region — merge deep.
+            this.set(data, { local: true, depth: this.readsFull ? Infinity : 1, ...opts });
         }
     }
     async *[Symbol.asyncIterator]() {
@@ -260,6 +285,8 @@ export class Item extends Emitter {
     set promise(promise) { this.io.setFromPromise(promise); }
     get pending()        { track(this); return this.#io?.isPending ?? false; }
     get error()          { track(this); return this.#io?.lastError ?? undefined; }
+    /** Did the region value ever arrive? An io statement, unlike `filled` (local tree, set by navigation). */
+    get loaded()         { track(this); const o = this.ioOwner; return (o === this ? this.#io?.isLoaded : o?.loaded) ?? false; }
 
     /* JSON Schema */
 

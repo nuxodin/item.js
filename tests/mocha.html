@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <title>Item.js Tests</title>
+    <title>item.js Tests</title>
     <meta name="viewport" content="width=device-width" />
     <link rel="stylesheet" href="https://unpkg.com/mocha@10.2.0/mocha.css" />
 </head>
@@ -10,11 +10,17 @@
     <div id="mocha"></div>
     <script src="https://unpkg.com/mocha@10.2.0/mocha.js"></script>
     <script class="mocha-init">
-        mocha.setup('bdd');
+        // ?grep=proxy runs a subset, like `deno test --filter proxy`
+        const grep = new URLSearchParams(location.search).get('grep');
+        mocha.setup({ ui: 'bdd', ...(grep && { grep }) });
         mocha.checkLeaks();
     </script>
-    <!-- specs are shared with deno: `deno test tests/spec/` runs the same files -->
+    <!-- specs are shared with deno: `deno task test` runs the very same files -->
     <script type="module" src="./spec/core.test.js"></script>
+    <script type="module" src="./spec/io.test.js"></script>
+    <script type="module" src="./spec/proxy.test.js"></script>
+    <script type="module" src="./spec/effect.test.js"></script>
+    <script type="module" src="./spec/schema.test.js"></script>
     <script class="mocha-exec" type="module">
         mocha.run();
     </script>

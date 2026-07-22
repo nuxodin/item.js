@@ -14,26 +14,80 @@ Applies to async items — those with a `reader`/`writer`. Purely local items ha
 An `AsyncDataPoint` has exactly one value, one getter, one setter — it cannot hold two
 slices of the same item. Hence `read(query)` cannot go through `io.get()`.
 
-### Who writes what
+### io regions
 
-A `writer` owns its **whole subtree**: `set()` passes it `get({silent:true})`, so children
-are set `{local:true}` and never write themselves.
+> **An item is served by the nearest item at or above it that has a hook — its owner.
+> All items sharing one owner form an io region, and the owner writes the region as one value.**
 
-Writers are **not inherited**. Setting a child that has no writer of its own does no io —
-the value stays local and `set()` returns `undefined`.
+That single rule gives every shape you can build. There are no different *kinds* of item, only
+different region sizes:
 
-Match that to the data source:
-
-| Source | Children write themselves | How |
+| Region | Where the hooks sit | Example |
 |---|---|---|
-| Per-node addressable (REST, fs) | yes | `static ChildClass = Self` |
-| Whole-blob only (JSON column, cookie) | no, only the root | `AsyncChild` |
+| none | nowhere | plain local state, no `io` at all |
+| whole subtree | root only, declared `readsFull = true` | JSON column, cookie, `localStorage` |
+| one item each | every node (`static ChildClass = Self`) | REST, filesystem |
+
+Because the owner writes the **whole** region, its children are set `{local:true}` and never
+write themselves.
+
+**Regions nest.** A descendant with its own hooks cuts a sub-region out of its ancestor's, and
+the nearest owner wins — so every single change has exactly one route out. (A schema is the
+opposite: `setSchema` throws if an ancestor already has one.)
+
+But nest carefully: the outer owner still writes its whole region, so inner data would travel
+through both channels. Where the two really are different sources — a JSON file inside a
+filesystem tree — keep two trees and sync them, the way `jsonDataItem` does.
+
+### readsFull + loaded — when are partial writes safe?
+
+A partial write (child set, `patch`) writes the owner's **whole** region back. That erases
+everything at the source the local tree has not seen — so it is only allowed when two things
+hold, one static and one dynamic:
+
+```js
+owner.readsFull = true   // declaration: "my reader delivers the whole region"
+owner.loaded             // did that value arrive? (io truth; children resolve to their owner)
+```
+
+- **`readsFull`** also changes `read()`: a plain-object reader return merges **deep**
+  (no `{value, depth:true}` wrapper needed) — declared-full regions cannot end up with a
+  keys-only tree.
+- **`loaded`** becomes true only when the full region value went through io — reader,
+  `setLocal`, `promise` assignment, or a landed write. Deliberately not: `set({local:true})`
+  (also used for purely local state) and partial reads (a query slice must never license a
+  full write). It **expires with `io.options.ttl`** — a stale region demands a fresh read.
+  `filled` cannot play this role: it describes the local tree, and merely navigating to a
+  child already sets it.
+
+The guard (`full = readsFull ∧ loaded`):
+
+| Write | needs |
+|---|---|
+| `owner.set(v)` — deliberate full replace | nothing |
+| child set / `patch` into a writer-only region (no reader) | nothing — the tree is the only truth |
+| child set / `patch` into a reader-region | `readsFull` **and** `loaded`, else it throws |
+
+Strict (core) vs. convenient (`AsyncChild`) — same situation, two reactions:
+
+| | unloaded region, child write |
+|---|---|
+| core | **throws** — nothing happens |
+| [`AsyncChild.writer`](../tools/AsyncChild.js) | **reads first**, re-applies the change, then writes |
+
+> **Open:** `AsyncChild` could probably be dropped entirely. Its one remaining job — a child
+> writing its parent's whole value — is what regions now do by themselves
+> (`Row.readsFull = true; ChildClass = Item` instead of `ChildClass = AsyncChild`, see
+> `adapter/indexedDb.js`). What would be lost is the auto-read above: callers would have to
+> `await region.read()` themselves, or the convenience moves into the core as an owner
+> option. Not verified against the real adapter yet.
 
 ### How deep did the reader deliver
 
-`read()` applies `{depth: 1}` — first level only. A reader that delivered more returns
+`read()` applies `{depth: 1}` — first level only. Two ways to deliver more: the owner
+declares `readsFull` (plain object returns then merge deep), or the reader returns
 `{value, depth}` (`depth: true` = whole tree). Same code fetches a folder listing or a
-whole JSON document; only the reader's return value differs.
+whole JSON document; only the declaration/return value differs.
 
 ---
 
@@ -103,6 +157,17 @@ const value = await item.read()
 
 Use when you need to ensure data is loaded before reading it.
 
+### read(query)
+
+A query is a **slice**: it bypasses io (io is by definition the whole value), calls the
+reader directly and **patches** the result into the tree — nothing the slice does not
+mention is removed, mentioned keys are updated. It never marks `loaded`: a slice must not
+license a whole-region write.
+
+```js
+await table.read({ limit: 100 })   // reader(query) decides what the query means
+```
+
 ---
 
 ## add(value)
@@ -139,6 +204,9 @@ await item.remove()                // remover() + remove locally
 await item.remove({ local: true }) // local only — no remover()
 ```
 
+No own `remover`? Then the removal is a partial write of the surrounding region: the
+owner writes the region without the key — same licence as set/patch (`readsFull ∧ loaded`).
+
 `local:true` for cases where the change comes from outside (filesystem watcher, WebSocket event, etc.) and the server is already aware.
 
 ---
@@ -146,9 +214,9 @@ await item.remove({ local: true }) // local only — no remover()
 ## set / patch with {local}
 
 ```js
-item.set(value)                  // $set + writer
-item.set(value, { local: true }) // $set only — no writer
-item.patch(value)                // like set, but merge instead of replace
+item.set(value)                  // $set + write via the ioOwner's writer
+item.set(value, { local: true }) // $set only — no io
+item.patch(value)                // like set, but merge — partial intent, needs the region licence
 ```
 
 `local:true` propagates through the entire tree — children also call `set({local:true})` and `remove({local:true})`.

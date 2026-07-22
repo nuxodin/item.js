@@ -22,7 +22,9 @@
         #expectedValue = null; // value while saving
         #setter = null; // current setter promise
         #getter = null; // current/cached getter promise
-        #cacheGetterTimeout = undefined;
+        #getterExpiry = Infinity; // ttl is checked lazily on access — no timer per cache entry
+        // expired getters count as gone (lazy ttl)
+        get #cachedGetter() { return Date.now() < this.#getterExpiry ? this.#getter : null; }
         onpending = null;
         onchange = null;
         
@@ -95,18 +97,16 @@
 
             this.#getter = promise;
             const duration = this.options.ttl;
-            clearTimeout(this.#cacheGetterTimeout);
-            if (!(duration > 0)) return;
-            this.#cacheGetterTimeout = setTimeout(() => {
-                if (this.#getter === promise) this.#getter = null;
-            }, duration);
+            this.#getterExpiry = duration > 0 ? Date.now() + duration : Infinity;
         }
 
         setLocal(value) { this.#cacheGetter(transparentPromiseResolve(value)); }
         setFromPromise(promise) { this.#cacheGetter(makePromiseTransparent(promise)); }
-        get isPending() { return this.#getter?.state === 'pending' || this.#setter?.state === 'pending'; }
-        get lastError() { return this.#getter?.reason ?? this.#setter?.reason ?? undefined; }
-        get recentValue() { return this.#getter?.value; }
+        get isPending() { return this.#cachedGetter?.state === 'pending' || this.#setter?.state === 'pending'; }
+        /** True once a full value has arrived — via getter, setLocal, setFromPromise or a landed write. */
+        get isLoaded() { return this.#cachedGetter?.state === 'fulfilled'; }
+        get lastError() { return this.#cachedGetter?.reason ?? this.#setter?.reason ?? undefined; }
+        get recentValue() { return this.#cachedGetter?.value; }
 
         get() {
             if (this.#setter?.state === 'pending') {
@@ -116,7 +116,7 @@
                     return this.#setter.then(() => this.get()); // wait for setter to be done
                 }
             }
-            if (!this.#getter) this.#cacheGetter(this.#createGetter());
+            if (!this.#cachedGetter) this.#cacheGetter(this.#createGetter());
             return this.#getter;
         }
 
@@ -128,7 +128,7 @@
 
             // ignore if latest getter value is the same
             // Value already set (no-op). Returns undefined to avoid falsy issues (value could be 0, false, etc.)
-            if (this.#getter?.state === 'fulfilled' && isEqual(this.#getter.value, value)) return;
+            if (this.#cachedGetter?.state === 'fulfilled' && isEqual(this.#cachedGetter.value, value)) return;
             
             this.#expectedValue = value;
             const promise = this.#createSetter(value);
@@ -155,13 +155,12 @@
         }
 
         dispose() {
-            clearTimeout(this.#cacheGetterTimeout);
             this.#setter?.controller.abort();
             this.#getter?.controller?.abort();
             this.#setter = null;
             this.#getter = null;
             this.#expectedValue = null;
-            this.#cacheGetterTimeout = undefined;
+            this.#getterExpiry = Infinity;
             this.onchange = null;
         }
         getDebugState() {

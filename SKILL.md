@@ -131,10 +131,17 @@ i.addEventListener('set', () => i.value = x)  // throws 'circular set'
 is answered by the tree; *running / done / failed?* by `io`. An AsyncDataPoint has one value,
 one getter, one setter — it cannot hold two slices of the same item.
 
-A `writer` owns its **whole subtree**, so children are set `{local:true}` and never write
-themselves. Writers are not inherited — setting a child without its own writer does no io and
-returns `undefined`. REST/fs give every node a writer (`static ChildClass = Self`); whole-blob
-sources (JSON column, cookie) use `AsyncChild`. See [doc/async.md](./doc/async.md).
+**io regions:** an item is served by the nearest item at or above it with a hook — its
+`ioOwner`; all items sharing one owner form a region, and the owner writes the region as one
+value (children are set `{local:true}`). Region sizes: none (local), whole subtree (root hooks
+only — JSON column, cookie), one item each (`static ChildClass = Self` — REST, fs). Regions may
+nest; the nearest owner wins.
+
+**Partial writes** (child set, `patch`) into a reader-region need `owner.readsFull = true`
+(declaration: reader delivers the whole region; also makes plain-object reads merge deep) plus
+`owner.loaded` (io truth: did the value arrive; expires with `io.options.ttl`) — else they
+throw. Writer-only regions and `owner.set()` (full replace) need nothing. `AsyncChild` = the
+auto-read variant. See [doc/async.md](./doc/async.md).
 
 ```js
 // quick-and-dirty async data point
@@ -169,6 +176,14 @@ class MyItem extends Item {
 
 
 ## Common Pitfalls
+
+### `await proxy` unwraps — the result is a value, not the proxy
+```js
+const dbP = await db.proxy // ✗ — dbP is a dead value snapshot; children/readers unreachable
+const dbP = db.proxy       // ✓ — the proxy is the handle …
+await dbP                  //   … await loads a region (here: db's own reader)
+await dbP.users            //   … and each nested ioOwner loads its level on its own await
+```
 
 ### Don't read object values directly
 ```js

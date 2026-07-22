@@ -166,6 +166,17 @@ Deno.test('AsyncChild: reads first, merges, whole region — also on unread tree
     eq(state.remote, { important: 'keep', sub: { subsub: 4, other: 'keep too' } }, 'merge on unread tree');
 });
 
+Deno.test('readsFull + a reader delivering an explicit shallow depth is a contradiction — throws', io, async () => {
+    const r = item();
+    r.readsFull = true;
+    r.reader = () => ({ value: { a: { deep: 1 }, keep: 2 }, depth: 1 }); // declared full, delivered keys-only
+    r.writer = () => Promise.resolve();
+    let msg = '';
+    try { await r.read(); } catch (e) { msg = e.message; }
+    eq(/declares readsFull/.test(msg), true, 'contradiction reported');
+    eq(r.loaded, false, 'and the region is not marked loaded');
+});
+
 Deno.test('a writer rejection reaches the awaiting caller', io, async () => {
     const r = item();
     r.writer = () => Promise.reject(new Error('disk full'));

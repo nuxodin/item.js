@@ -1,7 +1,10 @@
 {
   "name": "@nuxodin/item",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "license": "MIT",
+  "tasks": {
+    "test": "deno test tests/spec/ tests/deno/"
+  },
   "exports": {
     "./item.js": "./item.js",
     "./item.d.ts": "./item.d.ts",

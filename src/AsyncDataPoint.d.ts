@@ -34,6 +34,8 @@ export class AsyncDataPoint<T = any> {
     constructor(config: AsyncDataPointConfig<T> & AsyncDataPointOptions);
 
     get isPending(): boolean;
+    /** True once a full value has arrived — via getter, setLocal, setFromPromise or a landed write. Expires with ttl. */
+    get isLoaded(): boolean;
     get lastError(): Error | undefined;
     get recentValue(): T | undefined;
 
