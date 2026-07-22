@@ -11,9 +11,12 @@ export async function jsonDataItem(jsonItem) {
     return root;
 }
 
+/** JSON-backed root item: every write in the tree persists the whole document.
+ *  `set()`/`patch()` return a promise — await it when the write must have landed. */
 export function bildJsonItem(raw, save, options = {}) {
     const root = item(JSON.parse(raw || "{}"));
-    root.addEventListener("changeIn", debounce(() => save(JSON.stringify(root.get())), options.debounce ?? 25));
+    root.writer = v => save(JSON.stringify(v));
+    root.io.options.debounceMs = options.debounce ?? 25;
     return root;
 }
 
