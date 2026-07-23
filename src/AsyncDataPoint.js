@@ -84,7 +84,7 @@
                         try {
                             this.onchange?.({value, oldValue});
                         } catch (err) {
-                            console.error('AsyncDataPoint onchange error:', err);
+                            console.error('[item.js] AsyncDataPoint onchange error:', err);
                         }
                     }
                 },
@@ -189,7 +189,7 @@
      * });
      */
     function makePromiseTransparent(promise) {
-        if (promise.state) console.warn('already transparent');
+        if (promise.state) console.warn('[item.js] already transparent');
         promise.state = 'pending'; // or 'unknown' ?
         promise.value = undefined;
         promise.then(
@@ -253,7 +253,7 @@
                 lastError = error;
                 if (attempt < retries) {
                     const delay = baseDelay * Math.pow(2, attempt);
-                    console.warn(`Attempt ${attempt + 1}/${retries + 1} failed, retrying in ${delay}ms...`, error);
+                    console.warn(`[item.js] Attempt ${attempt + 1}/${retries + 1} failed, retrying in ${delay}ms...`, error);
                     await new Promise(resolve => setTimeout(resolve, delay));
                 }
             }

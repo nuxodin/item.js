@@ -34,7 +34,7 @@ export class Item extends Emitter {
     get(options) {
         const value = this.$get(options);
         if (options?.silent) return value;
-        if (this.#isGetting) throw new Error("circular get");
+        if (this.#isGetting) throw new Error("[item.js] circular get");
         this.#isGetting = true;
         try {
             const event = dispatch(this, 'get', { value, options });
@@ -61,7 +61,7 @@ export class Item extends Emitter {
     /** Returns a promise while an io-write is running, else undefined (no writer, local, unchanged
      *  or prevented). Await it to know *when* the write landed — not *what* it resolves to. */
     set(value, options) {
-        if (this.#isSetting) throw new Error("circular set");
+        if (this.#isSetting) throw new Error("[item.js] circular set");
         this.#isSetting = true;
         try {
             const event = dispatch(this, "set", {oldValue: this.#value, value, options});
@@ -140,7 +140,7 @@ export class Item extends Emitter {
         key = String(key);
         this.#ensureObject();
         if (!(key in this.#value)) {
-            if (this.ChildClass === false) throw new Error(`${this.constructor.name} has no children`);
+            if (this.ChildClass === false) throw new Error(`[item.js] ${this.constructor.name} has no children`);
             const Klass = this.ChildClass ?? this.constructor;
             const item = new Klass(this, key);
             this.#value[key] = item;
@@ -150,7 +150,7 @@ export class Item extends Emitter {
     }
 
     async add(value) {
-        let key = this.adder ? (await this.adder(value)).key : this.generateKey();
+        const key = this.adder ? (await this.adder(value)).key : this.generateKey();
         if (key == null) throw new Error("[item.js] a key must be generated");
         if (this.has(key)) throw new Error(`[item.js] key "${key}" already exists`)
         const item = this.item(key);
@@ -161,7 +161,7 @@ export class Item extends Emitter {
     generateKey() { return crypto.randomUUID() } // items with no ".adder()"
 
     async remove(options) {
-        if (!this.#parent) throw new Error("cannot remove root item");
+        if (!this.#parent) throw new Error("[item.js] cannot remove root item");
         // no own remover → the removal is a partial write of the surrounding region
         const owner = options?.local || this.remover ? null : this.#parent.ioOwner;
         this.#assertRegionLicence(owner);
@@ -294,7 +294,7 @@ export class Item extends Emitter {
 
     setSchema(schema) {
         for (let p = this.#parent; p; p = p.#parent) {
-            if (p.#schema) throw new Error(`ancestor "${p.path.join('.')}" already has a schema`);
+            if (p.#schema) throw new Error(`[item.js] ancestor "${p.path.join('.')}" already has a schema`);
         }
         this.#schema = schema;
     }
@@ -313,7 +313,7 @@ export class Item extends Emitter {
         );
     }
 
-    set schema(v) { throw new Error('use setSchema() to assign a schema'); }
+    set schema(v) { throw new Error('[item.js] use setSchema() to assign a schema'); }
 
     /* misc */
 

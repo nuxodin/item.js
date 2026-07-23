@@ -28,7 +28,7 @@ const proxyHandler = {
         const childItem = targetItem.item(property);
 
         // toJSON is allowed
-        if (property === 'toJSON') console.warn('item.js: toJSON accessed on proxy. Use `JSON.stringify(proxy())` instead of `JSON.stringify(proxy)`', Error().stack);
+        if (property === 'toJSON') console.warn('[item.js] toJSON accessed on proxy. Use `JSON.stringify(proxy())` instead of `JSON.stringify(proxy)`', Error().stack);
 
         return toProxy(childItem);
     },
@@ -42,7 +42,7 @@ const proxyHandler = {
         const targetItem = target.item;
         if (args.length === 0) return targetItem.get();
         if (args.length === 1) return targetItem.set(args[0]);
-        throw new Error('apply called with too many arguments');
+        throw new Error('[item.js] apply called with too many arguments');
     },
 
     has: (target, property) => typeof property === 'string' && !!target.item.has(property),

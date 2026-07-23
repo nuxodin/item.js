@@ -35,7 +35,7 @@ export class Collection extends Emitter {
     }
 
     async read() {
-        if (!this.#source.reader) throw new Error('no reader on source');
+        if (!this.#source.reader) throw new Error('[item.js] no reader on source');
         await this.#source.reader(this.#filter);
         return this;
     }

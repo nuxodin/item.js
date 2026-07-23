@@ -14,7 +14,7 @@ export function effect(fn) { // async?
     const parent = activeEffect;
     if (parent) {
         (parent.nested ??= new Set()).add(fn);
-        if (fn.parent && fn.parent !== parent) throw new Error("effect(cb) callbacks should not be reused for other effects");
+        if (fn.parent && fn.parent !== parent) throw new Error("[item.js] effect(cb) callbacks should not be reused for other effects");
         fn.parent = parent;
     }
     activeEffect = fn;
@@ -69,7 +69,7 @@ function batch(effect) {
 
             activeEffect = fn; // effect() called inside fn(callback) has to know his parent effect
             try { fn({ self: fn }); }
-            catch (err) { console.error(err); }
+            catch (err) { console.error('[item.js]', err); }
         }
         activeEffect = null;
 //        queue = null; // restart collecting, todo? we could also keep collecting while running, but it can cause infinite loops if not careful
