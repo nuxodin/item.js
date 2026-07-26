@@ -19,8 +19,11 @@ function createBody(fields, primaries) {
     const soloInt = primaries.length === 1 && pkProp &&
         ['integer', 'boolean'].includes(schemaType(pkProp))
     const cols = fields.map(([n, f]) => {
-        let def = toFieldDef(n, f)
-        if (soloInt && n === primaries[0]) def += f['x-autoincrement'] ? ' PRIMARY KEY AUTOINCREMENT' : ' PRIMARY KEY'
+        const isPk = soloInt && n === primaries[0]
+        // Only `INTEGER PRIMARY KEY` is the rowid alias, and AUTOINCREMENT is legal nowhere else —
+        // so a boolean key keeps the integer spelling, which SQLite would otherwise reject.
+        let def = toFieldDef(n, isPk ? { ...f, type: 'integer' } : f)
+        if (isPk) def += f['x-autoincrement'] ? ' PRIMARY KEY AUTOINCREMENT' : ' PRIMARY KEY'
         return '  ' + def
     }).join(',\n')
     const pk = (!soloInt && primaries.length) ? `,\n  PRIMARY KEY (${primaries.map(quoteId).join(', ')})` : ''

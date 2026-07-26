@@ -8,7 +8,11 @@ export function toFieldDef(name, prop) {
     let type
     const t = schemaType(prop)
 
-    if      (t === 'boolean')             type = 'INTEGER'  // SQLite has no bool
+    // SQLite has no bool, but the declared name still matters: BOOLEAN carries NUMERIC affinity,
+    // so 1/0 stay integers, and schemaFromField reads it back as boolean. Spelling it INTEGER
+    // round-trips to integer instead, leaving a type diff that never settles.
+    // (A STRICT table would reject the name — that would need INTEGER and a different carrier.)
+    if      (t === 'boolean')             type = 'BOOLEAN'
     else if (t === 'integer')             type = 'INTEGER'
     else if (t === 'number')              type = 'REAL'
     else if (t === 'object' || t === 'array') type = 'TEXT'  // JSON as text
