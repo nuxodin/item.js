@@ -24,7 +24,7 @@ export function createItemWsRouter(rootItem, basePath = '/ws') {
          const newItem = await rootItem.sub(path).add(msg.value);
          return { key: newItem.key };
       },
-      async subscribe({ path }) {
+      async subscribe({ path, subscribe }) {
          const item = rootItem.sub(path);
          subscribe(item);
          return await item.read(); // needed?

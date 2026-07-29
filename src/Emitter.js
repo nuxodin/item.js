@@ -4,6 +4,7 @@ export class Emitter {
     #listeners = null;
 
     addEventListener(type, fn, opts) {
+        if (opts?.signal?.aborted) return;
         (this.#listeners ??= new Map()).has(type)
             ? this.#listeners.get(type).add(fn)
             : this.#listeners.set(type, new Set([fn]));

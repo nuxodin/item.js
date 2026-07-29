@@ -9,9 +9,9 @@ export class PgDb extends Db {
         this.client = new Client(options);
         await this.client.connect();
     }
-    query(sql, params){
+    async query(sql, params){
         try {
-            return this.client.queryObject(sql, params);
+            return await this.client.queryObject(sql, params);
         } catch(e) {
             console.log(sql, e) //throw e;
             throw e;
