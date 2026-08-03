@@ -1,0 +1,24 @@
+{
+  "name": "@nuxodin/item",
+  "version": "0.0.0",
+  "description": "Reactive state library",
+  "type": "module",
+  "license": "MIT",
+  "author": "Tobias Buschor",
+  "types": "./item.d.ts",
+  "exports": {
+    ".": "./item.js",
+    "./*": "./*"
+  },
+  "files": [
+    "item.js",
+    "item.d.ts",
+    "src",
+    "tools",
+    "!**/tests"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nuxodin/item.js"
+  }
+}

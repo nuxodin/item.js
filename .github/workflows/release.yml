@@ -1,4 +1,4 @@
-name: Publish to JSR
+name: Release
 
 on:
   push:
@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      id-token: write
+      id-token: write # jsr + npm trusted publishing
     steps:
       - uses: actions/checkout@v4
 
@@ -29,3 +29,30 @@ jobs:
       - uses: denoland/setup-deno@v2
 
       - run: deno publish
+
+      - name: Version schon auf npm?
+        id: check
+        run: |
+          if npm view @nuxodin/item@${{ steps.version.outputs.version }} version >/dev/null 2>&1; then
+            echo "new=false" >> $GITHUB_OUTPUT
+          else
+            echo "new=true" >> $GITHUB_OUTPUT
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.new == 'true'
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: npm aktualisieren # OIDC braucht npm >= 11.5.1
+        if: steps.check.outputs.new == 'true'
+        run: npm install -g npm@latest
+
+      - name: Version aus deno.json übernehmen
+        if: steps.check.outputs.new == 'true'
+        run: npm version --no-git-tag-version --allow-same-version ${{ steps.version.outputs.version }}
+
+      - name: npm publish
+        if: steps.check.outputs.new == 'true'
+        run: npm publish --access public
