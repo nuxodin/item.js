@@ -4,8 +4,7 @@ on:
   push:
     branches:
       - main
-    paths:
-      - deno.json
+  workflow_dispatch:
 
 jobs:
   publish:
@@ -18,22 +17,37 @@ jobs:
 
       - name: Version lesen
         id: version
-        run: echo "version=$(jq -r '.version' deno.json)" >> $GITHUB_OUTPUT
+        run: |
+          echo "name=$(jq -r '.name' deno.json)" >> $GITHUB_OUTPUT
+          echo "version=$(jq -r '.version' deno.json)" >> $GITHUB_OUTPUT
+
+      # Der Job läuft bei jedem Push auf main — die Registries entscheiden, ob es etwas zu tun gibt.
+      - name: Version schon auf jsr?
+        id: jsr
+        run: |
+          if curl -sf "https://jsr.io/${{ steps.version.outputs.name }}/${{ steps.version.outputs.version }}_meta.json" >/dev/null; then
+            echo "new=false" >> $GITHUB_OUTPUT
+          else
+            echo "new=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Tag + Release erstellen
+        if: steps.jsr.outputs.new == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
           generate_release_notes: true
 
       - uses: denoland/setup-deno@v2
+        if: steps.jsr.outputs.new == 'true'
 
       - run: deno publish
+        if: steps.jsr.outputs.new == 'true'
 
       - name: Version schon auf npm?
         id: check
         run: |
-          if npm view @nuxodin/item@${{ steps.version.outputs.version }} version >/dev/null 2>&1; then
+          if npm view ${{ steps.version.outputs.name }}@${{ steps.version.outputs.version }} version >/dev/null 2>&1; then
             echo "new=false" >> $GITHUB_OUTPUT
           else
             echo "new=true" >> $GITHUB_OUTPUT
