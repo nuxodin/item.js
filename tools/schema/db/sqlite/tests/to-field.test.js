@@ -9,6 +9,7 @@ Deno.test('sqlite toFieldDef: type mapping', () => {
     assertEquals(toFieldDef('f', { type: 'number' }),  '`f` REAL');
     assertEquals(toFieldDef('f', { type: 'string', maxLength: 10 }), '`f` VARCHAR(10)');
     assertEquals(toFieldDef('f', { type: 'string' }),  '`f` TEXT');
+    assertEquals(toFieldDef('f', { type: 'string', format: 'date-time' }), '`f` DATETIME');
 });
 
 // SQLite has no boolean type, only affinities — but the declared name is what schemaFromField

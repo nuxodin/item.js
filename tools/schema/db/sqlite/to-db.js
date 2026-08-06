@@ -15,19 +15,32 @@ const indexName = (table, name) => `idx_${table}_${name}`
 // SQLite: a single integer primary key must be declared inline as
 // `INTEGER PRIMARY KEY [AUTOINCREMENT]`; AUTOINCREMENT is invalid elsewhere.
 // Composite or non-integer keys use a table-level PRIMARY KEY constraint.
+function soloIntPrimary(fields, primaries) {
+    if (primaries.length !== 1) return
+    const prop = fields.find(([n]) => n === primaries[0])?.[1]
+    return prop && ['integer', 'boolean'].includes(schemaType(prop)) ? primaries[0] : undefined
+}
+
+// What SQLite never emits cannot be a difference either: a fulltext index needs an FTS virtual
+// table, and AUTOINCREMENT exists only on the rowid alias.
+function emittable(prop, isSoloPk) {
+    const out = { ...prop }
+    if (out['x-index'] === 'fulltext') delete out['x-index']
+    if (!isSoloPk) delete out['x-autoincrement']
+    return out
+}
+
 function createBody(fields, primaries) {
-    const pkProp = fields.find(([n]) => n === primaries[0])?.[1]
-    const soloInt = primaries.length === 1 && pkProp &&
-        ['integer', 'boolean'].includes(schemaType(pkProp))
+    const solo = soloIntPrimary(fields, primaries)
     const cols = fields.map(([n, f]) => {
-        const isPk = soloInt && n === primaries[0]
+        const isPk = n === solo
         // Only `INTEGER PRIMARY KEY` is the rowid alias, and AUTOINCREMENT is legal nowhere else —
         // so a boolean key keeps the integer spelling, which SQLite would otherwise reject.
         let def = toFieldDef(n, isPk ? { ...f, type: 'integer' } : f)
         if (isPk) def += f['x-autoincrement'] ? ' PRIMARY KEY AUTOINCREMENT' : ' PRIMARY KEY'
         return '  ' + def
     }).join(',\n')
-    const pk = (!soloInt && primaries.length) ? `,\n  PRIMARY KEY (${primaries.map(quoteId).join(', ')})` : ''
+    const pk = (!solo && primaries.length) ? `,\n  PRIMARY KEY (${primaries.map(quoteId).join(', ')})` : ''
     return `${cols}${pk}`
 }
 
@@ -92,8 +105,9 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
             const currFields = new Map(tableFields(current.properties[table]))
             const nextFieldNames = new Set(fields.map(([n]) => n))
             // A new plain column is an ADD COLUMN; only a new key column needs the rebuild.
+            const solo = soloIntPrimary(fields, primaries)
             const hasChanges = fields.some(([name, prop]) => currFields.has(name)
-                ? fieldNeedsDdl(prop, currFields.get(name))
+                ? fieldNeedsDdl(emittable(prop, name === solo), currFields.get(name))
                 : prop['x-index'] === 'primary' || prop['x-autoincrement'])
             const hasDrops   = !patch && [...currFields.keys()].some(n => !nextFieldNames.has(n))
 

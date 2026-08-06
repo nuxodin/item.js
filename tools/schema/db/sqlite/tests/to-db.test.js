@@ -60,6 +60,20 @@ Deno.test('sqlite schemaToDb: re-running the same schema is a no-op (idempotent)
     }
 });
 
+Deno.test('sqlite schemaToDb: what SQLite cannot express is not a difference', async () => {
+    const { query } = fresh();
+    // A fulltext index needs an FTS virtual table, AUTOINCREMENT only exists on the rowid alias,
+    // and a format survives only through the declared type name — none of it may keep rebuilding.
+    const schema = table({
+        id:   { type: 'integer', 'x-index': 'primary', 'x-autoincrement': true },
+        lang: { type: 'string', maxLength: 5, 'x-index': 'primary' },
+        body: { type: 'string', 'x-index': 'fulltext' },
+        seen: { type: 'string', format: 'date-time' },
+    });
+    await schemaToDb(schema, query, { patch: true });
+    assertEquals((await schemaToDb(schema, query, { patch: false, force: true })).executed, []);
+});
+
 Deno.test('sqlite schemaToDb: a narrower requirement fits the existing column', async () => {
     const { query } = fresh();
     await schemaToDb(table({ name: { type: 'string', maxLength: 255 } }), query, { patch: true });

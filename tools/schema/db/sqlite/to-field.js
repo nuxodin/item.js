@@ -17,9 +17,11 @@ export function toFieldDef(name, prop) {
     else if (t === 'number')              type = 'REAL'
     else if (t === 'object' || t === 'array') type = 'TEXT'  // JSON as text
     else {
-        if      (prop.format === 'date')          type = 'TEXT'
-        else if (prop.format === 'time')          type = 'TEXT'
-        else if (prop.format === 'date-time')     type = 'TEXT'
+        // Same reasoning as BOOLEAN: the declared name is the only carrier of the format, and
+        // schemaFromField reads these back. TEXT would round-trip to a plain string.
+        if      (prop.format === 'date')          type = 'DATE'
+        else if (prop.format === 'time')          type = 'TIME'
+        else if (prop.format === 'date-time')     type = 'DATETIME'
         else if (prop.contentEncoding === 'base64') type = 'BLOB'
         else if (prop.maxLength)                  type = `VARCHAR(${prop.maxLength})`
         else                                      type = 'TEXT'
