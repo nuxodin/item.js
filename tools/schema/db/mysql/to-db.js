@@ -2,6 +2,7 @@
 import { schemaFromDb } from "./from-db.js";
 import { quoteId, toFieldDef } from "./to-field.js";
 import { schemaDiff } from "../../diff.js";
+import { fieldNeedsDdl } from "../shared/needs-ddl.js";
 
 function tableData(tableSchema) {
   const row = tableSchema.additionalProperties ?? {};
@@ -14,24 +15,8 @@ function primaryFields(fields) {
   return fields.filter(([, f]) => f["x-index"] === "primary").map(([n]) => n);
 }
 
-const columnProps = new Set([
-  "type", "format", "contentEncoding", "maxLength", "minLength",
-  "minimum", "maximum", "multipleOf", "$comment",
-]);
-
 function hasOwn(obj, key) {
   return Object.prototype.hasOwnProperty.call(obj, key);
-}
-
-function fieldChanged(diffs, table, field, prop) {
-  return diffs.some(d =>
-    d.path[0] === "properties" &&
-    d.path[1] === table &&
-    d.path[2] === "additionalProperties" &&
-    d.path[3] === "properties" &&
-    d.path[4] === field &&
-    (columnProps.has(d.property) || d.property === "default" && hasOwn(prop, "default"))
-  );
 }
 
 function preserveDefault(prop, currProp) {
@@ -153,7 +138,8 @@ export async function schemaToDb(
       const { fields: currFieldEntries, required: currRequired } = tableData(
         current.properties[table],
       );
-      const currFields = Object.keys(Object.fromEntries(currFieldEntries));
+      const currFields = new Map(currFieldEntries);
+      const nextFieldNames = new Set(fields.map(([n]) => n));
       const indexStmts = await indexStatements(
         query,
         table,
@@ -165,20 +151,21 @@ export async function schemaToDb(
       const autoAfter = new Map();
       for (const [name, prop] of fields) {
         const isRequired = required.has(name);
-        const curr = currFieldEntries.find(([n]) => n === name);
-        const propWithDefault = curr ? preserveDefault(prop, curr[1]) : prop;
+        const currProp = currFields.get(name);
+        const propWithDefault = currProp ? preserveDefault(prop, currProp) : prop;
         const fieldProp = propWithDefault["x-autoincrement"] ? { ...propWithDefault, "x-autoincrement": false } : propWithDefault;
         const fieldDef = toFieldDef(name, fieldProp, { required: isRequired });
-        if (!currFields.includes(name)) {
+        if (!currProp) {
           stmts.push(`ALTER TABLE ${tableId} ADD COLUMN ${fieldDef};`);
           if (prop["x-autoincrement"]) autoAfter.set(name, prop);
         } else {
-          const hasAuto = !!curr?.[1]["x-autoincrement"];
+          const hasAuto = !!currProp["x-autoincrement"];
           const wantsAuto = !!prop["x-autoincrement"];
-          const wantsChange = fieldChanged(diffs, table, name, prop) ||
+          // AUTO_INCREMENT is added and dropped by its own statements below, so it stays out of here
+          const wantsChange = fieldNeedsDdl(fieldProp, { ...currProp, "x-autoincrement": false }, ["multipleOf", "$comment"]) ||
             isRequired !== currRequired.has(name) ||
             hasAuto && !wantsAuto;
-          const changed = wantsChange && fieldDef !== toFieldDef(name, curr[1], { required: currRequired.has(name) });
+          const changed = wantsChange && fieldDef !== toFieldDef(name, currProp, { required: currRequired.has(name) });
           if (changed) {
             stmts.push(`ALTER TABLE ${tableId} MODIFY COLUMN ${fieldDef};`);
           }
@@ -186,8 +173,8 @@ export async function schemaToDb(
         }
       }
       if (!patch) {
-        for (const name of currFields) {
-          if (!fields.find(([n]) => n === name)) {
+        for (const name of currFields.keys()) {
+          if (!nextFieldNames.has(name)) {
             stmts.push(`ALTER TABLE ${tableId} DROP COLUMN ${quoteId(name)};`);
           }
         }

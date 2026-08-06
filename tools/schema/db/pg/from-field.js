@@ -46,7 +46,7 @@ export function schemaFromField(row) {
     } else if (type === 'json' || type === 'jsonb') prop.type = 'object'
     else prop.type = 'string'
 
-    const def = defaultValue(row.column_default, prop)
+    const def = parseDefault(row.column_default, prop.type)
     if (def !== undefined) prop.default = def
     if (row.comment) prop['$comment'] = row.comment
     if (row.is_primary) prop['x-index'] = 'primary'
@@ -56,16 +56,13 @@ export function schemaFromField(row) {
     return prop
 }
 
-function defaultValue(value, prop) {
+/** information_schema hands the default back as an SQL literal — read it as the value the schema would declare. */
+function parseDefault(value, type) {
     if (value == null || /^nextval\(/i.test(value) || /\b(current_|now\()/i.test(value)) return undefined
     let v = String(value).replace(/::[\w\s.[\]"]+$/i, '')
     if (/^'.*'$/.test(v)) v = v.slice(1, -1).replace(/''/g, "'")
-    if (prop.type === 'boolean') return /^(true|t|1)$/i.test(v)
-    if (prop.type === 'integer') return numberOr(v, Number.parseInt(v, 10))
-    if (prop.type === 'number') return numberOr(v, Number(v))
+    const n = Number(v)
+    if (type === 'boolean') return /^(true|t|1)$/i.test(v)
+    if ((type === 'integer' || type === 'number') && !isNaN(n)) return n
     return v
-}
-
-function numberOr(fallback, value) {
-    return Number.isNaN(value) ? fallback : value
 }

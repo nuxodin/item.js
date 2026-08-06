@@ -35,15 +35,43 @@ Deno.test('sqlite schemaToDb: composite PK uses a table-level constraint', async
 });
 
 Deno.test('sqlite schemaToDb: re-running the same schema is a no-op (idempotent)', async () => {
+    const schema = {
+        properties: {
+            t: {
+                additionalProperties: {
+                    properties: {
+                        id:     { type: 'integer', 'x-index': 'primary', 'x-autoincrement': true },
+                        name:   { type: 'string', maxLength: 100, 'x-index': true, pattern: '^\\w+$' },
+                        active: { type: 'boolean', default: false },
+                        kind:   { type: 'string', maxLength: 10, enum: ['a', 'b'] },
+                    },
+                    required: ['name'],
+                },
+            },
+        },
+    };
+    // Both modes must settle: the schema carries more than any DDL expresses (pattern, enum,
+    // required, integer bounds), and none of it may keep triggering a rebuild.
+    for (const patch of [true, false]) {
+        const { query } = fresh();
+        await schemaToDb(schema, query, { patch });             // creates the table + index
+        const again = await schemaToDb(schema, query, { patch });
+        assertEquals(again.executed, [], `second run emitted DDL with patch: ${patch}`);
+    }
+});
+
+Deno.test('sqlite schemaToDb: a narrower requirement fits the existing column', async () => {
     const { query } = fresh();
-    const schema = table({
-        id:     { type: 'integer', 'x-index': 'primary', 'x-autoincrement': true },
-        name:   { type: 'string', maxLength: 100, 'x-index': true },
-        active: { type: 'boolean', default: false },
-    });
-    await schemaToDb(schema, query, { patch: true });          // creates the table + index
-    const again = await schemaToDb(schema, query, { patch: true });
-    assertEquals(again.executed, []);                          // second run must emit no DDL
+    await schemaToDb(table({ name: { type: 'string', maxLength: 255 } }), query, { patch: true });
+    const res = await schemaToDb(table({ name: { type: 'string', maxLength: 191 } }), query, { force: true });
+    assertEquals(res.executed, []);                             // widen only — never narrow
+});
+
+Deno.test('sqlite schemaToDb: a wider requirement rebuilds the column', async () => {
+    const { db, query } = fresh();
+    await schemaToDb(table({ name: { type: 'string', maxLength: 10 } }), query, { patch: true });
+    await schemaToDb(table({ name: { type: 'string', maxLength: 255 } }), query, { force: true });
+    assertEquals(db.prepare('PRAGMA table_info(`t`)').all()[0].type, 'VARCHAR(255)');
 });
 
 Deno.test('sqlite schemaToDb: type change in force mode recreates the table, data survives', async () => {

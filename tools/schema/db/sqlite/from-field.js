@@ -2,14 +2,11 @@
 // PRAGMA table_info returns: cid, name, type, notnull, dflt_value, pk
 // SQLite lengths are in characters — no byte conversion needed
 
-const intRanges = {
-    tinyint:   { signed: [-128, 127]                           },
-    smallint:  { signed: [-32768, 32767]                       },
-    mediumint: { signed: [-8388608, 8388607]                   },
-    int:       { signed: [-2147483648, 2147483647]             },
-    integer:   { signed: [-2147483648, 2147483647]             },
-    bigint:    { signed: [-9007199254740991, 9007199254740991] }, // JS safe
-}
+// SQLite does not enforce a declared integer width — a TINYINT column happily stores 5000.
+// So every spelling reports the same, real bound: the INTEGER storage class, capped where a
+// JS number stops being exact.
+const intTypes = new Set(['tinyint', 'smallint', 'mediumint', 'int', 'integer', 'bigint'])
+const intMax = 9007199254740991
 
 export function schemaFromField(row) {
     const prop = {}
@@ -18,9 +15,8 @@ export function schemaFromField(row) {
     const type = m?.[1]?.toLowerCase() ?? 'text'
     const len  = m?.[2] ? parseInt(m[2]) : null
 
-    if (type in intRanges) {
-        const [min, max] = intRanges[type].signed
-        prop.type = 'integer'; prop.minimum = min; prop.maximum = max
+    if (intTypes.has(type)) {
+        prop.type = 'integer'; prop.minimum = -intMax; prop.maximum = intMax
 
     } else if (type === 'boolean' || type === 'bool') { prop.type = 'boolean'
     } else if (type === 'real' || type === 'float' || type === 'double') { prop.type = 'number'
@@ -41,9 +37,20 @@ export function schemaFromField(row) {
         prop.type = 'string'
     }
 
-    if (row.dflt_value != null) prop.default    = row.dflt_value
+    if (row.dflt_value != null) prop.default    = parseDefault(row.dflt_value, prop.type)
     if (row.pk)                 prop['x-index'] = 'primary'
     else if (row.index)         prop['x-index'] = row.index
+    if (row.autoincrement)      prop['x-autoincrement'] = true
 
     return prop
+}
+
+/** PRAGMA hands back the raw SQL literal — read it as the value the schema would declare. */
+function parseDefault(raw, type) {
+    const v = String(raw).trim()
+    const n = Number(v)
+    if (/^'[\s\S]*'$/.test(v)) return v.slice(1, -1).replaceAll("''", "'")
+    if (type === 'boolean') return v !== '0'
+    if ((type === 'integer' || type === 'number') && !isNaN(n)) return n
+    return v
 }

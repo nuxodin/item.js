@@ -90,7 +90,7 @@ export function schemaFromField(row) {
     };
   } else prop.type = "string";
 
-  if (row.Default != null) prop.default = row.Default;
+  if (row.Default != null) prop.default = parseDefault(row.Default, prop.type);
   if (row.Comment) prop["$comment"] = row.Comment;
   if (row.Key === "PRI") prop["x-index"] = "primary";
   if (row.Key === "UNI") prop["x-index"] = "unique";
@@ -98,4 +98,13 @@ export function schemaFromField(row) {
   if (isAuto) prop["x-autoincrement"] = true;
 
   return prop;
+}
+
+/** SHOW FULL FIELDS hands the default back as text — read it as the value the schema would declare. */
+function parseDefault(value, type) {
+  const v = String(value);
+  const n = Number(v);
+  if (type === "boolean") return v !== "0";
+  if ((type === "integer" || type === "number") && !isNaN(n)) return n;
+  return v;
 }

@@ -3,6 +3,7 @@ import { schemaFromDb } from './from-db.js'
 import { queryRows } from '../shared/sql.js'
 import { defaultLiteral, quoteId, quoteLit, toFieldDef, typeSql } from './to-field.js'
 import { schemaDiff } from '../../diff.js'
+import { fieldNeedsDdl } from '../shared/needs-ddl.js'
 
 function tableData(tableSchema) {
     const row = tableSchema.additionalProperties ?? {}
@@ -15,11 +16,6 @@ function primaryFields(fields) {
     return fields.filter(([, f]) => f['x-index'] === 'primary').map(([n]) => n)
 }
 
-const columnProps = new Set([
-    'type', 'format', 'contentEncoding', 'maxLength', 'minLength',
-    'minimum', 'maximum', 'multipleOf',
-])
-
 function hasOwn(obj, key) {
     return Object.prototype.hasOwnProperty.call(obj, key)
 }
@@ -28,14 +24,6 @@ function setEqual(a, b) {
     if (a.size !== b.size) return false
     for (const v of a) if (!b.has(v)) return false
     return true
-}
-
-function fieldChanged(diffs, table, field, prop) {
-    return diffs.some(d => {
-        const [a, b, c, e, f] = d.path
-        return a === 'properties' && b === table && c === 'additionalProperties' && e === 'properties' && f === field &&
-            (columnProps.has(d.property) || d.property === 'default' && hasOwn(prop, 'default') || d.property === 'x-autoincrement')
-    })
 }
 
 function preserveDefault(prop, currProp) {
@@ -163,7 +151,8 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
                     continue
                 }
                 const propWithDefault = preserveDefault(prop, currProp)
-                const changed = fieldChanged(diffs, table, name, prop) || isRequired !== currRequired.has(name) || propWithDefault['$comment'] !== currProp['$comment']
+                const changed = fieldNeedsDdl(propWithDefault, currProp, ['multipleOf', '$comment']) ||
+                    isRequired !== currRequired.has(name)
                 if (changed) stmts.push(...alterFieldStmts(table, name, propWithDefault, currProp, isRequired, currRequired.has(name), changed))
             }
             if (!patch) {

@@ -1,6 +1,6 @@
 {
   "name": "@nuxodin/item",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "license": "MIT",
   "tasks": {
     "test": "deno test tests/spec/ tests/deno/"
@@ -40,6 +40,7 @@
     "./tools/schema/db/pg/to-db.js": "./tools/schema/db/pg/to-db.js",
     "./tools/schema/db/pg/to-field.js": "./tools/schema/db/pg/to-field.js",
     "./tools/schema/db/shared/from-db.js": "./tools/schema/db/shared/from-db.js",
+    "./tools/schema/db/shared/needs-ddl.js": "./tools/schema/db/shared/needs-ddl.js",
     "./tools/schema/db/shared/sql.js": "./tools/schema/db/shared/sql.js",
     "./tools/schema/db/sqlite/from-db.js": "./tools/schema/db/sqlite/from-db.js",
     "./tools/schema/db/sqlite/from-field.js": "./tools/schema/db/sqlite/from-field.js",

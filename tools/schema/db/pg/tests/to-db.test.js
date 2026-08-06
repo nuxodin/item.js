@@ -1,4 +1,4 @@
-import { assertFalse, assertStringIncludes } from 'https://deno.land/std@0.177.0/testing/asserts.ts';
+import { assertEquals, assertFalse, assertStringIncludes } from 'https://deno.land/std@0.177.0/testing/asserts.ts';
 import { schemaToDb } from '../to-db.js';
 
 async function ddl(props, required = []) {
@@ -6,6 +6,30 @@ async function ddl(props, required = []) {
     const schema = { properties: { t: { additionalProperties: { properties: props, required } } } };
     await schemaToDb(schema, (sql) => { seen.push(sql); return Promise.resolve({ rows: [] }); }, { patch: true });
     return seen.join('\n');
+}
+
+/** Answers the four read queries from `columns`, records everything else as emitted DDL. */
+function existing(columns) {
+    const seen = [];
+    const rows = columns.map(c => ({ is_nullable: 'YES', column_default: null, is_identity: 'NO', ...c }));
+    const secondary = rows.filter(r => r.is_unique || r.is_index)
+        .map(r => ({ key: `idx_${r.column_name}`, column: r.column_name, unique: !!r.is_unique }));
+    const query = (sql) => {
+        if (sql.includes('information_schema.tables')) return Promise.resolve([{ table_name: 't' }]);
+        if (sql.includes('information_schema.columns')) return Promise.resolve(rows);
+        if (sql.includes('pg_constraint')) return Promise.resolve([]);
+        if (sql.includes('pg_index')) return Promise.resolve(secondary);
+        seen.push(sql);
+        return Promise.resolve([]);
+    };
+    return { query, seen };
+}
+
+async function migrate(columns, props, opts = {}) {
+    const { query, seen } = existing(columns);
+    const schema = { properties: { t: { additionalProperties: { properties: props, required: opts.required ?? [] } } } };
+    await schemaToDb(schema, query, opts);
+    return seen;
 }
 
 Deno.test('pg schemaToDb: identity primary key', async () => {
@@ -86,4 +110,42 @@ Deno.test('pg schemaToDb: does not drop guessed primary constraint name', async 
     const sql = seen.join('\n');
     assertFalse(sql.includes('DROP CONSTRAINT "t_pkey"'));
     assertStringIncludes(sql, 'ADD PRIMARY KEY ("id");');
+});
+
+Deno.test('pg schemaToDb: a narrower requirement fits the existing column', async () => {
+    const seen = await migrate(
+        [{ column_name: 'name', udt_name: 'varchar', character_maximum_length: 255 }],
+        { name: { type: 'string', maxLength: 191 } },
+        { patch: true },
+    );
+    assertEquals(seen, []);   // widen only — never narrow
+});
+
+Deno.test('pg schemaToDb: a wider requirement alters the column type', async () => {
+    const seen = await migrate(
+        [{ column_name: 'name', udt_name: 'varchar', character_maximum_length: 191 }],
+        { name: { type: 'string', maxLength: 255 } },
+        { patch: true },
+    );
+    assertEquals(seen.length, 1);
+    assertStringIncludes(seen[0], 'TYPE VARCHAR(255)');
+});
+
+Deno.test('pg schemaToDb: a table matching its schema is left alone', async () => {
+    // What Postgres reports for a table it created from this very schema — nothing may move.
+    const columns = [
+        { column_name: 'id',     udt_name: 'int4',    is_nullable: 'NO', is_primary: true, is_identity: 'YES' },
+        { column_name: 'name',   udt_name: 'varchar', is_nullable: 'NO', is_index: true, character_maximum_length: 100 },
+        { column_name: 'active', udt_name: 'bool',    column_default: 'false' },
+        { column_name: 'kind',   udt_name: 'varchar', character_maximum_length: 10 },
+    ];
+    const props = {
+        id:     { type: 'integer', 'x-index': 'primary', 'x-autoincrement': true },
+        name:   { type: 'string', maxLength: 100, 'x-index': true, pattern: '^\\w+$' },
+        active: { type: 'boolean', default: false },
+        kind:   { type: 'string', maxLength: 10, enum: ['a', 'b'] },
+    };
+    for (const patch of [true, false]) {
+        assertEquals(await migrate(columns, props, { patch, required: ['id', 'name'] }), [], `patch: ${patch}`);
+    }
 });

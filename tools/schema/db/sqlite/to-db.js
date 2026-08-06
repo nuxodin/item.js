@@ -4,6 +4,7 @@ import { schemaFromDb, singleColumnIndexes } from './from-db.js'
 import { toFieldDef }   from './to-field.js'
 import { quoteId, schemaType } from '../shared/sql.js'
 import { schemaDiff }   from '../../diff.js'
+import { fieldNeedsDdl } from '../shared/needs-ddl.js'
 
 function tableFields(tableSchema) {
     return Object.entries(tableSchema.additionalProperties?.properties ?? {})
@@ -88,13 +89,17 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
             stmts.push(`CREATE TABLE ${quoteId(table)} (\n${createBody(fields, primaries)}\n);`)
             stmts.push(...indexStatements(table, fields, primaries))
         } else {
-            const currFields = Object.keys(current.properties[table]?.additionalProperties?.properties ?? {})
-            const hasChanges = diffs.some(d => d.path[0] === 'properties' && d.path[1] === table)
-            const hasDrops   = !patch && currFields.some(n => !fields.find(([fn]) => fn === n))
+            const currFields = new Map(tableFields(current.properties[table]))
+            const nextFieldNames = new Set(fields.map(([n]) => n))
+            // A new plain column is an ADD COLUMN; only a new key column needs the rebuild.
+            const hasChanges = fields.some(([name, prop]) => currFields.has(name)
+                ? fieldNeedsDdl(prop, currFields.get(name))
+                : prop['x-index'] === 'primary' || prop['x-autoincrement'])
+            const hasDrops   = !patch && [...currFields.keys()].some(n => !nextFieldNames.has(n))
 
-            if (hasChanges && (hasDrops || !patch)) {
+            if (hasDrops || hasChanges && !patch) {
                 const tmp      = `${table}_migration_tmp`
-                const keep     = fields.map(([n]) => n).filter(n => currFields.includes(n))
+                const keep     = fields.map(([n]) => n).filter(n => currFields.has(n))
                 const colsList = keep.map(quoteId).join(', ')
 
                 stmts.push(`CREATE TABLE ${quoteId(tmp)} (\n${createBody(fields, primaries)}\n);`)
@@ -104,7 +109,7 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
                 stmts.push(...indexStatements(table, fields, primaries))
             } else {
                 for (const [name, prop] of fields) {
-                    if (!currFields.includes(name))
+                    if (!currFields.has(name))
                         stmts.push(`ALTER TABLE ${quoteId(table)} ADD COLUMN ${toFieldDef(name, prop)};`)
                 }
                 stmts.push(...indexStatements(table, fields, primaries, await singleColumnIndexes(query, table), { patch }))
