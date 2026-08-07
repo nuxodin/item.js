@@ -1,6 +1,6 @@
 {
   "name": "@nuxodin/item",
-  "version": "0.6.8",
+  "version": "0.6.9",
   "license": "MIT",
   "tasks": {
     "test": "deno test tests/spec/ tests/deno/"

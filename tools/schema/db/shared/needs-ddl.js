@@ -13,7 +13,12 @@ const capacity = {
     maxLength: (need, have) => have >= need,
 }
 
-const structural = ['format', 'contentEncoding', 'x-index', 'default']
+const structural = ['contentEncoding', 'x-index', 'default']
+
+// Only these three formats become a column type in any dialect. `email`, `uri` and the rest are
+// the application's business — a column cannot carry them, so they can never need DDL.
+const temporal = new Set(['date', 'time', 'date-time'])
+const columnFormat = (prop) => temporal.has(prop.format) ? prop.format : undefined
 
 /** @param dialectStructural properties this dialect renders too, e.g. 'multipleOf' on MySQL. */
 export function fieldNeedsDdl(next, curr, dialectStructural = []) {
@@ -23,6 +28,7 @@ export function fieldNeedsDdl(next, curr, dialectStructural = []) {
         if (need !== undefined && have !== undefined && !holds(need, have)) return true
     }
     if (schemaType(next) !== schemaType(curr)) return true
+    if (columnFormat(next) !== columnFormat(curr)) return true
     if (!!next['x-autoincrement'] !== !!curr['x-autoincrement']) return true
     return [...structural, ...dialectStructural].some(prop => next[prop] !== curr[prop])
 }

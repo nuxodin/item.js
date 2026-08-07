@@ -138,12 +138,14 @@ Deno.test('pg schemaToDb: a table matching its schema is left alone', async () =
         { column_name: 'name',   udt_name: 'varchar', is_nullable: 'NO', is_index: true, character_maximum_length: 100 },
         { column_name: 'active', udt_name: 'bool',    column_default: 'false' },
         { column_name: 'kind',   udt_name: 'varchar', character_maximum_length: 10 },
+        { column_name: 'mail', udt_name: 'varchar', character_maximum_length: 190 },
     ];
     const props = {
         id:     { type: 'integer', 'x-index': 'primary', 'x-autoincrement': true },
         name:   { type: 'string', maxLength: 100, 'x-index': true, pattern: '^\\w+$' },
         active: { type: 'boolean', default: false },
         kind:   { type: 'string', maxLength: 10, enum: ['a', 'b'] },
+        mail:   { type: 'string', maxLength: 190, format: 'email' },
     };
     for (const patch of [true, false]) {
         assertEquals(await migrate(columns, props, { patch, required: ['id', 'name'] }), [], `patch: ${patch}`);

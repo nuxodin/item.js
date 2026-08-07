@@ -97,12 +97,14 @@ Deno.test('mysql schemaToDb: a table matching its schema is left alone', async (
         { Field: 'name',   Type: 'varchar(100)',  Null: 'NO', Key: 'MUL' },
         { Field: 'active', Type: 'tinyint(1)',    Default: '0' },
         { Field: 'kind',   Type: 'varchar(10)' },
+        { Field: 'mail',   Type: 'varchar(190)' },
     ];
     const props = {
         id:     { type: 'integer', 'x-index': 'primary', 'x-autoincrement': true },
         name:   { type: 'string', maxLength: 100, 'x-index': true, pattern: '^\\w+$' },
         active: { type: 'boolean', default: false },
         kind:   { type: 'string', maxLength: 10, enum: ['a', 'b'] },
+        mail:   { type: 'string', maxLength: 190, format: 'email' },
     };
     for (const patch of [true, false]) {
         assertEquals(await migrate(columns, props, { patch, required: ['id', 'name'] }), [], `patch: ${patch}`);
