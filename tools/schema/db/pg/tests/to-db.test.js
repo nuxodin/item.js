@@ -75,7 +75,10 @@ Deno.test('pg schemaToDb: recreates changed secondary index', async () => {
             { column_name: 'id', udt_name: 'int4', is_nullable: 'NO', is_primary: true },
             { column_name: 'name', udt_name: 'varchar', character_maximum_length: 100, is_nullable: 'YES', is_index: true },
         ] };
-        if (sql.includes('FROM pg_constraint')) return { rows: [{ conname: 't_pkey', columns: ['id'] }] };
+        if (sql.includes('FROM pg_constraint')) {
+            assertStringIncludes(sql, 'json_agg');
+            return { rows: [{ conname: 't_pkey', columns: ['id'] }] };
+        }
         if (sql.includes('FROM pg_index i')) return { rows: [{ key: 'idx_t_name', column: 'name', unique: false }] };
         return { rows: [] };
     }, { patch: true });

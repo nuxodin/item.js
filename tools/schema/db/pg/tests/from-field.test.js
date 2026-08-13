@@ -28,3 +28,7 @@ Deno.test('pg schemaFromField: varchar unique with default and comment', () => {
         'x-index': 'unique',
     });
 });
+
+Deno.test('pg schemaFromField: timestamp is date-time', () => {
+    assertEquals(schemaFromField({ udt_name: 'timestamp' }), { type: 'string', format: 'date-time' });
+});

@@ -37,12 +37,12 @@ export function schemaFromField(row) {
     } else if (type === 'date') {
         prop.type = 'string'
         prop.format = 'date'
-    } else if (type.startsWith('time') || dataType.startsWith('time')) {
-        prop.type = 'string'
-        prop.format = 'time'
     } else if (type.startsWith('timestamp') || dataType.startsWith('timestamp')) {
         prop.type = 'string'
         prop.format = 'date-time'
+    } else if (type.startsWith('time') || dataType.startsWith('time')) {
+        prop.type = 'string'
+        prop.format = 'time'
     } else if (type === 'json' || type === 'jsonb') prop.type = 'object'
     else prop.type = 'string'
 

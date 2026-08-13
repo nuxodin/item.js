@@ -50,7 +50,7 @@ function createIndex(table, name, kind) {
 
 async function tableIndexes(query, table) {
     const primaryRows = await queryRows(query, `
-        SELECT con.conname, array_agg(a.attname ORDER BY u.ord) AS columns
+        SELECT con.conname, json_agg(a.attname ORDER BY u.ord) AS columns
         FROM pg_constraint con
         JOIN pg_class t ON t.oid = con.conrelid
         JOIN pg_namespace n ON n.oid = t.relnamespace
