@@ -38,6 +38,26 @@ sql.join = (frags, separator = ', ') => {
     return new Sql(parts);
 };
 
+/** A column: a name is quoted per dialect, `a.b` in its parts; anything else is a fragment already. */
+const column = (c) => typeof c === 'string' ? sql.join(c.split('.').map(n => sql.id(n)), '.') : c;
+
+/**
+ * `x IN (…)`, and a plain `false` where there is nothing to be in — `IN ()` is a syntax error, and
+ * an empty subquery cannot be typed for every column (`IN (SELECT NULL WHERE FALSE)` is a type
+ * error in postgres). The column belongs inside for exactly that reason: only there can the empty
+ * case be a boolean instead of a comparison.
+ */
+sql.in = (col, values) => {
+    const list = [...values];
+    return list.length ? sql`${column(col)} IN (${sql.join(list.map(v => sql`${v}`))})` : sql.raw('false');
+};
+
+/** The other way round — and nothing to be in means everything qualifies. */
+sql.notIn = (col, values) => {
+    const list = [...values];
+    return list.length ? sql`${column(col)} NOT IN (${sql.join(list.map(v => sql`${v}`))})` : sql.raw('true');
+};
+
 // Objects with their own toString bind as strings; plain objects/arrays are
 // mistakes (drivers would mangle them, e.g. mysql2's `key`='value' expansion).
 function toParam(v) {

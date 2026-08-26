@@ -43,3 +43,15 @@ Deno.test('connect sqlite: transaction rolls back on throw', async () => {
     }));
     assertEquals((await db.query(sql`SELECT * FROM ${sql.id('mail')}`)).length, 0);
 });
+
+Deno.test('connect sqlite: sql.in and sql.notIn, with values and with none', async () => {
+    const db = await fresh();
+    for (const subject of ['a', 'b', 'c']) await db.exec(insert(subject));
+    const ids = async (frag) => (await db.query(sql`SELECT id FROM ${sql.id('mail')} WHERE ${frag} ORDER BY id`)).map((r) => r.id);
+
+    assertEquals(await ids(sql.in('id', [1, 3])), [1, 3]);
+    assertEquals(await ids(sql.notIn('id', [1, 3])), [2]);
+    // nothing to be in: never true — and its opposite always
+    assertEquals(await ids(sql.in('id', [])), []);
+    assertEquals(await ids(sql.notIn('id', [])), [1, 2, 3]);
+});

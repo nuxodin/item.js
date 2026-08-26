@@ -10,6 +10,8 @@ export interface SqlTag {
     id(name: string | { toString(): string } | Promise<string | { toString(): string }>): Sql;
     raw(text: string): Sql;
     join(frags: Sql[], separator?: string): Sql;
+    in(col: string | Sql, values: Iterable<unknown>): Sql;
+    notIn(col: string | Sql, values: Iterable<unknown>): Sql;
 }
 
 export const sql: SqlTag;

@@ -108,3 +108,22 @@ Deno.test('isTemplate: tagged template yes, Sql fragment and plain values no', (
     assertEquals(isTemplate('plain'), false);
     assertEquals(isTemplate(undefined), false);
 });
+
+Deno.test('sql.in: a name is quoted, a dotted name in its parts, a fragment left alone', () => {
+    assertEquals(render(sql`WHERE ${sql.in('id', [1])}`, sqlite).text, 'WHERE "id" IN (?)');
+    assertEquals(render(sql`WHERE ${sql.in('c.usr_id', [1])}`, sqlite).text, 'WHERE "c"."usr_id" IN (?)');
+    assertEquals(render(sql`WHERE ${sql.in(sql`COALESCE(a, b)`, [1])}`, sqlite).text, 'WHERE COALESCE(a, b) IN (?)');
+});
+
+Deno.test('sql.in: values render as a bound list, nothing renders as a boolean', () => {
+    const one = render(sql`WHERE ${sql.in('id', [1, 2])}`, sqlite);
+    assertEquals(one.text, 'WHERE "id" IN (?, ?)');
+    assertEquals(one.params, [1, 2]);
+    // IN () is a syntax error, and an empty subquery cannot be typed for every column
+    assertEquals(render(sql`WHERE ${sql.in('id', [])}`, sqlite).text, 'WHERE false');
+    assertEquals(render(sql`WHERE ${sql.notIn('id', [])}`, sqlite).text, 'WHERE true');
+});
+
+Deno.test('sql.notIn: the same the other way round', () => {
+    assertEquals(render(sql`WHERE ${sql.notIn('id', [1])}`, sqlite).text, 'WHERE "id" NOT IN (?)');
+});
