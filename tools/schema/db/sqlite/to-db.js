@@ -30,10 +30,12 @@ function emittable(prop, isSoloPk) {
     return out
 }
 
-function createBody(fields, primaries) {
+function createBody(table, fields, primaries) {
     const solo = soloIntPrimary(fields, primaries)
     const cols = fields.map(([n, f]) => {
         const isPk = n === solo
+        if (f['x-autoincrement'] && !isPk)
+            console.warn(`Skip AUTOINCREMENT ${table}.${n}: SQLite auto-increments only a sole INTEGER PRIMARY KEY — nothing fills this column`)
         // Only `INTEGER PRIMARY KEY` is the rowid alias, and AUTOINCREMENT is legal nowhere else —
         // so a boolean key keeps the integer spelling, which SQLite would otherwise reject.
         let def = toFieldDef(n, isPk ? { ...f, type: 'integer' } : f)
@@ -99,7 +101,7 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
         const primaries = fields.filter(([, f]) => f['x-index'] === 'primary').map(([n]) => n)
 
         if (!currTables.includes(table)) {
-            stmts.push(`CREATE TABLE ${quoteId(table)} (\n${createBody(fields, primaries)}\n);`)
+            stmts.push(`CREATE TABLE ${quoteId(table)} (\n${createBody(table, fields, primaries)}\n);`)
             stmts.push(...indexStatements(table, fields, primaries))
         } else {
             const currFields = new Map(tableFields(current.properties[table]))
@@ -116,7 +118,7 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
                 const keep     = fields.map(([n]) => n).filter(n => currFields.has(n))
                 const colsList = keep.map(quoteId).join(', ')
 
-                stmts.push(`CREATE TABLE ${quoteId(tmp)} (\n${createBody(fields, primaries)}\n);`)
+                stmts.push(`CREATE TABLE ${quoteId(tmp)} (\n${createBody(table, fields, primaries)}\n);`)
                 if (keep.length) stmts.push(`INSERT INTO ${quoteId(tmp)} (${colsList}) SELECT ${colsList} FROM ${quoteId(table)};`)
                 stmts.push(`DROP TABLE ${quoteId(table)};`)
                 stmts.push(`ALTER TABLE ${quoteId(tmp)} RENAME TO ${quoteId(table)};`)
