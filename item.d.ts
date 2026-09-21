@@ -100,6 +100,9 @@ export interface ItemProxyChildren { [key: string]: ItemProxy<unknown, Item>; }
 
 export interface ItemProxyMethods<T = ItemValue,TRaw extends Item = Item> {
     readonly [$item]: TRaw;
+    // the proxy is callable, so TS would type these as Function members; at runtime they are children
+    readonly name: ItemProxy<unknown, Item>;
+    readonly length: ItemProxy<unknown, Item>;
     <TValue = T>(): TValue;
     (value: unknown): Promise<any> | undefined;
     then<TResult1 = T, TResult2 = never>(
