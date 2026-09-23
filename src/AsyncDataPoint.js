@@ -24,7 +24,10 @@
         #getter = null; // current/cached getter promise
         #getterExpiry = Infinity; // ttl is checked lazily on access — no timer per cache entry
         // expired getters count as gone (lazy ttl)
-        get #cachedGetter() { return Date.now() < this.#getterExpiry ? this.#getter : null; }
+        get #cachedGetter() {
+            const g = this.#getter;
+            return g && (this.#getterExpiry === Infinity || Date.now() < this.#getterExpiry) ? g : null;
+        }
         onpending = null;
         onchange = null;
         
@@ -128,7 +131,8 @@
 
             // ignore if latest getter value is the same
             // Value already set (no-op). Returns undefined to avoid falsy issues (value could be 0, false, etc.)
-            if (this.#cachedGetter?.state === 'fulfilled' && isEqual(this.#cachedGetter.value, value)) return;
+            const cached = this.#cachedGetter;
+            if (cached?.state === 'fulfilled' && isEqual(cached.value, value)) return;
             
             this.#expectedValue = value;
             const promise = this.#createSetter(value);
