@@ -47,6 +47,7 @@ function createBody(table, fields, primaries) {
 }
 
 function indexKind(table, name, prop) {
+    if (prop['x-vector']) return null // sqlite-vec scans; a B-tree over vectors helps nothing
     if (prop['x-index'] === 'unique') return 'UNIQUE INDEX'
     if (prop['x-index'] === true) return 'INDEX'
     if (prop['x-index'] === 'fulltext')

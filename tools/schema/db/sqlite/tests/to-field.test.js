@@ -20,3 +20,9 @@ Deno.test('sqlite toFieldDef: the declared type survives a round trip', () => {
         assertEquals(schemaFromField({ name: 'f', type: declared }).type, type, type);
     }
 });
+
+Deno.test('sqlite toFieldDef: x-vector round-trips', () => {
+    const vector = { type: 'array', items: { type: 'number' }, 'x-vector': true };
+    assertEquals(toFieldDef('v', vector), '`v` VECTOR');
+    assertEquals(schemaFromField({ name: 'v', type: 'VECTOR' }), vector);
+});

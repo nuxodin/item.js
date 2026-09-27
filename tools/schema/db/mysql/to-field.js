@@ -15,6 +15,9 @@ export function toFieldDef(name, prop, { required = false } = {}) {
   if (schemaType === "boolean") type = "TINYINT(1)";
   else if (schemaType === "integer") ({ type, unsigned } = integerType(prop));
   else if (schemaType === "number") type = prop.multipleOf ? "DECIMAL" : "DOUBLE";
+  // `x-vector: true` leaves the length to the application (MariaDB needs one: it starts at 1 and
+  // widens with MODIFY, padding existing vectors with zeros); a number fixes it.
+  else if (prop["x-vector"]) type = `VECTOR(${prop["x-vector"] === true ? 1 : prop["x-vector"]})`;
   else if (schemaType === "object" || schemaType === "array") type = "JSON";
   else type = stringType(prop);
 

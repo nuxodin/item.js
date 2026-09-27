@@ -34,7 +34,7 @@ function setEqual(a, b) {
 function secondaryIndexKind(prop) {
   if (prop["x-index"] === "unique") return "UNIQUE KEY";
   if (prop["x-index"] === "fulltext") return "FULLTEXT KEY";
-  if (prop["x-index"] === true) return "KEY";
+  if (prop["x-index"] === true) return prop["x-vector"] ? "VECTOR INDEX" : "KEY";
   return null;
 }
 
@@ -233,6 +233,8 @@ async function indexStatements(query, table, nextFields, currFields, { patch = f
     const currentKind = current
       ? current.indexType === "FULLTEXT"
         ? "FULLTEXT KEY"
+        : current.indexType === "VECTOR"
+        ? "VECTOR INDEX"
         : current.nonUnique
         ? "KEY"
         : "UNIQUE KEY"

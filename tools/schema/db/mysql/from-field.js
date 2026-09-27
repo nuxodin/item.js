@@ -78,6 +78,11 @@ export function schemaFromField(row) {
     prop.type = "integer";
     prop.minimum = 1901;
     prop.maximum = 2155;
+  } else if (type === "vector") {
+    // the length belongs to the application, not the schema — see to-field.js
+    prop.type = "array";
+    prop.items = { type: "number" };
+    prop["x-vector"] = true;
   } else if (type === "json") prop.type = "object";
   else if (type === "enum") {
     prop.type = "string";

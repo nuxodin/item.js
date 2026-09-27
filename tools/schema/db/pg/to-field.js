@@ -17,6 +17,7 @@ export function typeSql(prop) {
     if (t === 'boolean') return 'BOOLEAN'
     if (t === 'integer') return integerType(prop)
     if (t === 'number') return prop.multipleOf ? 'NUMERIC' : 'DOUBLE PRECISION'
+    if (prop['x-vector']) return prop['x-vector'] === true ? 'vector' : `vector(${prop['x-vector']})` // pgvector
     if (t === 'object' || t === 'array') return 'JSONB'
     if (prop.format in formats) return formats[prop.format]
     if (prop.contentEncoding === 'base64') return 'BYTEA'

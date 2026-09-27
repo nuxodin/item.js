@@ -22,3 +22,11 @@ Deno.test('pg toFieldDef: integer primary key identity', () => {
 Deno.test('pg toFieldDef: boolean default uses PG boolean literal', () => {
     assertEquals(toFieldDef('f', { type: 'boolean', default: false }), '"f" BOOLEAN NULL DEFAULT FALSE');
 });
+
+Deno.test('pg toFieldDef: x-vector', async () => {
+    const { schemaFromField } = await import('../from-field.js');
+    const vector = { type: 'array', items: { type: 'number' }, 'x-vector': true };
+    assertEquals(toFieldDef('v', vector, { required: true }), '"v" vector NOT NULL');
+    assertEquals(toFieldDef('v', { ...vector, 'x-vector': 768 }, { required: true }), '"v" vector(768) NOT NULL');
+    assertEquals(schemaFromField({ udt_name: 'vector', data_type: 'USER-DEFINED' }), vector);
+});

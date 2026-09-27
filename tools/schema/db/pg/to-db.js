@@ -33,6 +33,8 @@ function preserveDefault(prop, currProp) {
 }
 
 function secondaryIndexKind(table, name, prop) {
+    // hnsw needs a fixed length and an operator class; the application builds vector indexes
+    if (prop['x-vector']) return null
     if (prop['x-index'] === 'unique') return 'UNIQUE INDEX'
     if (prop['x-index'] === true) return 'INDEX'
     if (prop['x-index'] === 'fulltext')
@@ -170,6 +172,10 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
             if (!nextTables.includes(table)) stmts.push(`DROP TABLE ${quoteId(table)};`)
         }
     }
+
+    // x-vector columns are pgvector's type; the extension has to exist before they do
+    const vectors = nextTables.some(t => tableData(schema.properties[t]).fields.some(([, f]) => f['x-vector']))
+    if (vectors && stmts.length) stmts.unshift('CREATE EXTENSION IF NOT EXISTS vector;')
 
     for (const stmt of stmts) {
         console.log(stmt)

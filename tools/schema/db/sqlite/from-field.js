@@ -32,6 +32,7 @@ export function schemaFromField(row) {
     } else if (type === 'date')      { prop.type = 'string'; prop.format = 'date'
     } else if (type === 'time')      { prop.type = 'string'; prop.format = 'time'
     } else if (type === 'datetime' || type === 'timestamp') { prop.type = 'string'; prop.format = 'date-time'
+    } else if (type === 'vector')    { prop.type = 'array'; prop.items = { type: 'number' }; prop['x-vector'] = true
     } else if (type === 'json')      { prop.type = 'object'
     } else {
         prop.type = 'string'

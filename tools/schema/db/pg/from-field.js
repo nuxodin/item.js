@@ -43,6 +43,10 @@ export function schemaFromField(row) {
     } else if (type.startsWith('time') || dataType.startsWith('time')) {
         prop.type = 'string'
         prop.format = 'time'
+    } else if (type === 'vector') {
+        prop.type = 'array'
+        prop.items = { type: 'number' }
+        prop['x-vector'] = true
     } else if (type === 'json' || type === 'jsonb') prop.type = 'object'
     else prop.type = 'string'
 

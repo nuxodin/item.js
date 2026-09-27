@@ -15,6 +15,7 @@ export function toFieldDef(name, prop) {
     if      (t === 'boolean')             type = 'BOOLEAN'
     else if (t === 'integer')             type = 'INTEGER'
     else if (t === 'number')              type = 'REAL'
+    else if (prop['x-vector'])            type = 'VECTOR'  // blobs keep their bytes; the name round-trips
     else if (t === 'object' || t === 'array') type = 'TEXT'  // JSON as text
     else {
         // Same reasoning as BOOLEAN: the declared name is the only carrier of the format, and

@@ -26,3 +26,11 @@ Deno.test('mysql toFieldDef: integer primary key is NOT NULL AUTO_INCREMENT', ()
         '`id` INT UNSIGNED NOT NULL AUTO_INCREMENT',
     );
 });
+
+Deno.test('mysql toFieldDef: x-vector', async () => {
+    const { schemaFromField } = await import('../from-field.js');
+    const vector = { type: 'array', items: { type: 'number' }, 'x-vector': true };
+    assertEquals(toFieldDef('v', vector, { required: true }), '`v` VECTOR(1) NOT NULL');
+    assertEquals(toFieldDef('v', { ...vector, 'x-vector': 768 }, { required: true }), '`v` VECTOR(768) NOT NULL');
+    assertEquals(schemaFromField({ Type: 'vector(1024)', Key: 'MUL' }), { ...vector, 'x-index': true });
+});
