@@ -52,7 +52,8 @@ export function schemaFromField(row) {
     prop.maxLength = len;
   } else if (type in textBytes) {
     prop.type = "string";
-    if (type !== "text") prop.maxLength = Math.floor(textBytes[type] / B);
+    // also for TEXT: without its bound, a wider declaration would never widen it
+    prop.maxLength = Math.floor(textBytes[type] / B);
   } else if (type === "binary") {
     prop.type = "string";
     prop.contentEncoding = "base64";
