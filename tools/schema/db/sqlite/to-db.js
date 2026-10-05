@@ -102,6 +102,9 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
         const primaries = fields.filter(([, f]) => f['x-index'] === 'primary').map(([n]) => n)
 
         if (!currTables.includes(table)) {
+            // Idea: WITHOUT ROWID when the primary key is not a single integer column and all other columns
+            // are narrow (numbers, booleans, short strings), e.g. measurement tables: about half the size.
+            // Requires NOT NULL key columns; only applies to newly created tables.
             stmts.push(`CREATE TABLE ${quoteId(table)} (\n${createBody(table, fields, primaries)}\n);`)
             stmts.push(...indexStatements(table, fields, primaries))
         } else {
