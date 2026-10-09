@@ -10,8 +10,8 @@ async function ddl(props, required = []) {
     return seen.join('\n');
 }
 
-/** Answers the three read queries from `columns`, records everything else as emitted DDL. */
-function existing(columns) {
+/** Answers the read queries from `columns` (`json`: MariaDB's checked LONGTEXT), records everything else as emitted DDL. */
+function existing(columns, json = []) {
     const seen = [];
     const rows = columns.map(c => ({ Null: 'YES', Key: '', Default: null, Extra: '', Comment: '', ...c }));
     const indexes = rows.filter(r => r.Key).map(r => ({
@@ -26,6 +26,7 @@ function existing(columns) {
         if (sql === 'SHOW TABLES') return Promise.resolve([{ Tables_in_test: 't' }]);
         if (sql.startsWith('SHOW FULL FIELDS')) return Promise.resolve(rows);
         if (sql.startsWith('SHOW INDEX')) return Promise.resolve(indexes);
+        if (sql.includes('CHECK_CONSTRAINTS')) return Promise.resolve(json.map(name => ({ CHECK_CLAUSE: `json_valid(\`${name}\`)` })));
         seen.push(sql);
         return Promise.resolve([]);
     };
@@ -33,7 +34,7 @@ function existing(columns) {
 }
 
 async function migrate(columns, props, opts = {}) {
-    const { query, seen } = existing(columns);
+    const { query, seen } = existing(columns, opts.json);
     const schema = { properties: { t: { additionalProperties: { properties: props, required: opts.required ?? [] } } } };
     await schemaToDb(schema, query, opts);
     return seen;
@@ -109,4 +110,10 @@ Deno.test('mysql schemaToDb: a table matching its schema is left alone', async (
     for (const patch of [true, false]) {
         assertEquals(await migrate(columns, props, { patch, required: ['id', 'name'] }), [], `patch: ${patch}`);
     }
+});
+
+Deno.test('mysql schemaToDb: MariaDB JSON (LONGTEXT with json_valid) satisfies an object column', async () => {
+    const props = { data: { type: 'object' } };
+    assertEquals(await migrate([{ Field: 'data', Type: 'longtext' }], props, { patch: true, json: ['data'] }), []);
+    assertStringIncludes((await migrate([{ Field: 'data', Type: 'longtext' }], props, { patch: true })).join('\n'), 'MODIFY COLUMN `data` JSON');
 });
