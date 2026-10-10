@@ -34,8 +34,6 @@ function createBody(table, fields, primaries) {
     const solo = soloIntPrimary(fields, primaries)
     const cols = fields.map(([n, f]) => {
         const isPk = n === solo
-        if (f['x-autoincrement'] && !isPk)
-            console.warn(`Skip AUTOINCREMENT ${table}.${n}: SQLite auto-increments only a sole INTEGER PRIMARY KEY — nothing fills this column`)
         // Only `INTEGER PRIMARY KEY` is the rowid alias, and AUTOINCREMENT is legal nowhere else —
         // so a boolean key keeps the integer spelling, which SQLite would otherwise reject.
         let def = toFieldDef(n, isPk ? { ...f, type: 'integer' } : f)
@@ -50,9 +48,15 @@ function indexKind(table, name, prop) {
     if (prop['x-vector']) return null // sqlite-vec scans; a B-tree over vectors helps nothing
     if (prop['x-index'] === 'unique') return 'UNIQUE INDEX'
     if (prop['x-index'] === true) return 'INDEX'
-    if (prop['x-index'] === 'fulltext')
-        console.warn(`Skip FULLTEXT INDEX ${table}.${name}: SQLite fulltext requires a virtual FTS table`)
     return null
+}
+
+/** What the schema asks of a field that SQLite cannot do; the field is created without it. */
+function fieldWarning(table, name, prop, solo) {
+    if (prop['x-autoincrement'] && name !== solo)
+        return `Skip AUTOINCREMENT ${table}.${name}: SQLite auto-increments only a sole INTEGER PRIMARY KEY — nothing fills this column`
+    if (prop['x-index'] === 'fulltext' && !prop['x-vector'])
+        return `Skip FULLTEXT INDEX ${table}.${name}: SQLite fulltext requires a virtual FTS table`
 }
 
 function createIndex(table, name, kind) {
@@ -94,12 +98,18 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
     }
 
     const stmts      = []
+    const warnings   = []
     const nextTables = Object.keys(schema.properties ?? {})
     const currTables = Object.keys(current.properties ?? {})
 
     for (const table of nextTables) {
         const fields    = tableFields(schema.properties[table])
         const primaries = fields.filter(([, f]) => f['x-index'] === 'primary').map(([n]) => n)
+        const solo      = soloIntPrimary(fields, primaries)
+        for (const [n, f] of fields) {
+            const warning = fieldWarning(table, n, f, solo)
+            if (warning) warnings.push(warning)
+        }
 
         if (!currTables.includes(table)) {
             // Idea: WITHOUT ROWID when the primary key is not a single integer column and all other columns
@@ -144,9 +154,6 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
         }
     }
 
-    for (const stmt of stmts) {
-        console.log(stmt)
-        await query(stmt)
-    }
-    return { diffs, executed: stmts }
+    for (const stmt of stmts) await query(stmt)
+    return { diffs, executed: stmts, warnings }
 }

@@ -40,10 +40,7 @@ function secondaryIndexKind(prop) {
 
 function usableIndexKind(table, name, prop) {
   const kind = secondaryIndexKind(prop);
-  const issue = kind && indexIssue(table, name, prop, kind);
-  if (!issue) return kind;
-  console.warn(issue);
-  return null;
+  return kind && !indexIssue(table, name, prop, kind) ? kind : null;
 }
 
 function indexIssue(table, name, prop, kind) {
@@ -109,6 +106,7 @@ export async function schemaToDb(
   }
 
   const stmts = [];
+  const warnings = [];
   const nextTables = Object.keys(schema.properties ?? {});
   const currTables = Object.keys(current.properties ?? {});
 
@@ -117,6 +115,11 @@ export async function schemaToDb(
     const { fields, required } = tableData(schema.properties[table]);
     const primaries = primaryFields(fields);
     for (const p of primaries) required.add(p); // primary key columns are always NOT NULL
+    for (const [n, f] of fields) {
+      const kind = secondaryIndexKind(f);
+      const issue = kind && indexIssue(table, n, f, kind);
+      if (issue) warnings.push(issue); // the index is left out
+    }
 
     if (!currTables.includes(table)) {
       const cols = fields.map(([n, f]) =>
@@ -196,11 +199,8 @@ export async function schemaToDb(
     }
   }
 
-  for (const stmt of stmts) {
-    console.log(stmt);
-    await query(stmt);
-  }
-  return { diffs, executed: stmts };
+  for (const stmt of stmts) await query(stmt);
+  return { diffs, executed: stmts, warnings };
 }
 
 async function indexStatements(query, table, nextFields, currFields, { patch = false } = {}) {

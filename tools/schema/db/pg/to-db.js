@@ -32,13 +32,11 @@ function preserveDefault(prop, currProp) {
         : { ...prop, default: currProp.default }
 }
 
-function secondaryIndexKind(table, name, prop) {
+function secondaryIndexKind(prop) {
     // hnsw needs a fixed length and an operator class; the application builds vector indexes
     if (prop['x-vector']) return null
     if (prop['x-index'] === 'unique') return 'UNIQUE INDEX'
     if (prop['x-index'] === true) return 'INDEX'
-    if (prop['x-index'] === 'fulltext')
-        console.warn(`Skip FULLTEXT INDEX ${table}.${name}: PostgreSQL fulltext requires an expression index`)
     return null
 }
 
@@ -114,6 +112,7 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
     }
 
     const stmts = []
+    const warnings = []
     const nextTables = Object.keys(schema.properties ?? {})
     const currTables = Object.keys(current.properties ?? {})
 
@@ -122,6 +121,10 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
         const { fields, required } = tableData(schema.properties[table])
         const primaries = primaryFields(fields)
         for (const p of primaries) required.add(p)
+        for (const [n, f] of fields) {
+            if (f['x-index'] === 'fulltext' && !f['x-vector'])
+                warnings.push(`Skip FULLTEXT INDEX ${table}.${n}: PostgreSQL fulltext requires an expression index`)
+        }
 
         if (!currTables.includes(table)) {
             const cols = fields.map(([n, f]) =>
@@ -135,7 +138,7 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
             for (const [n, f] of fields) if (f['$comment']) stmts.push(commentStmt(table, n, f['$comment']))
             for (const [n, f] of fields) {
                 if (primarySet.has(n)) continue
-                const kind = secondaryIndexKind(table, n, f)
+                const kind = secondaryIndexKind(f)
                 if (kind) stmts.push(createIndex(table, n, kind))
             }
         } else {
@@ -177,11 +180,8 @@ export async function schemaToDb(schema, query, { force = false, patch = false }
     const vectors = nextTables.some(t => tableData(schema.properties[t]).fields.some(([, f]) => f['x-vector']))
     if (vectors && stmts.length) stmts.unshift('CREATE EXTENSION IF NOT EXISTS vector;')
 
-    for (const stmt of stmts) {
-        console.log(stmt)
-        await query(stmt)
-    }
-    return { diffs, executed: stmts }
+    for (const stmt of stmts) await query(stmt)
+    return { diffs, executed: stmts, warnings }
 }
 
 async function indexStatements(query, table, nextFields, currFields, { patch = false } = {}) {
@@ -198,7 +198,7 @@ async function indexStatements(query, table, nextFields, currFields, { patch = f
 
     for (const [name, prop] of nextFields) {
         if (nextPrimary.has(name)) continue
-        const nextKind = secondaryIndexKind(table, name, prop)
+        const nextKind = secondaryIndexKind(prop)
         const curr = indexes.secondary.find(i => i.column === name)
         const currKind = curr ? curr.unique ? 'UNIQUE INDEX' : 'INDEX' : null
         const changed = curr && currKind !== nextKind
@@ -209,7 +209,7 @@ async function indexStatements(query, table, nextFields, currFields, { patch = f
 
     if (!patch) {
         for (const curr of indexes.secondary) {
-            const wanted = nextFields.find(([name, prop]) => name === curr.column && secondaryIndexKind(table, name, prop))
+            const wanted = nextFields.find(([name, prop]) => name === curr.column && secondaryIndexKind(prop))
             if (!wanted) before.push(`DROP INDEX ${quoteId(curr.key)};`)
         }
     }

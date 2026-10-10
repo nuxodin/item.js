@@ -133,3 +133,22 @@ Deno.test('sqlite schemaToDb: recreate with no shared columns emits no empty ins
     const res = await schemaToDb(table({ next: { type: 'string' } }), query, { force: true });
     assertEquals(res.executed.some((s) => s.includes('() SELECT')), false);
 });
+
+Deno.test('sqlite schemaToDb: what SQLite cannot do comes back as warnings, nothing is printed', async () => {
+    const { query } = fresh();
+    const log = console.log, warn = console.warn, printed = [];
+    console.log = console.warn = (...args) => printed.push(args);
+    try {
+        const res = await schemaToDb(table({
+            id:   { type: 'integer', 'x-index': 'primary', 'x-autoincrement': true },
+            seq:  { type: 'integer', 'x-autoincrement': true },
+            text: { type: 'string', 'x-index': 'fulltext' },
+        }), query, { patch: true });
+        assertEquals(res.warnings.map((w) => w.split(':')[0]), ['Skip AUTOINCREMENT t.seq', 'Skip FULLTEXT INDEX t.text']);
+        assertEquals(res.executed.length > 0, true);
+    } finally {
+        console.log = log;
+        console.warn = warn;
+    }
+    assertEquals(printed, []);
+});
