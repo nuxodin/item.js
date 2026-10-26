@@ -5,13 +5,14 @@
         set: value => fetch('https://example.com/todos/1', {method: 'PUT', body: JSON.stringify(value)}).then(res => res.json())
     });
     datapoint.set({title: 'foo', completed: true}); // Returns promise - or undefined if value is already the same - do not rely on return value
+    // a write overtaken by a newer one settles as that one does: "this value or a newer one is saved"
     datapoint.get().then(value => console.log(value));
 
     // API
     datapoint.onchange = ({value}) => console.log('value changed', value);
-    datapoint.ttl = 1000; // cache for 1 second
-    datapoint.optimistic = true; // trust sending value: until the sending is done, the value is the new value, despite the uncertainty that the server will fail
-    datapoint.debounceMs = 5; // debounce period for setter in ms, default 5
+    // options, passed to the constructor (or changed in datapoint.options):
+    //   ttl: 5000 (cache in ms), debounceMs: 5 (setter delay), getRetry / setRetry, getRetryDelay / setRetryDelay,
+    //   optimistic: true (until the sending is done, the value is the new one, though the server may fail)
     datapoint.setLocal({title: 'foo', completed: true}); // set value without saving it to the master (the value comes from the master through an other channel / trusted source)
     */
 
@@ -21,6 +22,7 @@
         createSetter;
         #expectedValue = null; // value while saving
         #setter = null; // current setter promise
+        #writing = Promise.resolve(); // the write running, the next one starts after it
         #getter = null; // current/cached getter promise
         #getterExpiry = Infinity; // ttl is checked lazily on access — no timer per cache entry
         // expired getters count as gone (lazy ttl)
@@ -62,11 +64,15 @@
         #createSetter(value) {
             const {setRetry, setRetryDelay, debounceMs} = this.options;        
             const promise = abortablePromise((resolve, reject) => {
-                retryAsync(
-                    () => this.createSetter(value, promise.controller.signal),
+                const {signal} = promise.controller;
+                // one write at a time: a slow one landing last would leave the remote with an old value
+                const run = this.#writing.then(() => signal.aborted || retryAsync(
+                    () => this.createSetter(value, signal),
                     setRetry,
                     setRetryDelay
-                ).then(resolve, reject);
+                ));
+                this.#writing = run.catch(() => {});
+                run.then(resolve, reject);
             }, debounceMs);
             
             makePromiseTransparent(promise);
@@ -83,24 +89,23 @@
             promise.then(
                 value => {
                     if (this.#getter !== promise) return;
-                    if (!isEqual(oldValue, value)) {
-                        try {
-                            this.onchange?.({value, oldValue});
-                        } catch (err) {
-                            console.error('[item.js] AsyncDataPoint onchange error:', err);
-                        }
-                    }
+                    if (!isEqual(oldValue, value)) this.#notify({value, oldValue});
                 },
                 error => {
                     if (this.#getter !== promise) return;
                     if (error?.name === 'AbortError') return;
-                    this.onchange?.({error, oldValue});
+                    this.#notify({error, oldValue});
                 }
             );
 
             this.#getter = promise;
             const duration = this.options.ttl;
             this.#getterExpiry = duration > 0 ? Date.now() + duration : Infinity;
+        }
+
+        #notify(event) {
+            try { this.onchange?.(event); }
+            catch (err) { console.error('[item.js] AsyncDataPoint onchange error:', err); }
         }
 
         setLocal(value) { this.#cacheGetter(transparentPromiseResolve(value)); }
@@ -124,18 +129,18 @@
         }
 
         set(value) {
+            const previous = this.#setter, writing = previous?.state === 'pending';
             // Already setting this value
-            if (this.#setter?.state === 'pending' && isEqual(this.#expectedValue, value)) return this.#setter;
+            if (writing && isEqual(this.#expectedValue, value)) return previous;
 
-            this.#setter?.controller.abort(); // abort previous setter
-
-            // ignore if latest getter value is the same
             // Value already set (no-op). Returns undefined to avoid falsy issues (value could be 0, false, etc.)
+            // While a write runs the loaded value is outdated: setting it back is a change.
             const cached = this.#cachedGetter;
-            if (cached?.state === 'fulfilled' && isEqual(cached.value, value)) return;
+            if (!writing && cached?.state === 'fulfilled' && isEqual(cached.value, value)) return;
             
             this.#expectedValue = value;
             const promise = this.#createSetter(value);
+            previous?.controller.abort(promise); // the previous one settles as this one does
             
             this.onpending?.();
 
@@ -146,13 +151,12 @@
                     this.#setter = null;
                     this.#expectedValue = null;
                 },
-                error => {
+                error => { // the failed setter stays: lastError reports it until the next write
                     if (this.#setter !== promise) return;
                     if (error?.name === 'AbortError') return;
                     this.#getter = null;
-                    this.#setter = null;
                     this.#expectedValue = null;
-                    this.onchange?.({ error }); }
+                    this.#notify({ error }); }
             );
 
             return this.#setter = promise;
@@ -223,18 +227,21 @@
     }
 
     /**
-     * Returns a delayed Promise that can be aborted within the specified time (ms).
-     * @param {Promise<any>} fn - A function that returns a Promise.
-     * @param {Number} [ms=1] - The time in milliseconds to delay before resolving the Promise.
+     * Returns a delayed Promise that can be aborted. Aborted with a promise as reason, it settles as
+     * that one does (a newer write taking over), else it rejects with the AbortError.
+     * @param {Function} fn - Called with (resolve, reject) after the delay.
+     * @param {Number} [ms=1] - The time in milliseconds to delay before calling fn.
      * @returns {Promise<any>} - A delayed Promise that can be aborted.
      */
     function abortablePromise(fn, ms=1) { // delayed and therfore abortable within ms
         const controller = new AbortController();
+        const {signal} = controller;
         const promise = new Promise((resolve, reject) => {
-            setTimeout(() => {
-                if (controller.signal.aborted) return reject(new DOMException('aborted', 'AbortError'));
-                fn(resolve, reject);
-            }, ms);
+            const settle = (ok) => (v) => {
+                if (!signal.aborted) return ok(v);
+                signal.reason?.then ? resolve(signal.reason) : reject(signal.reason);
+            };
+            setTimeout(() => signal.aborted ? settle()() : fn(settle(resolve), settle(reject)), ms);
         });
         promise.controller = controller;
         return promise;
