@@ -34,3 +34,14 @@ Deno.test('mysql toFieldDef: x-vector', async () => {
     assertEquals(toFieldDef('v', { ...vector, 'x-vector': 768 }, { required: true }), '`v` VECTOR(768) NOT NULL');
     assertEquals(schemaFromField({ Type: 'vector(1024)', Key: 'MUL' }), { ...vector, 'x-index': true });
 });
+
+Deno.test('mysql toFieldDef: DECIMAL takes its scale from multipleOf, its digits from the bounds', () => {
+    assertEquals(toFieldDef('f', { type: 'number', multipleOf: 0.01 }), '`f` DECIMAL(12,2) NULL'); // 10 digits before the point, as MySQL's own default
+    assertEquals(toFieldDef('f', { type: 'number', multipleOf: 0.05 }), '`f` DECIMAL(12,2) NULL');
+    assertEquals(toFieldDef('f', { type: 'number', multipleOf: 0.01, maximum: 9999.99 }), '`f` DECIMAL(6,2) NULL');
+    assertEquals(toFieldDef('f', { type: 'number', multipleOf: 0.001, minimum: -50 }), '`f` DECIMAL(5,3) NULL');
+    assertEquals(toFieldDef('f', { type: 'number', multipleOf: 0.01, maximum: 1e30 }), '`f` DECIMAL(33,2) NULL'); // past 1e21
+    // MySQL's limits: 65 digits, 30 of them after the point
+    assertEquals(toFieldDef('f', { type: 'number', multipleOf: 1e-40 }), '`f` DECIMAL(40,30) NULL');
+    assertEquals(toFieldDef('f', { type: 'number', multipleOf: 0.01, maximum: 1e80 }), '`f` DECIMAL(65,2) NULL');
+});

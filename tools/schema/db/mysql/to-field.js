@@ -1,5 +1,5 @@
 // mysql/to-field.js — JSON Schema property → MySQL column definition
-import { quoteId, defaultLiteral } from "../shared/sql.js";
+import { quoteId, defaultLiteral, decimalSize } from "../shared/sql.js";
 export { quoteId };
 
 const B = 4; // bytes per char, worst-case utf8mb4
@@ -14,7 +14,7 @@ export function toFieldDef(name, prop, { required = false } = {}) {
 
   if (schemaType === "boolean") type = "TINYINT(1)";
   else if (schemaType === "integer") ({ type, unsigned } = integerType(prop));
-  else if (schemaType === "number") type = prop.multipleOf ? "DECIMAL" : "DOUBLE";
+  else if (schemaType === "number") type = prop.multipleOf ? `DECIMAL(${decimalSize(prop, 65, 30)})` : "DOUBLE";
   // `x-vector: true` leaves the length to the application (MariaDB needs one: it starts at 1 and
   // widens with MODIFY, padding existing vectors with zeros); a number fixes it.
   else if (prop["x-vector"]) type = `VECTOR(${prop["x-vector"] === true ? 1 : prop["x-vector"]})`;

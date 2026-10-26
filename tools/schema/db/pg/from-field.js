@@ -1,4 +1,5 @@
 // pg/from-field.js
+import { decimalProps } from '../shared/sql.js'
 
 const intRanges = {
     int2:     [-32768, 32767],
@@ -26,7 +27,8 @@ export function schemaFromField(row) {
     } else if (floats.has(type) || floats.has(dataType)) prop.type = 'number'
     else if (type === 'numeric' || dataType === 'numeric') {
         prop.type = 'number'
-        if (row.numeric_scale > 0) prop.multipleOf = Math.pow(10, -row.numeric_scale)
+        // an unbounded NUMERIC reports neither: a declared step makes it NUMERIC(p,s) once
+        if (row.numeric_precision != null) Object.assign(prop, decimalProps(Number(row.numeric_precision), Number(row.numeric_scale ?? 0)))
     } else if (strings.has(type)) {
         prop.type = 'string'
         if (row.character_maximum_length) prop.maxLength = row.character_maximum_length

@@ -1,5 +1,6 @@
 // mysql/schema-from-field.js
 // Note: MySQL VARCHAR/CHAR lengths are in characters; TEXT sizes are byte caps.
+import { decimalProps } from "../shared/sql.js";
 
 const intRanges = {
   tinyint: { signed: [-128, 127], unsigned: [0, 255] },
@@ -41,8 +42,8 @@ export function schemaFromField(row) {
     prop.type = "number";
   } else if (type === "decimal" || type === "numeric") {
     prop.type = "number";
-    const scale = rawLen ? parseInt(rawLen.split(",")[1] ?? 0) : 0;
-    if (scale > 0) prop.multipleOf = Math.pow(10, -scale);
+    const [precision = 10, scale = 0] = (rawLen ?? "").split(",").map((n) => parseInt(n)).filter((n) => !isNaN(n));
+    Object.assign(prop, decimalProps(precision, scale, unsigned));
   } else if (type === "char") {
     prop.type = "string";
     prop.minLength = len;

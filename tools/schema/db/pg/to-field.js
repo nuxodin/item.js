@@ -1,5 +1,5 @@
 // pg/to-field.js - JSON Schema property -> PostgreSQL column definition
-import { schemaType } from '../shared/sql.js'
+import { decimalSize, schemaType } from '../shared/sql.js'
 
 const formats = { date: 'DATE', time: 'TIME', 'date-time': 'TIMESTAMP' }
 const maxVarchar = 10485760
@@ -16,7 +16,7 @@ export function typeSql(prop) {
     const t = schemaType(prop)
     if (t === 'boolean') return 'BOOLEAN'
     if (t === 'integer') return integerType(prop)
-    if (t === 'number') return prop.multipleOf ? 'NUMERIC' : 'DOUBLE PRECISION'
+    if (t === 'number') return prop.multipleOf ? `NUMERIC(${decimalSize(prop, 1000, 1000)})` : 'DOUBLE PRECISION'
     if (prop['x-vector']) return prop['x-vector'] === true ? 'vector' : `vector(${prop['x-vector']})` // pgvector
     if (t === 'object' || t === 'array') return 'JSONB'
     if (prop.format in formats) return formats[prop.format]

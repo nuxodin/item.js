@@ -30,3 +30,8 @@ Deno.test('pg toFieldDef: x-vector', async () => {
     assertEquals(toFieldDef('v', { ...vector, 'x-vector': 768 }, { required: true }), '"v" vector(768) NOT NULL');
     assertEquals(schemaFromField({ udt_name: 'vector', data_type: 'USER-DEFINED' }), vector);
 });
+
+Deno.test('pg toFieldDef: NUMERIC takes its scale from multipleOf, its digits from the bounds', () => {
+    assertEquals(toFieldDef('f', { type: 'number', multipleOf: 0.01 }), '"f" NUMERIC(12,2) NULL');
+    assertEquals(toFieldDef('f', { type: 'number', multipleOf: 0.01, maximum: 9999.99 }), '"f" NUMERIC(6,2) NULL');
+});
