@@ -913,3 +913,60 @@ it('clear() disposes io and stops pending', async () => {
 })
 
 
+
+describe('get/getIn listeners (events only while someone listens)', () => {
+    it('fires for listeners added after earlier reads', () => {
+        const root = item({ a: { b: 1 } });
+        root.get();
+        const paths = [];
+        root.addEventListener('getIn', e => paths.push(e.target.path.join('.')));
+        root.sub('a', 'b').get();
+        expect(paths).to.deep.equal(['a.b']);
+    });
+    it('get listener on a child can replace the value', () => {
+        const root = item({ a: 1 });
+        root.item('a').addEventListener('get', e => e.value = 2);
+        expect(root.get().a).to.equal(2);
+    });
+    it('stops firing once removed, also via signal', () => {
+        const root = item({ a: 1 });
+        let count = 0;
+        const fn = () => count++;
+        const ctrl = new AbortController();
+        root.addEventListener('getIn', fn);
+        root.addEventListener('getIn', fn); // same listener, registered once
+        root.item('a').addEventListener('get', fn, { signal: ctrl.signal });
+        root.removeEventListener('getIn', fn);
+        root.item('a').get();
+        expect(count).to.equal(1);
+        ctrl.abort();
+        root.item('a').get();
+        expect(count).to.equal(1);
+        root.item('a').addEventListener('get', e => e.value = 5);
+        expect(root.item('a').get()).to.equal(5);
+    });
+    it('a removed child takes its listeners along', () => {
+        const root = item({ a: 1, b: 2 });
+        root.item('a').addEventListener('get', e => e.value = 9);
+        root.item('a').remove();
+        let fired = false;
+        root.addEventListener('getIn', () => fired = true);
+        root.item('b').get();
+        expect(fired).to.equal(true);
+        expect(root.get().b).to.equal(2);
+    });
+});
+
+describe('set/change events (dispatched only once someone listened)', () => {
+    it('listeners added after earlier writes fire, set stays preventable', () => {
+        const root = item({ a: 1 });
+        root.item('a').value = 2;
+        const log = [];
+        root.addEventListener('changeIn', e => log.push(e.target.path.join('.') + '=' + e.value));
+        root.item('a').addEventListener('set', e => e.value === 4 ? e.preventDefault() : e.value *= 10);
+        root.item('a').value = 3;
+        root.item('a').value = 4;
+        expect(log).to.deep.equal(['a=30']);
+        expect(root.item('a').value).to.equal(30);
+    });
+});

@@ -6,6 +6,7 @@ import { effect, track, notify } from "./src/signal.js";
 export { effect, $item };
 
 const EMPTY_ARRAY = Object.freeze([]);
+let heard; // assigned inside Item, reads the root's private #heard
 
 export class Item extends Emitter {
 
@@ -17,11 +18,19 @@ export class Item extends Emitter {
     #isObject = null; // null:not filled, true:object, false:primitive value
     #isSetting = false;
     #isGetting = false;
+    #heard; // root only: event types that ever got a listener in the tree, the others are not dispatched
+
+    static { heard = (item, type) => item.root.#heard?.has(type); }
     
     constructor(parent, key) {
         super();
         this.#parent = parent ?? null;
         this.#key = key ?? null;
+    }
+
+    addEventListener(type, fn, opts) {
+        (this.root.#heard ??= new Set()).add(type).add(type.replace(/In$/, ''));
+        super.addEventListener(type, fn, opts);
     }
 
     get key()        { return this.#key; }
@@ -34,6 +43,7 @@ export class Item extends Emitter {
     get(options) {
         const value = this.$get(options);
         if (options?.silent) return value;
+        if (!heard(this, 'get')) { track(this); return value; }
         if (this.#isGetting) throw new Error("[item.js] circular get");
         this.#isGetting = true;
         try {
@@ -352,9 +362,10 @@ export function item(...args) {
 }
 
 export function dispatch(item, eventName, options) {
+    if (eventName === 'change') notify(item);
+    if (!heard(item, eventName)) return options; // stands in for the event: value untouched, not prevented
     const event = new ItemEvent(eventName, options);
     item.dispatchEvent(event);
-    if (eventName === 'change') notify(item);
     event.type = eventName+'In'; // reuse event object
     for (let i = item; i; i = i.parent) i.dispatchEvent(event);
     return event;

@@ -116,4 +116,5 @@ export interface ItemProxyMethods<T = ItemValue,TRaw extends Item = Item> {
 
 export function item(...args: any[]): Item;
 
-export function dispatch(item: Item, eventName: string, options: object): { defaultPrevented: boolean };
+/** Returns the event — or, while nobody ever listened for it in the tree, the untouched options. */
+export function dispatch<T extends object>(item: Item, eventName: string, options: T): T & { defaultPrevented?: boolean };
