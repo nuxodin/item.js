@@ -1087,3 +1087,25 @@ describe('ChildClass', () => {
         expect(() => leaf.item('a')).to.throw();
     });
 });
+
+describe('children order', () => {
+    it('items iterate in creation order, the value follows object rules', () => {
+        const users = item({});
+        for (const id of [8, 2, 19]) users.item(id).value = 'u' + id; // e.g. rows of a sorted query
+        expect(users.keys).to.deep.equal(['8', '2', '19']);
+        expect([...users].map(u => u.key)).to.deep.equal(['8', '2', '19']);
+        expect(Object.keys(users.get())).to.deep.equal(['2', '8', '19']);
+    });
+    it('a re-created key goes to the end', () => {
+        const list = item(['a', 'b', 'c']);
+        list.item('1').remove();
+        list.item('1').value = 'B';
+        expect(list.keys).to.deep.equal(['0', '2', '1']);
+    });
+    it('any key is allowed, also __proto__', () => {
+        const i = item();
+        i.item('__proto__').value = 1;
+        expect(i.keys).to.deep.equal(['__proto__']);
+        expect(i.has('__proto__').value).to.equal(1);
+    });
+});

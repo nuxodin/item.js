@@ -73,8 +73,9 @@ function names are the anchor. Delete a point once it is done.
 - **`clear()` is a `dispose()`:** it also removes listeners and io ([item.js:127](item.js#L127)).
 - **Unused:** `getDebugState()` and `recentValue` in
   [AsyncDataPoint.js](src/AsyncDataPoint.js#L99) (only the browser test page reads them).
-- **Memory, about 16 of 184 bytes per node:** the two circular guards `#isSetting` /
-  `#isGetting` ([item.js:19-20](item.js#L19-L20)), which only matter while listeners exist.
+- **Memory, about 32 of 190 bytes per node** (measured in a copy, not done yet): the `#path` cache, the
+  two circular guards `#isSetting` / `#isGetting` (one shared set instead, only touched while listeners
+  exist) and `#io` / `#schema` in one field allocated on first use.
 - **Every write in a region builds and deep-compares the whole region value** before the
   debounce ([item.js:88](item.js#L88), [AsyncDataPoint.js:121](src/AsyncDataPoint.js#L121)).
   Idea: do both when the write is actually sent.
@@ -85,6 +86,8 @@ function names are the anchor. Delete a point once it is done.
 ## Decided, not open
 
 - Arrays become objects; no `push` / `pop`.
+- Children are kept in a `Map`: the Item API (`keys`, `items()`, `for…of`) iterates in creation order,
+  the value (`get()`) follows object rules. Ordering is the job of the consuming code or a helper.
 - `has()` returns the item, `item()` creates structure, `toString()` of an object item is its key.
 - Objects report their keys (`add` / `remove`), leaves report their values. Removing a subtree
   is one `remove` on the parent; the removed items' own effects are not woken

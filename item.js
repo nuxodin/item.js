@@ -55,12 +55,10 @@ export class Item extends Emitter {
     $get(options) {
         if (!this.#isObject) return this.#value;
         const depth = options?.depth ?? Infinity;
-        const value = this.#value;
         const result = Object.create(null);
         const sub = depth === Infinity ? options : { ...options, depth: depth - 1 };
-        for (const key in value) {
-            result[key] = depth > 1 ? value[key].get(sub) : null;
-        }
+        // forEach, not for…of with destructuring: that triples $get's bytecode, V8 then inlines less and every primitive read slows
+        this.#value.forEach((child, key) => { result[key] = depth > 1 ? child.get(sub) : null; });
         return result;
     }
 
@@ -117,8 +115,8 @@ export class Item extends Emitter {
                 if (depth > 1) item.set(val, sub);
             }
             if (!options?.patch) {
-                for (const key in this.#value) {
-                    Object.hasOwn(value, key) || this.#value[key].remove(options);
+                for (const [key, child] of this.#value) {
+                    Object.hasOwn(value, key) || child.remove(options);
                 }
             }
         }
@@ -135,28 +133,29 @@ export class Item extends Emitter {
     /* object related */
 
     #clearChildren() {
-        for (const child of Object.values(this.#value)) child.clear();
+        for (const child of this.#value.values()) child.clear();
     }
 
     #ensureObject(options) {
         if (this.#isObject) return;
         const oldValue = this.#value;
-        this.#value = Object.create(null);
+        this.#value = new Map(); // key → child item, in creation order; any key is safe, also "__proto__"
         this.#isObject = true;
         dispatch(this, "change", { oldValue, value: Object.create(null), options }); // the switch itself: an empty object, its keys follow as `add`
     }
 
     item(key) {
         key = String(key);
-        if (!this.#isObject || !(key in this.#value)) {
+        let child = this.#isObject ? this.#value.get(key) : undefined;
+        if (!child) {
             if (this.ChildClass === false) throw new Error(`[item.js] ${this.constructor.name} has no children`);
             this.#ensureObject();
             const Klass = this.ChildClass ?? this.constructor;
-            const item = new Klass(this, key);
-            this.#value[key] = item;
-            dispatch(this, "change", { add: item });
+            child = new Klass(this, key);
+            this.#value.set(key, child);
+            dispatch(this, "change", { add: child });
         }
-        return this.#value[key];
+        return child;
     }
 
     async add(value) {
@@ -172,11 +171,11 @@ export class Item extends Emitter {
 
     async remove(options) {
         if (!this.#parent) throw new Error("[item.js] cannot remove root item");
-        if (this.#parent.#value?.[this.#key] !== this) return; // already removed, the key may belong to a successor
+        if (!this.#parent.#isObject || this.#parent.#value.get(this.#key) !== this) return; // already removed, the key may belong to a successor
         // no own remover → the removal is a partial write of the surrounding region
         const owner = options?.local || this.remover ? null : this.#parent.ioOwner;
         this.#assertRegionLicence(owner);
-        delete this.#parent.#value[this.#key];
+        this.#parent.#value.delete(this.#key);
         dispatch(this.#parent, "change", { remove: this, options });
         if (this.remover && !options?.local) await this.remover();
         else if (owner?.writer) await owner.io.set(owner.peek());
@@ -191,7 +190,7 @@ export class Item extends Emitter {
 
     #has(key) {
         track(this);
-        return this.#isObject && key in this.#value ? this.item(key) : undefined;
+        return this.#isObject ? this.#value.get(String(key)) : undefined;
     }
 
     has(...keys) {
@@ -202,7 +201,7 @@ export class Item extends Emitter {
 
     get keys() {
         track(this);
-        return this.#isObject ? Object.keys(this.#value ?? {}) : EMPTY_ARRAY;
+        return this.#isObject ? [...this.#value.keys()] : EMPTY_ARRAY;
     }
 
     get path() { return this.#path ??= this.#parent == null ? EMPTY_ARRAY : [...this.#parent.path, this.#key]; }
@@ -214,7 +213,7 @@ export class Item extends Emitter {
     items() {
         track(this);
         if (this.#isObject !== true) return EMPTY_ARRAY;
-        return Object.values(this.#value);
+        return [...this.#value.values()];
     }
 
     /* Async */
@@ -275,7 +274,7 @@ export class Item extends Emitter {
         }
     }
     async *[Symbol.asyncIterator]() {
-        for (const item of Object.values(this.#value ?? {})) {
+        for (const item of this.#isObject ? [...this.#value.values()] : EMPTY_ARRAY) {
             if (!this.isObject) return; // no longer an object (or cleared)
             yield item;
         }

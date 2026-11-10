@@ -53,6 +53,8 @@ b.remove()        // fires change on parent, root throws
 b.root            // root Item
 
 for (const child of i) { }
+// order: keys / items() / for…of follow creation order; i.value / get() follow object rules
+// (integer keys ascending first) — sort in your own code if you need a specific order
 
 JSON.stringify(i) // → i.get()
 `${i}`            // primitive: String(value ?? ''); object: key or ''
