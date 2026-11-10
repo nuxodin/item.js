@@ -73,9 +73,10 @@ function names are the anchor. Delete a point once it is done.
 - **`clear()` is a `dispose()`:** it also removes listeners and io ([item.js:127](item.js#L127)).
 - **Unused:** `getDebugState()` and `recentValue` in
   [AsyncDataPoint.js](src/AsyncDataPoint.js#L99) (only the browser test page reads them).
-- **Memory, about 32 of 190 bytes per node** (measured in a copy, not done yet): the `#path` cache, the
-  two circular guards `#isSetting` / `#isGetting` (one shared set instead, only touched while listeners
-  exist) and `#io` / `#schema` in one field allocated on first use.
+- **Memory, about 24 of 190 bytes per node** (measured in a copy, not done yet): the two circular
+  guards `#isSetting` / `#isGetting` (one shared set instead, only touched while listeners exist) and
+  `#io` / `#schema` in one field allocated on first use. Keep the `#path` cache: without it `path`
+  costs 44 instead of 2.4 ns, and writes with a `changeIn` listener reading paths get about 45 % slower.
 - **Every write in a region builds and deep-compares the whole region value** before the
   debounce ([item.js:88](item.js#L88), [AsyncDataPoint.js:121](src/AsyncDataPoint.js#L121)).
   Idea: do both when the write is actually sent.

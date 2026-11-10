@@ -32,10 +32,10 @@ export class Item extends Emitter {
 
     get key()        { return this.#key; }
     get parent()     { return this.#parent; }
+    get value()      { return this.get(); }
+    set value(value) { this.set(value); }
     get filled()     { track(this); return this.#isObject !== null; }
     get isObject()   { track(this); return this.#isObject; }
-    set value(value) { this.set(value); }
-    get value()      { return this.get(); }
 
     get(options) {
         const value = this.$get(options);
