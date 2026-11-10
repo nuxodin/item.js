@@ -970,3 +970,44 @@ describe('set/change events (dispatched only once someone listened)', () => {
         expect(root.item('a').value).to.equal(30);
     });
 });
+
+describe('edge cases', () => {
+    it('set() removes keys named like Object.prototype members', () => {
+        const i = item({ constructor: 1, toString: 2, a: 3 });
+        i.set({ a: 3 });
+        expect(i.keys).to.deep.equal(['a']);
+    });
+    it('a leaf (ChildClass false) keeps its value when item() throws', () => {
+        class Leaf extends Item { static ChildClass = false; }
+        const leaf = new Leaf();
+        leaf.set(5);
+        expect(() => leaf.item('x')).to.throw();
+        expect(leaf.value).to.equal(5);
+    });
+    it('a removed item does not remove its successor', () => {
+        const root = item({ a: 1 });
+        const a = root.item('a');
+        a.remove();
+        root.item('a').value = 2;
+        a.remove();
+        expect(root.item('a').value).to.equal(2);
+    });
+    it('iterating while removing yields items only', () => {
+        const root = item({ a: 1, b: 2 });
+        const keys = [];
+        for (const child of root) {
+            keys.push(child.key);
+            root.has('b')?.remove();
+        }
+        expect(keys).to.deep.equal(['a', 'b']);
+    });
+    it('for await ends with the error of a failed read', async () => {
+        const root = item({});
+        root.reader = () => Promise.reject(new Error('boom'));
+        root.io.options.getRetry = 0;
+        let message;
+        try { for await (const _child of root) { /* none */ } }
+        catch (e) { message = e.message; }
+        expect(message).to.equal('boom');
+    });
+});

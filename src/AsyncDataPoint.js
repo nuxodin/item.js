@@ -1,21 +1,3 @@
-/*
-// Usage:
-const datapoint = new AsyncDataPoint({
-    get: () => fetch('https://example.com/todos/1').then(res => res.json()),
-    set: value => fetch('https://example.com/todos/1', {method: 'PUT', body: JSON.stringify(value)}).then(res => res.json())
-});
-datapoint.set({title: 'foo', completed: true}); // Returns promise - or undefined if value is already the same - do not rely on return value
-// a write overtaken by a newer one settles as that one does: "this value or a newer one is saved"
-datapoint.get().then(value => console.log(value));
-
-// API
-datapoint.onchange = ({value}) => console.log('value changed', value);
-// options, passed to the constructor (or changed in datapoint.options):
-//   ttl: 5000 (cache in ms), debounceMs: 5 (setter delay), getRetry / setRetry, getRetryDelay / setRetryDelay,
-//   optimistic: true (until the sending is done, the value is the new one, though the server may fail)
-datapoint.setLocal({title: 'foo', completed: true}); // set value without saving it to the master (the value comes from the master through an other channel / trusted source)
-*/
-
 export class AsyncDataPoint {
 
     createGetter;
@@ -181,21 +163,7 @@ export class AsyncDataPoint {
 
 }
 
-
-
-/**
- * Adds state and value properties to a Promise, making it transparent.
- * @param {Promise<any>|TransparentPromise} promise - The Promise to make transparent.
- * @returns {TransparentPromise} - The transparent Promise.
- * @example
- * const promise = makePromiseTransparent(new Promise(resolve => resolve('foo')));
- * promise.state; // 'pending'
- * promise.value; // undefined
- * promise.then(value => {
- *      console.log(promise.state); // 'fulfilled'
- *      console.log(promise.value); // 'foo'
- * });
- */
+/** Puts state ('pending' | 'fulfilled' | 'rejected') and value / reason on the promise itself, readable without awaiting. */
 function makePromiseTransparent(promise) {
     if (promise.state) console.warn('[item.js] already transparent');
     promise.state = 'pending'; // or 'unknown' ?
@@ -213,12 +181,7 @@ function makePromiseTransparent(promise) {
     return promise;
 }
 
-
-/**
- * Returns a transparent Promise (see makePromiseTransparent) that is resolved with the specified value.
- * @param {any} value - The value to resolve the Promise with.
- * @returns {TransparentPromise} - A transparent Promise.
- */
+/** Fulfilled from the start: state and value are readable at once, not only a tick later. */
 function transparentPromiseResolve(value) {
     const promise = makePromiseTransparent(Promise.resolve(value));
     promise.state = 'fulfilled';
@@ -226,13 +189,7 @@ function transparentPromiseResolve(value) {
     return promise;
 }
 
-/**
- * Returns a delayed Promise that can be aborted. Aborted with a promise as reason, it settles as
- * that one does (a newer write taking over), else it rejects with the AbortError.
- * @param {Function} fn - Called with (resolve, reject) after the delay.
- * @param {Number} [ms=1] - The time in milliseconds to delay before calling fn.
- * @returns {Promise<any>} - A delayed Promise that can be aborted.
- */
+/** Calls fn after ms. Aborted with a promise as reason it settles as that one does (a newer write took over), else it rejects with the reason. */
 function abortablePromise(fn, ms=1) { // delayed and therfore abortable within ms
     const controller = new AbortController();
     const {signal} = controller;
@@ -247,13 +204,7 @@ function abortablePromise(fn, ms=1) { // delayed and therfore abortable within m
     return promise;
 }
 
-/**
- * Retries an async operation with exponential backoff.
- * @param {Function} fn - The async function to retry.
- * @param {Number} retries - Number of retries (0 = no retry, just one attempt).
- * @param {Number} baseDelay - Base delay in milliseconds for exponential backoff.
- * @returns {Promise<any>} - The result of the operation.
- */
+/** Waits baseDelay * 2^attempt between attempts. An AbortError ends it quietly: it resolves undefined. */
 async function retryAsync(fn, retries = 2, baseDelay = 1000) {
     let lastError;
     for (let attempt = 0; attempt <= retries; attempt++) {
@@ -272,13 +223,7 @@ async function retryAsync(fn, retries = 2, baseDelay = 1000) {
     throw lastError;
 }
 
-
-/**
- * Compares two values for equality.
- * @param {any} a - The first value to compare.
- * @param {any} b - The second value to compare.
- * @returns {boolean} - True if the values are equal, false otherwise.
- */
+/** Deep equality of plain data: same constructor, same own enumerable keys. */
 function isEqual(a, b) {
     if (a === b) return true;
     if (a == null || b == null || typeof a !== 'object' || typeof b !== 'object') return false;

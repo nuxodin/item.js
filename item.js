@@ -6,7 +6,7 @@ import { effect, track, notify } from "./src/signal.js";
 export { effect, $item };
 
 const EMPTY_ARRAY = Object.freeze([]);
-let heard; // assigned inside Item, reads the root's private #heard
+const heard = Symbol(); // on a root: event types that ever got a listener in its tree
 
 export class Item extends Emitter {
 
@@ -18,9 +18,6 @@ export class Item extends Emitter {
     #isObject = null; // null:not filled, true:object, false:primitive value
     #isSetting = false;
     #isGetting = false;
-    #heard; // root only: event types that ever got a listener in the tree, the others are not dispatched
-
-    static { heard = (item, type) => item.root.#heard?.has(type); }
     
     constructor(parent, key) {
         super();
@@ -29,7 +26,7 @@ export class Item extends Emitter {
     }
 
     addEventListener(type, fn, opts) {
-        (this.root.#heard ??= new Set()).add(type).add(type.replace(/In$/, ''));
+        (this.root[heard] ??= new Set()).add(type).add(type.replace(/In$/, ''));
         super.addEventListener(type, fn, opts);
     }
 
@@ -43,7 +40,7 @@ export class Item extends Emitter {
     get(options) {
         const value = this.$get(options);
         if (options?.silent) return value;
-        if (!heard(this, 'get')) { track(this); return value; }
+        if (!this.root[heard]?.has('get')) { track(this); return value; }
         if (this.#isGetting) throw new Error("[item.js] circular get");
         this.#isGetting = true;
         try {
@@ -60,8 +57,9 @@ export class Item extends Emitter {
         const depth = options?.depth ?? Infinity;
         const value = this.#value;
         const result = Object.create(null);
+        const sub = depth === Infinity ? options : { ...options, depth: depth - 1 };
         for (const key in value) {
-            result[key] = depth > 1 ? value[key].get({ ...options, depth: depth - 1 }) : null;
+            result[key] = depth > 1 ? value[key].get(sub) : null;
         }
         return result;
     }
@@ -84,7 +82,8 @@ export class Item extends Emitter {
                 // `set` on the owner itself is a deliberate full replace — everything else is partial
                 if (owner !== this || options?.patch) this.#assertRegionLicence(owner);
 
-                this.$set(value, { ...options, local: options?.local || !!owner?.writer }); // children "local only" — the owner writes them
+                const local = options?.local || !!owner?.writer; // children "local only" — the owner writes them
+                this.$set(value, local ? { ...options, local } : options);
 
                 if (owner?.writer) ioPromise = owner.io.set(owner.peek());
 
@@ -112,13 +111,14 @@ export class Item extends Emitter {
             this.#ensureObject();
             const entries = Object.entries(value);
             const depth = options?.depth ?? Infinity;
+            const sub = depth === Infinity ? options : { ...options, depth: depth - 1 };
             for (const [key, val] of entries) {
                 const item = this.item(key);
-                if (depth > 1) item.set(val, { ...options, depth: depth - 1 });
+                if (depth > 1) item.set(val, sub);
             }
             if (!options?.patch) {
                 for (const key in this.#value) {
-                    (key in value) || this.#value[key].remove(options);
+                    Object.hasOwn(value, key) || this.#value[key].remove(options);
                 }
             }
         }
@@ -148,9 +148,9 @@ export class Item extends Emitter {
 
     item(key) {
         key = String(key);
-        this.#ensureObject();
-        if (!(key in this.#value)) {
+        if (!this.#isObject || !(key in this.#value)) {
             if (this.ChildClass === false) throw new Error(`[item.js] ${this.constructor.name} has no children`);
+            this.#ensureObject();
             const Klass = this.ChildClass ?? this.constructor;
             const item = new Klass(this, key);
             this.#value[key] = item;
@@ -172,6 +172,7 @@ export class Item extends Emitter {
 
     async remove(options) {
         if (!this.#parent) throw new Error("[item.js] cannot remove root item");
+        if (this.#parent.#value?.[this.#key] !== this) return; // already removed, the key may belong to a successor
         // no own remover → the removal is a partial write of the surrounding region
         const owner = options?.local || this.remover ? null : this.#parent.ioOwner;
         this.#assertRegionLicence(owner);
@@ -208,9 +209,7 @@ export class Item extends Emitter {
 
     get root() { return this.#root ??= this.#parent?.root ?? this; }
 
-    *[Symbol.iterator]() {
-        for (const key of this.keys) yield this.#value[key];
-    }
+    [Symbol.iterator]() { return this.items()[Symbol.iterator](); }
 
     items() {
         track(this);
@@ -245,8 +244,8 @@ export class Item extends Emitter {
 
     /** Item talking to the source for this one — itself, else the nearest ancestor with a hook. */
     get ioOwner() {
-        if (this.reader || this.writer) return this;
-        return this.#parent?.ioOwner ?? null;
+        for (let i = this; i; i = i.#parent) if (i.reader || i.writer) return i;
+        return null;
     }
 
     /** A partial write sends the owner's WHOLE region — only sound if that region is complete. */
@@ -283,13 +282,15 @@ export class Item extends Emitter {
         if (!this.isObject) return; // no longer an object (or cleared)
         const abortCtrl = new AbortController();
         const iterator = asyncIteratorFromEventTarget(this, "change", { signal: abortCtrl.signal });
-        this.read().then(() => abortCtrl.abort());
+        let error;
+        this.read().catch(e => error = e).finally(() => abortCtrl.abort());
         for await (const { add } of iterator) {
             if (add) {
                 if (!this.isObject) return; // no longer an object (or cleared)
                 yield add;
             }
         }
+        if (error) throw error; // a failed read ends the iteration instead of hanging
     }
 
     set promise(promise) { this.io.setFromPromise(promise); }
@@ -363,7 +364,7 @@ export function item(...args) {
 
 export function dispatch(item, eventName, options) {
     if (eventName === 'change') notify(item);
-    if (!heard(item, eventName)) return options; // stands in for the event: value untouched, not prevented
+    if (!item.root[heard]?.has(eventName)) return options; // stands in for the event: value untouched, not prevented
     const event = new ItemEvent(eventName, options);
     item.dispatchEvent(event);
     event.type = eventName+'In'; // reuse event object

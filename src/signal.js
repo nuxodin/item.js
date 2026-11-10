@@ -87,6 +87,7 @@ function cleanup(effect) {
 function dispose(effect) {
     if (effect.disposed) return;
     effect.disposed = true;
+    cleanup(effect); // else its signals hold it until they change
     effect.nested?.forEach(dispose);
     effect.nested?.clear();
     effect.parent?.nested?.delete(effect); // remove from parent's nested set
