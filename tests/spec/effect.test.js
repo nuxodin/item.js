@@ -144,6 +144,8 @@ describe('APIs that register effect', () => {
     testAccess(true, item => 1*item.proxy, false );
     testAccess(true, item => item.pending );
     testAccess(true, item => item.error );
+    testAccess(true, item => item.isObject );
+    testAccess(true, item => item.filled );
 
     testAccess(false, item => item.read() );
     testAccess(false, item => item.path );
@@ -174,8 +176,7 @@ describe('apis that trigger effects', () => {
 
     testTrigger(true, item => item.value = 1 );
     testTrigger(true, item => item.set(1) );
-    // SKIP (pre-existing red, also on the pre-region lib): set({}) on an unfilled item — should it notify?
-    // testTrigger(true, item => item.set({}) );
+    testTrigger(true, item => item.set({}) ); // the switch to an (empty) object is a change of its own
     testTrigger(true, item => item.item('key').remove()  );
     testTrigger(true, item => item.promise = Promise.resolve(1) );
     testTrigger(true, item => item.promise = Promise.reject(1) );
@@ -401,3 +402,23 @@ describe('effect() – error handling', () => {
 });
 
 
+
+describe('switch between primitive and object', () => {
+    async function shown(start, next) {
+        const todos = item(start);
+        const seen = [];
+        effect(() => seen.push(todos.isObject ? 'list:' + todos.keys : 'placeholder'));
+        todos.value = next;
+        await nextTick();
+        return seen;
+    }
+    it('an effect reading only isObject follows primitive → empty object', async () => {
+        expect(await shown(null, {})).to.deep.equal(['placeholder', 'list:']);
+    });
+    it('… primitive → object with keys', async () => {
+        expect(await shown(null, { a: 1 })).to.deep.equal(['placeholder', 'list:a']);
+    });
+    it('… object → primitive', async () => {
+        expect(await shown({ a: 1 }, null)).to.deep.equal(['list:a', 'placeholder']);
+    });
+});

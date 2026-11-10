@@ -63,7 +63,7 @@ JSON.stringify(i) // → i.get()
 
 ```js
 const dispose = effect(() => {// runs immediately
-    count.value  // .get() / .value / .has() / .keys register as dep
+    count.value  // .get() / .value / .has() / .keys / .isObject / .filled register as dep
 })
 count.value = 1; // no effect
 count.value = 2; // effect runs after batched microtask
@@ -103,6 +103,8 @@ JSON.stringify(p())      // ✓
 i.addEventListener('set',    e => e) // { target, oldValue, value, options } — preventable
 i.addEventListener('change', e => e)
 // { oldValue, value } | { add } | { remove } | { pending } | { error }
+// oldValue is only ever a primitive (undefined if the item was an object, its children are not serialized)
+// primitive → object reports { oldValue, value: {} } first, the keys follow as { add }
 // add, remove are items, pending bool, error error-object 
 // only track value changes? use if ('value' in event)
 // !!! bubbles:

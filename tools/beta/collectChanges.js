@@ -36,13 +36,12 @@ export function collectChanges(rootItem, onchange) {
     });
     return {
         getAndReset() {
-            const changes = wrapper.changes;
+            const changes = wrapper, deletions = {};
             wrapper = {};
 
-            const deletions = {};
-            splitDeletions(changes, deletions);
+            splitDeletions(changes, deletions); // on the wrappers: the root is split like every other level
 
-            return {changes, deletions};
+            return {changes: changes.changes, deletions: deletions.changes ?? {}};
         },
     }
 }
@@ -52,7 +51,7 @@ function splitDeletions(obj, deletions){
         if (obj[key] === removedSymbol) {
             deletions[key] = true;
             delete obj[key];
-        } else if (isObject(obj[key])) {
+        } else if (isObject(obj[key]) && Object.keys(obj[key]).length) { // an empty object is a value, it stays
             deletions[key] = {};
             splitDeletions(obj[key], deletions[key]);
             if (Object.keys(obj[key]).length === 0) delete obj[key];
@@ -69,7 +68,7 @@ export function patch(item, {changes, deletions}) {
 }
 function patchChanges(item, changes) {
     if (changes === undefined) return;
-    if (!isObject(changes)) {
+    if (!isObject(changes) || !Object.keys(changes).length) { // a primitive or an empty object
         item.value = changes;
     } else {
         for (const key in changes) {

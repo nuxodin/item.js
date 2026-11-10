@@ -1011,3 +1011,48 @@ describe('edge cases', () => {
         expect(message).to.equal('boom');
     });
 });
+
+describe('change events at the switch between primitive and object', () => {
+    const log = (i, type = 'change') => {
+        const events = [];
+        i.addEventListener(type, e => events.push('add' in e ? 'add ' + e.add.key : [e.oldValue, e.value]));
+        return events;
+    };
+    it('primitive → empty object reports the old value and an empty object', () => {
+        const i = item(1);
+        const events = log(i);
+        i.value = {};
+        expect(events).to.deep.equal([[1, {}]]);
+    });
+    it('primitive → object: the switch first, then its keys', () => {
+        const i = item(1);
+        const events = log(i);
+        i.value = { a: 2 };
+        expect(events).to.deep.equal([[1, {}], 'add a']);
+    });
+    it('an unfilled item switches on item() too', () => {
+        const i = item();
+        const events = log(i);
+        i.item('a');
+        expect(events).to.deep.equal([[undefined, {}], 'add a']);
+    });
+    it('object → primitive is one event without an old value', () => {
+        const i = item({ a: 1, b: 2 });
+        const events = log(i);
+        i.value = 5;
+        expect(events).to.deep.equal([[undefined, 5]]);
+    });
+    it('the set event of an object carries no old value', () => {
+        const i = item({ a: 1 });
+        const events = log(i, 'set');
+        i.set({ a: 2 });
+        expect(events).to.deep.equal([[undefined, { a: 2 }]]);
+    });
+    it('the switch event carries the options of the set', () => {
+        const i = item(1);
+        let options;
+        i.addEventListener('change', e => options ??= e.options);
+        i.set({}, { local: true });
+        expect(options.local).to.equal(true);
+    });
+});

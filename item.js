@@ -32,8 +32,8 @@ export class Item extends Emitter {
 
     get key()        { return this.#key; }
     get parent()     { return this.#parent; }
-    get filled()     { return this.#isObject !== null; }
-    get isObject()   { return this.#isObject; }
+    get filled()     { track(this); return this.#isObject !== null; }
+    get isObject()   { track(this); return this.#isObject; }
     set value(value) { this.set(value); }
     get value()      { return this.get(); }
 
@@ -72,7 +72,7 @@ export class Item extends Emitter {
         if (this.#isSetting) throw new Error("[item.js] circular set");
         this.#isSetting = true;
         try {
-            const event = dispatch(this, "set", {oldValue: this.#value, value, options});
+            const event = dispatch(this, "set", {oldValue: this.#isObject ? undefined : this.#value, value, options});
             let ioPromise = undefined;
             if (!event.defaultPrevented) {
                 value = event.value;
@@ -97,7 +97,7 @@ export class Item extends Emitter {
     patch(value) { return this.set(value, { patch: true }); }
 
     $set(value, options) {
-        const oldValue = this.#value;
+        const oldValue = this.#isObject ? undefined : this.#value; // only a primitive is an old value, children are never serialized for it
 
         if (this.constructor.isPrimitive(value)) {
             const equal = this.#isObject === false && this.constructor.equals(oldValue, value); 
@@ -108,7 +108,7 @@ export class Item extends Emitter {
                 dispatch(this, "change", { oldValue, value, options });
             }
         } else {
-            this.#ensureObject();
+            this.#ensureObject(options);
             const entries = Object.entries(value);
             const depth = options?.depth ?? Infinity;
             const sub = depth === Infinity ? options : { ...options, depth: depth - 1 };
@@ -138,12 +138,12 @@ export class Item extends Emitter {
         for (const child of Object.values(this.#value)) child.clear();
     }
 
-    #ensureObject() {
-        if (!this.#isObject) {
-            //dispatch(this, "change", { oldValue:this.#value, value:null }); // null ok?
-            this.#value = Object.create(null);
-            this.#isObject = true;
-        }
+    #ensureObject(options) {
+        if (this.#isObject) return;
+        const oldValue = this.#value;
+        this.#value = Object.create(null);
+        this.#isObject = true;
+        dispatch(this, "change", { oldValue, value: Object.create(null), options }); // the switch itself: an empty object, its keys follow as `add`
     }
 
     item(key) {
