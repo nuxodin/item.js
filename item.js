@@ -315,13 +315,9 @@ export class Item extends Emitter {
         const p = this.#parent?.schema;
         if (!p) return null;
         const k = this.#key;
-        return (
-            p.properties?.[k] ??
-            Object.entries(p.patternProperties ?? {}).find(([pat]) => new RegExp(pat).test(k))?.[1] ??
-            (/^\d+$/.test(k) ? p.items : undefined) ??
-            p.additionalProperties ??
-            null
-        );
+        if (p.properties?.[k] != null) return p.properties[k];
+        for (const pat in p.patternProperties) if (new RegExp(pat).test(k)) return p.patternProperties[pat];
+        return (/^\d+$/.test(k) ? p.items : undefined) ?? p.additionalProperties ?? null;
     }
 
     set schema(v) { throw new Error('[item.js] use setSchema() to assign a schema'); }
