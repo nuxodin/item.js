@@ -1,9 +1,12 @@
 {
   "name": "@nuxodin/item",
-  "version": "0.6.25",
+  "version": "0.6.26",
   "license": "MIT",
   "tasks": {
     "test": "deno test tests/spec/ tests/deno/"
+  },
+  "lint": {
+    "rules": { "exclude": ["no-this-alias"] }
   },
   "exports": {
     "./item.js": "./item.js",

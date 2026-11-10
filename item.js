@@ -338,7 +338,9 @@ export class Item extends Emitter {
         return hint === "number" ? Number(value) : value;
     }
 
-    ChildClass = this.constructor.ChildClass;
+    // the class of the children: the static default, or what this instance sets (only then it holds a field)
+    get ChildClass()      { return this.constructor.ChildClass; }
+    set ChildClass(Klass) { Object.defineProperty(this, 'ChildClass', { value: Klass, writable: true, configurable: true, enumerable: true }); }
 
     /* static members */
 

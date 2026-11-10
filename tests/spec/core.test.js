@@ -1056,3 +1056,34 @@ describe('change events at the switch between primitive and object', () => {
         expect(options.local).to.equal(true);
     });
 });
+
+describe('ChildClass', () => {
+    class Child extends Item {}
+    class Other extends Item {}
+    class Parent extends Item { static ChildClass = Child; }
+    class FieldParent extends Item { ChildClass = Other; }
+
+    it('defaults to the static of the class, without a field on the instance', () => {
+        const p = new Parent();
+        expect(p.ChildClass).to.equal(Child);
+        expect(Object.hasOwn(p, 'ChildClass')).to.equal(false);
+        expect(p.item('a') instanceof Child).to.equal(true);
+        expect(item().item('a').constructor).to.equal(Item); // no ChildClass: the own class
+    });
+    it('an instance sets its own, others keep the default', () => {
+        const a = new Parent(), b = new Parent();
+        a.ChildClass = Other;
+        expect(a.item('x') instanceof Other).to.equal(true);
+        expect(b.item('x') instanceof Child).to.equal(true);
+        a.ChildClass = Child; // set again
+        expect(a.item('y') instanceof Child).to.equal(true);
+    });
+    it('a subclass can declare it as a field', () => {
+        expect(new FieldParent().item('a') instanceof Other).to.equal(true);
+    });
+    it('false forbids children, on the class or on the instance', () => {
+        const leaf = item(1);
+        leaf.ChildClass = false;
+        expect(() => leaf.item('a')).to.throw();
+    });
+});
